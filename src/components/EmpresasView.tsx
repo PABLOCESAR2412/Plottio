@@ -1,0 +1,689 @@
+import {
+	AlertCircle,
+	Building2,
+	Car,
+	ChevronRight,
+	Edit2,
+	Phone,
+	Plus,
+	Search,
+	Trash2,
+	TrendingUp,
+	User,
+	Wrench,
+} from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+import type { Empresa, Vehiculo } from "../store/useAppStore";
+import { useAppStore } from "../store/useAppStore";
+import { SuccessDialog } from "./SuccessDialog";
+
+interface EmpresasViewProps {
+	onNavigate: (
+		tab:
+			| "dashboard"
+			| "clientes"
+			| "empresas"
+			| "vehiculos"
+			| "cotizaciones"
+			| "ordenes"
+			| "agenda"
+			| "configuracion",
+	) => void;
+	onSelectVehicle: (vId: string) => void;
+}
+
+export const EmpresasView: React.FC<EmpresasViewProps> = ({
+	onNavigate,
+	onSelectVehicle,
+}) => {
+	const {
+		empresas,
+		vehiculos,
+		addEmpresa,
+		updateEmpresa,
+		deleteEmpresa,
+		currentUser,
+	} = useAppStore();
+
+	const [searchTerm, setSearchTerm] = useState("");
+	const [selectedEmpresaId, setSelectedEmpresaId] = useState<string | null>(
+		empresas.length > 0 ? empresas[0].id : null,
+	);
+
+	// Modal / Dialog states
+	const [isCreateOpen, setIsCreateOpen] = useState(false);
+	const [isEditOpen, setIsEditOpen] = useState(false);
+
+	// Success dialog state
+	const [alertConfig, setAlertConfig] = useState<{
+		isOpen: boolean;
+		title: string;
+		message: string;
+		type: "success" | "alert" | "delete";
+		onConfirm?: () => void;
+	}>({
+		isOpen: false,
+		title: "",
+		message: "",
+		type: "success",
+	});
+
+	// Form states
+	const [nombre, setNombre] = useState("");
+	const [ruc, setRuc] = useState("");
+	const [contactoNombre, setContactoNombre] = useState("");
+	const [contactoTelefono, setContactoTelefono] = useState("");
+	const [direccion, setDireccion] = useState("");
+
+	// Selected company for editing
+	const [editingEmpresa, setEditingEmpresa] = useState<Empresa | null>(null);
+
+	// Filter companies
+	const filteredEmpresas = empresas.filter((e) => {
+		// SaaS Multi-tenant filtering
+		if (
+			currentUser?.rol !== "SuperAdmin" &&
+			e.sucursalId &&
+			currentUser?.sucursalId
+		) {
+			if (e.sucursalId !== currentUser.sucursalId) return false;
+		}
+
+		return (
+			e.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			e.ruc.includes(searchTerm) ||
+			(e.contactoNombre &&
+				e.contactoNombre.toLowerCase().includes(searchTerm.toLowerCase()))
+		);
+	});
+
+	const activeEmpresaId = filteredEmpresas.find(
+		(e) => e.id === selectedEmpresaId,
+	)
+		? selectedEmpresaId
+		: filteredEmpresas.length > 0
+			? filteredEmpresas[0].id
+			: null;
+
+	const selectedEmpresa = empresas.find((e) => e.id === activeEmpresaId);
+
+	// Calculate metrics for selected company
+	const empresaVehiculos = selectedEmpresa
+		? vehiculos.filter(
+				(v) =>
+					v.propietarioTipo === "empresa" &&
+					v.propietarioId === selectedEmpresa.id,
+			)
+		: [];
+
+	const activeVehiclesCount = empresaVehiculos.filter(
+		(v) => v.estado === "Activo",
+	).length;
+	const maintenanceVehiclesCount = empresaVehiculos.filter(
+		(v) => v.estado === "En Mantenimiento",
+	).length;
+
+	const totalInvestment = empresaVehiculos.reduce((sum, v) => {
+		const servicesTotal = v.servicios.reduce((sSum, s) => sSum + s.costo, 0);
+		return sum + servicesTotal;
+	}, 0);
+
+	const handleOpenCreate = () => {
+		setNombre("");
+		setRuc("");
+		setContactoNombre("");
+		setContactoTelefono("");
+		setDireccion("");
+		setIsCreateOpen(true);
+	};
+
+	const handleCreate = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!nombre.trim() || !ruc.trim()) return;
+
+		const newEmp = addEmpresa({
+			nombre: nombre.trim(),
+			ruc: ruc.trim(),
+			contactoNombre: contactoNombre.trim(),
+			contactoTelefono: contactoTelefono.trim(),
+			direccion: direccion.trim(),
+			sucursalId: currentUser?.sucursalId || undefined,
+		});
+
+		setIsCreateOpen(false);
+		setSelectedEmpresaId(newEmp.id);
+
+		setAlertConfig({
+			isOpen: true,
+			title: "Empresa Registrada",
+			message: `La empresa/flota "${newEmp.nombre}" ha sido creada correctamente.`,
+			type: "success",
+		});
+	};
+
+	const handleOpenEdit = (emp: Empresa) => {
+		setEditingEmpresa(emp);
+		setNombre(emp.nombre);
+		setRuc(emp.ruc);
+		setContactoNombre(emp.contactoNombre || "");
+		setContactoTelefono(emp.contactoTelefono || "");
+		setDireccion(emp.direccion || "");
+		setIsEditOpen(true);
+	};
+
+	const handleEdit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!editingEmpresa || !nombre.trim() || !ruc.trim()) return;
+
+		updateEmpresa(editingEmpresa.id, {
+			nombre: nombre.trim(),
+			ruc: ruc.trim(),
+			contactoNombre: contactoNombre.trim(),
+			contactoTelefono: contactoTelefono.trim(),
+			direccion: direccion.trim(),
+		});
+
+		setIsEditOpen(false);
+
+		setAlertConfig({
+			isOpen: true,
+			title: "Empresa Actualizada",
+			message: `Los datos de "${nombre}" se actualizaron correctamente.`,
+			type: "success",
+		});
+	};
+
+	const handleDeleteClick = (emp: Empresa) => {
+		setAlertConfig({
+			isOpen: true,
+			title: "¿Eliminar Empresa?",
+			message: `¿Estás seguro de eliminar a "${emp.nombre}"? Esto romperá el vínculo con sus vehículos de flota y desvinculará a los clientes asignados.`,
+			type: "delete",
+			onConfirm: () => {
+				deleteEmpresa(emp.id);
+				if (selectedEmpresaId === emp.id) {
+					const remaining = empresas.filter((e) => e.id !== emp.id);
+					setSelectedEmpresaId(remaining.length > 0 ? remaining[0].id : null);
+				}
+				setAlertConfig({
+					isOpen: true,
+					title: "Empresa Eliminada",
+					message: "La empresa y sus métricas de flota han sido removidas.",
+					type: "success",
+				});
+			},
+		});
+	};
+
+	return (
+		<div className="space-y-6">
+			{/* Header */}
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<h1 className="text-3xl font-bold tracking-tight text-foreground">
+						Empresas (Flotas)
+					</h1>
+					<p className="text-muted-foreground">
+						Gestiona flotas de transporte público, cooperativas y corporaciones.
+					</p>
+				</div>
+				<button
+					onClick={handleOpenCreate}
+					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
+				>
+					<Plus className="h-4 w-4" />
+					Nueva Empresa
+				</button>
+			</div>
+
+			{/* Layout Grid */}
+			<div className="grid gap-6 md:grid-cols-3">
+				{/* Left col - List */}
+				<div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
+					<div className="relative">
+						<Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+						<input
+							type="text"
+							placeholder="Buscar por RUC o nombre..."
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground focus:border-ring focus:outline-none"
+						/>
+					</div>
+
+					<div className="divide-y divide-border overflow-y-auto max-h-[500px] pr-1">
+						{filteredEmpresas.map((emp) => (
+							<button
+								key={emp.id}
+								onClick={() => setSelectedEmpresaId(emp.id)}
+								className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
+									selectedEmpresaId === emp.id
+										? "bg-primary text-primary-foreground shadow-sm"
+										: "hover:bg-secondary"
+								}`}
+							>
+								<div className="truncate pr-2">
+									<div className="font-semibold text-sm truncate">
+										{emp.nombre}
+									</div>
+									<div
+										className={`text-xs truncate ${selectedEmpresaId === emp.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+									>
+										RUC: {emp.ruc}
+									</div>
+								</div>
+								<ChevronRight className="h-4 w-4 opacity-50 shrink-0" />
+							</button>
+						))}
+						{filteredEmpresas.length === 0 && (
+							<div className="text-center py-8 text-muted-foreground text-sm">
+								No se encontraron empresas.
+							</div>
+						)}
+					</div>
+				</div>
+
+				{/* Right col - Details & Fleet Stats */}
+				<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
+					{selectedEmpresa ? (
+						<div className="space-y-6">
+							{/* Header and actions */}
+							<div className="flex items-start justify-between border-b border-border pb-4">
+								<div className="flex items-center gap-3">
+									<div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-foreground font-semibold text-lg">
+										<Building2 className="h-6 w-6" />
+									</div>
+									<div>
+										<h2 className="text-xl font-bold text-foreground">
+											{selectedEmpresa.nombre}
+										</h2>
+										<span className="text-xs text-muted-foreground font-medium">
+											RUC: {selectedEmpresa.ruc}
+										</span>
+									</div>
+								</div>
+
+								<div className="flex gap-2">
+									<button
+										onClick={() => handleOpenEdit(selectedEmpresa)}
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors"
+										title="Editar Empresa"
+									>
+										<Edit2 className="h-4 w-4" />
+									</button>
+									<button
+										onClick={() => handleDeleteClick(selectedEmpresa)}
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
+										title="Eliminar Empresa"
+									>
+										<Trash2 className="h-4 w-4" />
+									</button>
+								</div>
+							</div>
+
+							{/* Stats Cards Row */}
+							<div className="grid gap-4 grid-cols-3">
+								<div className="rounded-lg border border-border p-4 bg-secondary/15">
+									<div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 mb-1">
+										<Car className="h-3.5 w-3.5 text-green-500" />
+										Vehículos Activos
+									</div>
+									<div className="text-2xl font-bold text-foreground">
+										{activeVehiclesCount}
+									</div>
+								</div>
+
+								<div className="rounded-lg border border-border p-4 bg-secondary/15">
+									<div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 mb-1">
+										<Wrench className="h-3.5 w-3.5 text-yellow-500" />
+										En Mantenimiento
+									</div>
+									<div className="text-2xl font-bold text-foreground">
+										{maintenanceVehiclesCount}
+									</div>
+								</div>
+
+								<div className="rounded-lg border border-border p-4 bg-secondary/15">
+									<div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 mb-1">
+										<TrendingUp className="h-3.5 w-3.5 text-purple-500" />
+										Inversión Total
+									</div>
+									<div className="text-2xl font-bold text-foreground">
+										${totalInvestment.toLocaleString()}
+									</div>
+								</div>
+							</div>
+
+							{/* Contact Information */}
+							<div className="space-y-3">
+								<h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+									Contacto de la Empresa
+								</h3>
+								<div className="grid gap-4 sm:grid-cols-2">
+									<div className="flex items-center gap-3 rounded-lg border border-border p-3">
+										<User className="h-5 w-5 text-muted-foreground" />
+										<div>
+											<div className="text-xs text-muted-foreground">
+												Representante
+											</div>
+											<div className="text-sm font-semibold text-foreground">
+												{selectedEmpresa.contactoNombre || "No especificado"}
+											</div>
+										</div>
+									</div>
+
+									<div className="flex items-center gap-3 rounded-lg border border-border p-3">
+										<Phone className="h-5 w-5 text-muted-foreground" />
+										<div>
+											<div className="text-xs text-muted-foreground">
+												Teléfono de Contacto
+											</div>
+											<div className="text-sm font-semibold text-foreground">
+												{selectedEmpresa.contactoTelefono || "No especificado"}
+											</div>
+										</div>
+									</div>
+								</div>
+
+								{selectedEmpresa.direccion && (
+									<div className="flex items-center gap-3 rounded-lg border border-border p-3 mt-3 bg-secondary/10">
+										<Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
+										<div>
+											<div className="text-xs text-muted-foreground">
+												Dirección de la Empresa
+											</div>
+											<div className="text-sm font-semibold text-foreground">
+												{selectedEmpresa.direccion}
+											</div>
+										</div>
+									</div>
+								)}
+							</div>
+
+							{/* Fleet Vehicles list with Required "Número de Serie" */}
+							<div className="space-y-3 pt-2">
+								<h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+									Vehículos de la Flota ({empresaVehiculos.length})
+								</h3>
+								<div className="divide-y divide-border">
+									{empresaVehiculos.map((veh) => (
+										<button
+											key={veh.id}
+											onClick={() => onSelectVehicle(veh.id)}
+											className="w-full flex flex-col sm:flex-row sm:items-center justify-between py-3.5 hover:bg-secondary/40 px-2 rounded-lg transition-colors gap-2 text-left cursor-pointer border border-transparent hover:border-primary/80"
+											title="Ver historial y servicios del vehículo de la flota"
+										>
+											<div className="flex items-center gap-3">
+												<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-foreground shrink-0">
+													<Car className="h-5 w-5" />
+												</div>
+												<div>
+													<div className="font-semibold text-sm text-foreground">
+														{veh.marca} {veh.modelo} ({veh.año})
+													</div>
+													<div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+														<span className="font-bold text-foreground bg-secondary/80 px-1.5 py-0.5 rounded">
+															{veh.placa}
+														</span>
+														<span>•</span>
+														<span>{veh.categoria}</span>
+													</div>
+												</div>
+											</div>
+
+											<div className="flex flex-col sm:items-end justify-center">
+												<div className="text-xs text-muted-foreground flex items-center gap-1.5">
+													<span className="font-semibold text-foreground">
+														N° de Serie:
+													</span>
+													<code className="bg-secondary px-1 py-0.5 rounded text-[11px] font-semibold text-foreground">
+														{veh.numeroSerie}
+													</code>
+												</div>
+												<div className="mt-1">
+													<span
+														className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+															veh.estado === "Activo"
+																? "bg-green-500/10 text-green-500"
+																: veh.estado === "En Mantenimiento"
+																	? "bg-yellow-500/10 text-yellow-500"
+																	: "bg-muted text-muted-foreground"
+														}`}
+													>
+														{veh.estado}
+													</span>
+												</div>
+											</div>
+										</button>
+									))}
+									{empresaVehiculos.length === 0 && (
+										<div className="text-center py-10 border border-dashed border-border rounded-lg text-muted-foreground text-sm flex flex-col items-center gap-2">
+											<AlertCircle className="h-8 w-8 opacity-40 animate-pulse" />
+											<span>
+												No hay vehículos de flota vinculados a esta empresa.
+											</span>
+										</div>
+									)}
+								</div>
+							</div>
+						</div>
+					) : (
+						<div className="text-center py-20 text-muted-foreground flex flex-col items-center gap-2 justify-center">
+							<AlertCircle className="h-10 w-10 opacity-30" />
+							<span>
+								Selecciona una empresa de la lista para ver el estado de su
+								flota.
+							</span>
+						</div>
+					)}
+				</div>
+			</div>
+
+			{/* CREATE MODAL */}
+			{isCreateOpen && (
+				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+					<div
+						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+						onClick={() => setIsCreateOpen(false)}
+					/>
+					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+						<h3 className="text-lg font-bold text-foreground mb-4">
+							Registrar Nueva Empresa / Flota
+						</h3>
+						<form onSubmit={handleCreate} className="space-y-4">
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Nombre Comercial de la Flota *
+								</label>
+								<input
+									type="text"
+									required
+									value={nombre}
+									onChange={(e) => setNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Cooperativa Quito Express"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									RUC *
+								</label>
+								<input
+									type="text"
+									required
+									value={ruc}
+									onChange={(e) => setRuc(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. 1798765432001"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Nombre del Contacto (Opcional)
+								</label>
+								<input
+									type="text"
+									value={contactoNombre}
+									onChange={(e) => setContactoNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Sofía Ramos"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Teléfono del Contacto (Opcional)
+								</label>
+								<input
+									type="text"
+									value={contactoTelefono}
+									onChange={(e) => setContactoTelefono(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. +593 96 345 6789"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Dirección (Opcional)
+								</label>
+								<input
+									type="text"
+									value={direccion}
+									onChange={(e) => setDireccion(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Av. Amazonas N32-125 y La Niña"
+								/>
+							</div>
+
+							<div className="flex gap-3 justify-end pt-2">
+								<button
+									type="button"
+									onClick={() => setIsCreateOpen(false)}
+									className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+								>
+									Registrar Empresa
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{/* EDIT MODAL */}
+			{isEditOpen && (
+				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+					<div
+						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+						onClick={() => setIsEditOpen(false)}
+					/>
+					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+						<h3 className="text-lg font-bold text-foreground mb-4">
+							Editar Datos de la Empresa
+						</h3>
+						<form onSubmit={handleEdit} className="space-y-4">
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Nombre Comercial *
+								</label>
+								<input
+									type="text"
+									required
+									value={nombre}
+									onChange={(e) => setNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									RUC *
+								</label>
+								<input
+									type="text"
+									required
+									value={ruc}
+									onChange={(e) => setRuc(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Nombre del Contacto (Opcional)
+								</label>
+								<input
+									type="text"
+									value={contactoNombre}
+									onChange={(e) => setContactoNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Teléfono del Contacto (Opcional)
+								</label>
+								<input
+									type="text"
+									value={contactoTelefono}
+									onChange={(e) => setContactoTelefono(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Dirección (Opcional)
+								</label>
+								<input
+									type="text"
+									value={direccion}
+									onChange={(e) => setDireccion(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Av. Amazonas N32-125 y La Niña"
+								/>
+							</div>
+
+							<div className="flex gap-3 justify-end pt-2">
+								<button
+									type="button"
+									onClick={() => setIsEditOpen(false)}
+									className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+								>
+									Guardar Cambios
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{/* DELETION CONFIRMATION AND SUCCESS OVERLAY */}
+			<SuccessDialog
+				isOpen={alertConfig.isOpen}
+				onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
+				title={alertConfig.title}
+				message={alertConfig.message}
+				type={alertConfig.type}
+				onConfirm={alertConfig.onConfirm}
+				confirmText={alertConfig.onConfirm ? "Eliminar" : "Entendido"}
+			/>
+		</div>
+	);
+};

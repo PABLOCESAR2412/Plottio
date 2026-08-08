@@ -1,0 +1,83 @@
+/* eslint-disable */
+/**
+ * Generated `api` utility.
+ *
+ * THIS CODE IS AUTOMATICALLY GENERATED.
+ *
+ * To regenerate, run `npx convex dev`.
+ * @module
+ */
+
+import type * as auditoria from "../auditoria.js";
+import type * as auth from "../auth.js";
+import type * as catalogoServicios from "../catalogoServicios.js";
+import type * as citas from "../citas.js";
+import type * as clientes from "../clientes.js";
+import type * as cotizaciones from "../cotizaciones.js";
+import type * as inventario from "../inventario.js";
+import type * as kitsFlota from "../kitsFlota.js";
+import type * as lotesProduccion from "../lotesProduccion.js";
+import type * as ordenes from "../ordenes.js";
+import type * as organizacion from "../organizacion.js";
+import type * as permisos from "../permisos.js";
+import type * as placasStock from "../placasStock.js";
+import type * as reportes from "../reportes.js";
+import type * as roles from "../roles.js";
+import type * as seed from "../seed.js";
+import type * as usuarios from "../usuarios.js";
+import type * as vehiculos from "../vehiculos.js";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
+
+declare const fullApi: ApiFromModules<{
+  auditoria: typeof auditoria;
+  auth: typeof auth;
+  catalogoServicios: typeof catalogoServicios;
+  citas: typeof citas;
+  clientes: typeof clientes;
+  cotizaciones: typeof cotizaciones;
+  inventario: typeof inventario;
+  kitsFlota: typeof kitsFlota;
+  lotesProduccion: typeof lotesProduccion;
+  ordenes: typeof ordenes;
+  organizacion: typeof organizacion;
+  permisos: typeof permisos;
+  placasStock: typeof placasStock;
+  reportes: typeof reportes;
+  roles: typeof roles;
+  seed: typeof seed;
+  usuarios: typeof usuarios;
+  vehiculos: typeof vehiculos;
+}>;
+
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
+export declare const api: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "public">
+>;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
+export declare const internal: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "internal">
+>;
+
+export declare const components: {};

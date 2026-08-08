@@ -1,0 +1,96 @@
+---
+---
+<section class="quotations-section bg-background relative">
+	<div class="pin-wrapper h-screen flex items-center justify-center px-6 relative overflow-hidden">
+		<div class="max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+			<div>
+				<h2 class="text-sm font-bold tracking-widest text-primary uppercase mb-4">Gestión de Flotas</h2>
+				<h3 class="text-3xl md:text-5xl font-bold text-foreground mb-6 leading-tight">
+					Cotizaciones especializadas, <br/>
+					<span class="text-muted-foreground">no genéricas.</span>
+				</h3>
+				<p class="text-lg text-muted-foreground mb-8">
+					Olvídate de descripciones de texto libres. Nuestro cotizador exige datos técnicos:
+					material, dimensiones y texto de placa, vinculados directamente a los vehículos de tu flota.
+				</p>
+			</div>
+
+			<div class="relative h-[400px] w-full bg-secondary/50 rounded-3xl border border-border flex items-center justify-center p-8 overflow-hidden">
+				<!-- Step 1 -->
+				<div class="step-1 absolute w-full max-w-sm bg-card border border-border p-6 rounded-2xl shadow-xl flex flex-col gap-4">
+					<div class="flex items-center gap-3 border-b border-border pb-4">
+						<div class="p-2 bg-primary/10 rounded-lg text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16.01" y1="10" y2="10"/><line x1="12" x2="12.01" y1="10" y2="10"/><line x1="8" x2="8.01" y1="10" y2="10"/><line x1="16" x2="16.01" y1="14" y2="14"/><line x1="12" x2="12.01" y1="14" y2="14"/><line x1="8" x2="8.01" y1="14" y2="14"/><line x1="16" x2="16.01" y1="18" y2="18"/><line x1="12" x2="12.01" y1="18" y2="18"/><line x1="8" x2="8.01" y1="18" y2="18"/></svg>
+                        </div>
+						<span class="font-semibold text-foreground">Paso 1: Parámetros</span>
+					</div>
+					<div class="space-y-2">
+						<div class="h-4 w-full bg-secondary rounded"></div>
+						<div class="h-4 w-3/4 bg-secondary rounded"></div>
+						<div class="flex justify-between pt-2">
+							<span class="text-xs text-muted-foreground">Material: Acrílico</span>
+							<span class="text-xs text-muted-foreground">Dim: 40x20cm</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Step 2 -->
+				<div class="step-2 absolute w-full max-w-sm bg-card border border-border p-6 rounded-2xl shadow-xl flex flex-col gap-4 opacity-0 translate-y-[50px]">
+					<div class="flex items-center gap-3 border-b border-border pb-4">
+						<div class="p-2 bg-primary/10 rounded-lg text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18H3c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1h10c.6 0 1 .4 1 1v11"/><path d="M14 9h4l4 4v5c0 .6-.4 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+                        </div>
+						<span class="font-semibold text-foreground">Paso 2: Vehículo</span>
+					</div>
+					<div class="space-y-3">
+						<div class="flex items-center justify-between p-2 border border-border rounded-lg bg-secondary/20">
+							<span class="text-sm font-medium">Placa: HBA-1029</span>
+							<span class="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Hino 500</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Step 3 -->
+				<div class="step-3 absolute w-full max-w-sm bg-primary border border-primary-foreground/10 p-6 rounded-2xl shadow-xl flex flex-col gap-4 opacity-0 translate-y-[50px]">
+					<div class="flex items-center gap-3 border-b border-primary-foreground/20 pb-4">
+						<div class="p-2 bg-primary-foreground/20 rounded-lg text-primary-foreground">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+                        </div>
+						<span class="font-semibold text-primary-foreground">Paso 3: Orden de Trabajo</span>
+					</div>
+					<div class="text-primary-foreground/90 text-sm leading-relaxed">
+						Cotización aprobada. Orden generada.
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<script>
+	import { gsap } from 'gsap';
+	import { ScrollTrigger } from 'gsap/ScrollTrigger';
+	
+	document.addEventListener('DOMContentLoaded', () => {
+		gsap.registerPlugin(ScrollTrigger);
+		
+		const mm = gsap.matchMedia();
+		
+		mm.add("(min-width: 768px)", () => {
+			const tl = gsap.timeline({
+				scrollTrigger: {
+					trigger: ".pin-wrapper",
+					start: "top top",
+					end: "+=2000",
+					scrub: 1,
+					pin: true,
+				},
+			});
+
+			tl.to(".step-1", { opacity: 0, y: -50, duration: 1 })
+			  .to(".step-2", { opacity: 1, y: 0, duration: 1 }, "<")
+			  .to(".step-2", { opacity: 0, y: -50, duration: 1 }, "+=0.5")
+			  .to(".step-3", { opacity: 1, y: 0, duration: 1 }, "<");
+		});
+	});
+</script>

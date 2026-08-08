@@ -1,0 +1,85 @@
+---
+const items = [
+	{
+		step: "01",
+		title: "Lote de Producción",
+		desc: "Genera lotes masivos de placas.",
+		icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>',
+		status: "Disponible"
+	},
+	{
+		step: "02",
+		title: "Asignación",
+		desc: "Vincula a un vehículo específico.",
+		icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>',
+		status: "Asignada"
+	},
+	{
+		step: "03",
+		title: "Instalación",
+		desc: "El operario sube fotos de respaldo.",
+		icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>',
+		status: "Instalada"
+	},
+	{
+		step: "04",
+		title: "Auditoría",
+		desc: "Registro inmutable para control.",
+		icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2-1 4-2 7-2 2.5 0 4.5 1 6.5 2a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>',
+		status: "Verificado"
+	}
+];
+---
+<section class="py-24 px-6 bg-background relative border-t border-border">
+	<div class="max-w-6xl mx-auto">
+		<div class="text-center max-w-3xl mx-auto mb-20">
+			<h2 class="text-sm font-bold tracking-widest text-primary uppercase mb-4">Operativa Perfecta</h2>
+			<h3 class="text-3xl md:text-5xl font-bold text-foreground mb-6 leading-tight">
+				Producción serializada <br/>
+				y trazabilidad total.
+			</h3>
+			<p class="text-lg text-muted-foreground">
+				Cada placa fabricada se rastrea individualmente. Conoce en tiempo real si está
+				disponible, asignada, instalada o dañada.
+			</p>
+		</div>
+
+		<div class="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+			<div class="hidden md:block absolute top-1/2 left-0 w-full h-[1px] bg-border -z-10 -translate-y-1/2"></div>
+			
+			{items.map((item) => (
+				<div class="prod-card opacity-0 translate-y-10 bg-card border border-border rounded-2xl p-6 flex flex-col items-center text-center relative hover:border-primary transition-colors">
+					<div class="w-16 h-16 rounded-full bg-secondary text-foreground flex items-center justify-center mb-6 shadow-sm border border-border" set:html={item.icon}>
+					</div>
+					<span class="text-xs font-bold px-2 py-1 bg-primary/10 text-primary rounded-full mb-4">
+						{item.status}
+					</span>
+					<h4 class="text-lg font-bold text-foreground mb-2">{item.title}</h4>
+					<p class="text-sm text-muted-foreground">{item.desc}</p>
+				</div>
+			))}
+		</div>
+	</div>
+</section>
+
+<script>
+	import { gsap } from 'gsap';
+	import { ScrollTrigger } from 'gsap/ScrollTrigger';
+	
+	document.addEventListener('DOMContentLoaded', () => {
+		gsap.registerPlugin(ScrollTrigger);
+		
+		gsap.to(".prod-card", {
+			scrollTrigger: {
+				trigger: ".prod-card",
+				start: "top center+=100",
+				toggleActions: "play none none reverse",
+			},
+			y: 0,
+			opacity: 1,
+			duration: 0.6,
+			stagger: 0.2,
+			ease: "power3.out",
+		});
+	});
+</script>

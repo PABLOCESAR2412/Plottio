@@ -1,0 +1,166 @@
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
+import { getCurrentUserContext, requirePermission } from "./auth";
+
+// 3.5 B) Función fetchCotizaciones() DESPUÉS (con filtro automático)
+export const fetchCotizaciones = query({
+  args: { 
+    usuarioId: v.id("usuarios"),
+    filtros: v.optional(v.object({
+      pvId: v.optional(v.string()),
+      estado: v.optional(v.string()),
+      desde: v.optional(v.string()),
+      hasta: v.optional(v.string())
+    }))
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "ver_cotizaciones");
+
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) return [];
+
+    const allCotizaciones = await ctx.db
+      .query("cotizaciones")
+      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .collect();
+
+    const filtradas = allCotizaciones.filter(cot => {
+       // 1. Filtro base de roles
+       let hasAccess = false;
+       if (userContext.permisos.includes("ver_todas_sucursales")) {
+         hasAccess = true;
+       } else if (userContext.pv && cot.pvId === userContext.pv.id) {
+         hasAccess = true;
+       } else if (userContext.sucursal && cot.sucursalId === userContext.sucursal.id) {
+         hasAccess = true;
+       }
+
+       if (!hasAccess) return false;
+
+       // 2. Filtros dinámicos
+       if (args.filtros) {
+         if (args.filtros.pvId && cot.pvId !== args.filtros.pvId) return false;
+         if (args.filtros.estado && cot.estado !== args.filtros.estado) return false;
+         if (args.filtros.desde && args.filtros.hasta) {
+            const fechaCot = new Date(cot.fecha);
+            const desde = new Date(args.filtros.desde);
+            const hasta = new Date(args.filtros.hasta);
+            if (fechaCot < desde || fechaCot > hasta) return false;
+         }
+       }
+
+       return true;
+    });
+
+    filtradas.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    // 3. Enriquecer datos (Joins)
+    return await Promise.all(filtradas.map(async (cot) => {
+      let cliente_nombre = cot.clienteNombre;
+      let sucursal_nombre = "Desconocida";
+      let pv_nombre = "Sin asignar";
+      let pv_codigo = "N/A";
+      let creado_por_nombre = "Sistema";
+
+      if (cot.sucursalId) {
+        const s = await ctx.db.get(cot.sucursalId);
+        if (s) sucursal_nombre = s.nombre;
+      }
+
+      if (cot.pvId) {
+        const p = await ctx.db.get(cot.pvId);
+        if (p) {
+          pv_nombre = p.nombre;
+          pv_codigo = p.codigo;
+        }
+      }
+
+      if (cot.creadoPorUsuarioId) {
+        const u = await ctx.db.get(cot.creadoPorUsuarioId);
+        if (u) creado_por_nombre = u.nombre;
+      }
+
+      return {
+        ...cot,
+        cliente_nombre,
+        sucursal_nombre,
+        pv_nombre,
+        pv_codigo,
+        creado_por_nombre
+      };
+    }));
+  }
+});
+
+// --- FASE 9: PLACAS COMO ÍTEM DENTRO DE COTIZACIONES ---
+
+export const crearItemCotizacionConPlaca = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+    cotizacionId: v.id("cotizaciones"),
+    servicioId: v.optional(v.id("catalogoServicios")),
+    descripcion: v.optional(v.string()),
+    cantidad: v.number(),
+    precioUnitario: v.number(),
+    placa: v.optional(v.object({
+      material: v.string(), // 'acrilico' | 'lona'
+      ancho_cm: v.optional(v.number()),
+      alto_cm: v.optional(v.number()),
+      contenido_texto: v.optional(v.string()),
+      ubicacion_instalacion: v.optional(v.string())
+    }))
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
+
+    const cotizacion = await ctx.db.get(args.cotizacionId);
+    if (!cotizacion) throw new Error("Cotización no encontrada");
+
+    const nuevoItem = {
+      servicioId: args.servicioId,
+      descripcion: args.descripcion || "Placa",
+      cantidad: args.cantidad,
+      precioUnitario: args.precioUnitario,
+      placa: args.placa
+    };
+
+    const nuevosItems = [...cotizacion.items, nuevoItem];
+    const nuevoTotal = nuevosItems.reduce((acc, item) => acc + (item.cantidad * item.precioUnitario), 0);
+
+    await ctx.db.patch(args.cotizacionId, {
+      items: nuevosItems,
+      total: nuevoTotal
+    });
+
+    return nuevoItem;
+  }
+});
+
+export const fetchItemsCotizacionConPlacas = query({
+  args: {
+    usuarioId: v.id("usuarios"),
+    cotizacionId: v.id("cotizaciones")
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "ver_cotizaciones");
+
+    const cotizacion = await ctx.db.get(args.cotizacionId);
+    if (!cotizacion) throw new Error("Cotización no encontrada");
+
+    // Enriquecer items con la categoría del catálogo si existe
+    return await Promise.all(cotizacion.items.map(async (item) => {
+      let categoria = "general";
+      if (item.servicioId) {
+        const servicio = await ctx.db.get(item.servicioId);
+        if (servicio) {
+          categoria = servicio.categoria;
+        }
+      }
+      return {
+        ...item,
+        categoria
+      };
+    }));
+  }
+});
+

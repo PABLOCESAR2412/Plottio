@@ -1,0 +1,760 @@
+import {
+	Building,
+	Car,
+	ChevronRight,
+	Edit2,
+	Info,
+	Mail,
+	Phone,
+	Plus,
+	Search,
+	Trash2,
+	User,
+} from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+import type { Cliente, Vehiculo, Empresa } from "../store/useAppStore";
+import { useAppStore } from "../store/useAppStore";
+import { SuccessDialog } from "./SuccessDialog";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { Loader } from "./Loader";
+
+interface ClientesViewProps {
+	onNavigate: (
+		tab:
+			| "dashboard"
+			| "clientes"
+			| "empresas"
+			| "vehiculos"
+			| "cotizaciones"
+			| "ordenes"
+			| "agenda"
+			| "configuracion",
+	) => void;
+	onSelectVehicle: (vId: string) => void;
+}
+
+export const ClientesView: React.FC<ClientesViewProps> = ({
+	onNavigate,
+	onSelectVehicle,
+}) => {
+	const { currentUser } = useAppStore();
+
+	const rawClientes = useQuery(
+		api.clientes.fetchClientes,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip"
+	);
+	const rawVehiculos = useQuery(
+		api.vehiculos.fetchVehiculos,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip"
+	);
+	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
+
+	const createClienteMut = useMutation(api.clientes.createCliente);
+	const updateClienteMut = useMutation(api.clientes.updateCliente);
+	const deleteClienteMut = useMutation(api.clientes.deleteCliente);
+
+	const clientes = (rawClientes || []).map((c) => ({
+		...c,
+		id: c._id,
+		createdAt: new Date(c._creationTime).toLocaleDateString(),
+	})) as Cliente[];
+
+	const vehiculos = (rawVehiculos || []).map((v) => ({
+		...v,
+		id: v._id,
+		año: v.anio,
+	})) as Vehiculo[];
+
+	const empresas = (rawEmpresas || []).map((e) => ({
+		...e,
+		id: e._id,
+	})) as unknown as Empresa[];
+
+	const [searchTerm, setSearchTerm] = useState("");
+	const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+	// Modals / Dialogs states
+	const [isCreateOpen, setIsCreateOpen] = useState(false);
+	const [isEditOpen, setIsEditOpen] = useState(false);
+
+	// Alert/Success dialog state
+	const [alertConfig, setAlertConfig] = useState<{
+		isOpen: boolean;
+		title: string;
+		message: string;
+		type: "success" | "alert" | "delete";
+		onConfirm?: () => void;
+	}>({
+		isOpen: false,
+		title: "",
+		message: "",
+		type: "success",
+	});
+
+	// Active sub-tab inside detail view
+	const [activeSubTab, setActiveSubTab] = useState<"contacto" | "vehiculos">(
+		"contacto",
+	);
+
+	// Form states
+	const [nombre, setNombre] = useState("");
+	const [telefono, setTelefono] = useState("");
+	const [email, setEmail] = useState("");
+	const [direccion, setDireccion] = useState("");
+	const [identificacion, setIdentificacion] = useState("");
+	const [empresaId, setEmpresaId] = useState<string>("");
+
+	// Selected client for editing
+	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
+
+	// Filter clients by Role and Search Term
+	const filteredClientes = clientes.filter((c) => {
+		// SaaS Multi-tenant filtering
+		if (
+			currentUser?.rol !== "SuperAdmin" &&
+			c.sucursalId &&
+			currentUser?.sucursalId
+		) {
+			if (c.sucursalId !== currentUser.sucursalId) return false;
+		}
+
+		return (
+			c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			c.telefono.includes(searchTerm) ||
+			c.email.toLowerCase().includes(searchTerm.toLowerCase())
+		);
+	});
+
+	// Ensure selected client is valid in current view
+	const activeClientId = filteredClientes.find((c) => c.id === selectedClientId)
+		? selectedClientId
+		: filteredClientes.length > 0
+			? filteredClientes[0].id
+			: null;
+
+	const selectedClient = clientes.find((c) => c.id === activeClientId);
+
+	// Get vehicles for selected client
+	const clientVehicles = selectedClient
+		? vehiculos.filter(
+				(v) =>
+					v.propietarioTipo === "cliente" &&
+					v.propietarioId === selectedClient.id,
+			)
+		: [];
+
+	const handleOpenCreate = () => {
+		setNombre("");
+		setTelefono("");
+		setEmail("");
+		setDireccion("");
+		setIdentificacion("");
+		setEmpresaId("");
+		setIsCreateOpen(true);
+	};
+
+	const handleCreate = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!nombre.trim() || !currentUser) return;
+
+		const newCli = await createClienteMut({
+			usuarioId: currentUser.id as Id<"usuarios">,
+			nombre: nombre.trim(),
+			telefono: telefono.trim() || "+593 ",
+			email:
+				email.trim() ||
+				`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
+			direccion: direccion.trim(),
+			identificacion: identificacion.trim(),
+			empresaId: empresaId ? (empresaId as Id<"empresas">) : undefined,
+		});
+
+		setIsCreateOpen(false);
+		if (newCli) {
+			setSelectedClientId(newCli._id);
+		}
+
+		setAlertConfig({
+			isOpen: true,
+			title: "Cliente Creado",
+			message: `El cliente "${nombre.trim()}" ha sido registrado con éxito.`,
+			type: "success",
+		});
+	};
+
+	const handleOpenEdit = (client: Cliente) => {
+		setEditingClient(client);
+		setNombre(client.nombre);
+		setTelefono(client.telefono);
+		setEmail(client.email);
+		setDireccion(client.direccion || "");
+		setIdentificacion(client.identificacion || "");
+		setEmpresaId(client.empresaId || "");
+		setIsEditOpen(true);
+	};
+
+	const handleEdit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!editingClient || !nombre.trim() || !currentUser) return;
+
+		await updateClienteMut({
+			usuarioId: currentUser.id as Id<"usuarios">,
+			clienteId: editingClient.id as Id<"clientes">,
+			nombre: nombre.trim(),
+			telefono: telefono.trim(),
+			email: email.trim(),
+			direccion: direccion.trim(),
+			identificacion: identificacion.trim(),
+			empresaId: empresaId ? (empresaId as Id<"empresas">) : undefined,
+		});
+
+		setIsEditOpen(false);
+
+		setAlertConfig({
+			isOpen: true,
+			title: "Cliente Actualizado",
+			message: `Los datos de "${nombre}" se actualizaron correctamente.`,
+			type: "success",
+		});
+	};
+
+	const handleDeleteClick = (client: Cliente) => {
+		setAlertConfig({
+			isOpen: true,
+			title: "¿Eliminar Cliente?",
+			message: `¿Estás seguro de que deseas eliminar a "${client.nombre}"? Esta acción no se puede deshacer.`,
+			type: "delete",
+			onConfirm: async () => {
+				if (!currentUser) return;
+				await deleteClienteMut({
+					usuarioId: currentUser.id as Id<"usuarios">,
+					clienteId: client.id as Id<"clientes">,
+				});
+				if (selectedClientId === client.id) {
+					const remaining = clientes.filter((c) => c.id !== client.id);
+					setSelectedClientId(remaining.length > 0 ? remaining[0].id : null);
+				}
+				setAlertConfig({
+					isOpen: true,
+					title: "Cliente Eliminado",
+					message: "El registro del cliente ha sido borrado del sistema.",
+					type: "success",
+				});
+			},
+		});
+	};
+
+	if (rawClientes === undefined || rawVehiculos === undefined || rawEmpresas === undefined) {
+		return <Loader />;
+	}
+
+	return (
+		<div className="space-y-6">
+			{/* Header section */}
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<h1 className="text-3xl font-bold tracking-tight text-foreground">
+						Clientes
+					</h1>
+					<p className="text-muted-foreground">
+						Administra la base de datos de tus clientes individuales.
+					</p>
+				</div>
+				<button
+					onClick={handleOpenCreate}
+					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
+				>
+					<Plus className="h-4 w-4" />
+					Nuevo Cliente
+				</button>
+			</div>
+
+			{/* Main split grid */}
+			<div className="grid gap-6 md:grid-cols-3">
+				{/* Left col - Clients List */}
+				<div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
+					<div className="relative">
+						<Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+						<input
+							type="text"
+							placeholder="Buscar por nombre, tlf o email..."
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground focus:border-ring focus:outline-none"
+						/>
+					</div>
+
+					<div className="divide-y divide-border overflow-y-auto max-h-[500px] pr-1">
+						{filteredClientes.map((client) => (
+							<button
+								key={client.id}
+								onClick={() => {
+									setSelectedClientId(client.id);
+									setActiveSubTab("contacto");
+								}}
+								className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
+									selectedClientId === client.id
+										? "bg-primary text-primary-foreground shadow-sm"
+										: "hover:bg-secondary"
+								}`}
+							>
+								<div className="truncate pr-2">
+									<div className="font-semibold text-sm truncate">
+										{client.nombre}
+									</div>
+									<div
+										className={`text-xs truncate ${selectedClientId === client.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+									>
+										{client.telefono}
+									</div>
+								</div>
+								<ChevronRight className="h-4 w-4 opacity-50 shrink-0" />
+							</button>
+						))}
+						{filteredClientes.length === 0 && (
+							<div className="text-center py-8 text-muted-foreground text-sm">
+								No se encontraron clientes.
+							</div>
+						)}
+					</div>
+				</div>
+
+				{/* Right col - Client Details */}
+				<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
+					{selectedClient ? (
+						<div className="space-y-6">
+							{/* Client Title and Header Actions */}
+							<div className="flex items-start justify-between border-b border-border pb-4">
+								<div className="flex items-center gap-3">
+									<div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-foreground font-semibold text-lg">
+										{selectedClient.nombre
+											.split(" ")
+											.map((n) => n[0])
+											.join("")
+											.substring(0, 2)
+											.toUpperCase()}
+									</div>
+									<div>
+										<h2 className="text-xl font-bold text-foreground">
+											{selectedClient.nombre}
+										</h2>
+										<span className="text-xs text-muted-foreground font-medium">
+											Registrado el {selectedClient.createdAt}
+										</span>
+									</div>
+								</div>
+
+								<div className="flex gap-2">
+									<button
+										onClick={() => handleOpenEdit(selectedClient)}
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors"
+										title="Editar Cliente"
+									>
+										<Edit2 className="h-4 w-4" />
+									</button>
+									<button
+										onClick={() => handleDeleteClick(selectedClient)}
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
+										title="Eliminar Cliente"
+									>
+										<Trash2 className="h-4 w-4" />
+									</button>
+								</div>
+							</div>
+
+							{/* Sub-navigation tabs (Datos de Contacto / Historial de Vehículos) */}
+							<div className="flex border-b border-border">
+								<button
+									onClick={() => setActiveSubTab("contacto")}
+									className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+										activeSubTab === "contacto"
+											? "border-primary text-foreground"
+											: "border-transparent text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Datos de Contacto
+								</button>
+								<button
+									onClick={() => setActiveSubTab("vehiculos")}
+									className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+										activeSubTab === "vehiculos"
+											? "border-primary text-foreground"
+											: "border-transparent text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Historial de Vehículos ({clientVehicles.length})
+								</button>
+							</div>
+
+							{/* Tab Contents */}
+							{activeSubTab === "contacto" ? (
+								<div className="space-y-4">
+									<div className="grid gap-4 sm:grid-cols-2">
+										<div className="flex items-center gap-3 rounded-lg border border-border p-3">
+											<Phone className="h-5 w-5 text-muted-foreground" />
+											<div>
+												<div className="text-xs text-muted-foreground">
+													Teléfono
+												</div>
+												<div className="text-sm font-semibold text-foreground">
+													{selectedClient.telefono}
+												</div>
+											</div>
+										</div>
+
+										<div className="flex items-center gap-3 rounded-lg border border-border p-3">
+											<Mail className="h-5 w-5 text-muted-foreground" />
+											<div className="overflow-hidden">
+												<div className="text-xs text-muted-foreground">
+													Correo Electrónico
+												</div>
+												<div
+													className="text-sm font-semibold text-foreground truncate"
+													title={selectedClient.email}
+												>
+													{selectedClient.email}
+												</div>
+											</div>
+										</div>
+
+										{selectedClient.identificacion && (
+											<div className="flex items-start gap-3 rounded-lg border border-border bg-background p-4">
+												<div className="rounded-full bg-primary/10 p-2 text-primary">
+													<Info className="h-4 w-4" />
+												</div>
+												<div>
+													<p className="text-xs text-muted-foreground">
+														C.I. / RUC
+													</p>
+													<p className="text-sm font-medium text-foreground">
+														{selectedClient.identificacion}
+													</p>
+												</div>
+											</div>
+										)}
+
+										<div className="flex items-center gap-3 rounded-lg border border-border p-3">
+											<Building className="h-5 w-5 text-muted-foreground" />
+											<div>
+												<div className="text-xs text-muted-foreground">
+													Dirección
+												</div>
+												<div className="text-sm font-semibold text-foreground">
+													{selectedClient.direccion || "No especificada"}
+												</div>
+											</div>
+										</div>
+
+										<div className="flex items-center gap-3 rounded-lg border border-border p-3 sm:col-span-2">
+											<Building className="h-5 w-5 text-muted-foreground" />
+											<div>
+												<div className="text-xs text-muted-foreground">
+													Empresa vinculada
+												</div>
+												<div className="text-sm font-semibold text-foreground">
+													{selectedClient.empresaId
+														? empresas.find(
+																(e) => e.id === selectedClient.empresaId,
+															)?.nombre || "No asignado"
+														: "Cliente particular (Sin empresa/flota)"}
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							) : (
+								<div className="space-y-3">
+									{clientVehicles.map((veh) => (
+										<button
+											key={veh.id}
+											onClick={() => onSelectVehicle(veh.id)}
+											className="w-full flex items-center justify-between rounded-lg border border-border p-4 hover:bg-secondary/30 transition-colors text-left cursor-pointer hover:border-primary/80"
+											title="Ver historial y servicios del vehículo"
+										>
+											<div className="flex items-center gap-3">
+												<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-foreground">
+													<Car className="h-5 w-5" />
+												</div>
+												<div>
+													<div className="font-semibold text-sm text-foreground">
+														{veh.marca} {veh.modelo} ({veh.año})
+													</div>
+													<div className="text-xs text-muted-foreground flex items-center gap-2">
+														<span className="font-bold text-foreground">
+															{veh.placa}
+														</span>
+														<span>•</span>
+														<span>{veh.categoria}</span>
+													</div>
+												</div>
+											</div>
+
+											<div className="flex items-center gap-3">
+												<span
+													className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
+														veh.estado === "Activo"
+															? "bg-green-500/10 text-green-500"
+															: veh.estado === "En Mantenimiento"
+																? "bg-yellow-500/10 text-yellow-500"
+																: "bg-muted text-muted-foreground"
+													}`}
+												>
+													{veh.estado}
+												</span>
+											</div>
+										</button>
+									))}
+									{clientVehicles.length === 0 && (
+										<div className="text-center py-10 rounded-lg border border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
+											<Car className="h-8 w-8 opacity-40 animate-pulse" />
+											<span>
+												Este cliente no tiene vehículos registrados aún.
+											</span>
+										</div>
+									)}
+								</div>
+							)}
+						</div>
+					) : (
+						<div className="text-center py-20 text-muted-foreground flex flex-col items-center gap-2 justify-center">
+							<Info className="h-10 w-10 opacity-30" />
+							<span>
+								Selecciona un cliente de la lista para ver su información
+								detallada.
+							</span>
+						</div>
+					)}
+				</div>
+			</div>
+
+			{/* CREATE MODAL */}
+			{isCreateOpen && (
+				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+					<div
+						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+						onClick={() => setIsCreateOpen(false)}
+					/>
+					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+						<h3 className="text-lg font-bold text-foreground mb-4">
+							Registrar Nuevo Cliente
+						</h3>
+						<form onSubmit={handleCreate} className="space-y-4">
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Nombre Completo *
+								</label>
+								<input
+									type="text"
+									required
+									value={nombre}
+									onChange={(e) => setNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Carlos Mendoza"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Teléfono
+								</label>
+								<input
+									type="text"
+									value={telefono}
+									onChange={(e) => setTelefono(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. +593 98 765 4321"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Correo Electrónico
+								</label>
+								<input
+									type="email"
+									value={email}
+									onChange={(e) => setEmail(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. carlos@correo.com"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									C.I. / RUC
+								</label>
+								<input
+									type="text"
+									value={identificacion}
+									onChange={(e) => setIdentificacion(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. 1234567890"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Dirección (Opcional)
+								</label>
+								<input
+									type="text"
+									value={direccion}
+									onChange={(e) => setDireccion(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Av. Principal 123"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Vincular a Empresa/Flota
+								</label>
+								<select
+									value={empresaId}
+									onChange={(e) => setEmpresaId(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								>
+									<option value="">Ninguna (Particular)</option>
+									{empresas.map((emp) => (
+										<option key={emp.id} value={emp.id}>
+											{emp.nombre}
+										</option>
+									))}
+								</select>
+							</div>
+
+							<div className="flex gap-3 justify-end pt-2">
+								<button
+									type="button"
+									onClick={() => setIsCreateOpen(false)}
+									className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+								>
+									Registrar
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{/* EDIT MODAL */}
+			{isEditOpen && (
+				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+					<div
+						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+						onClick={() => setIsEditOpen(false)}
+					/>
+					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+						<h3 className="text-lg font-bold text-foreground mb-4">
+							Editar Datos de Cliente
+						</h3>
+						<form onSubmit={handleEdit} className="space-y-4">
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Nombre Completo *
+								</label>
+								<input
+									type="text"
+									required
+									value={nombre}
+									onChange={(e) => setNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Teléfono
+								</label>
+								<input
+									type="text"
+									value={telefono}
+									onChange={(e) => setTelefono(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Correo Electrónico
+								</label>
+								<input
+									type="email"
+									value={email}
+									onChange={(e) => setEmail(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Dirección (Opcional)
+								</label>
+								<input
+									type="text"
+									value={direccion}
+									onChange={(e) => setDireccion(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									Vincular a Empresa/Flota
+								</label>
+								<select
+									value={empresaId}
+									onChange={(e) => setEmpresaId(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+								>
+									<option value="">Ninguna (Particular)</option>
+									{empresas.map((emp) => (
+										<option key={emp.id} value={emp.id}>
+											{emp.nombre}
+										</option>
+									))}
+								</select>
+							</div>
+
+							<div className="flex gap-3 justify-end pt-2">
+								<button
+									type="button"
+									onClick={() => setIsEditOpen(false)}
+									className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+								>
+									Guardar Cambios
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{/* ALERT / SUCCESS DIALOG */}
+			<SuccessDialog
+				isOpen={alertConfig.isOpen}
+				onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
+				title={alertConfig.title}
+				message={alertConfig.message}
+				type={alertConfig.type}
+				onConfirm={alertConfig.onConfirm}
+				confirmText={alertConfig.onConfirm ? "Eliminar" : "Entendido"}
+			/>
+		</div>
+	);
+};

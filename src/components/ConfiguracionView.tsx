@@ -1,0 +1,1435 @@
+import { jsPDF } from "jspdf";
+import {
+	AlertCircle,
+	Bell,
+	Bug,
+	Car,
+	Check,
+	CheckSquare,
+	DollarSign,
+	Download,
+	Edit2,
+	FileText,
+	Moon,
+	Plus,
+	Settings,
+	Shield,
+	Square,
+	Sun,
+	ToggleLeft,
+	ToggleRight,
+	Trash2,
+	TrendingUp,
+	Users,
+	X,
+	Building,
+	ClipboardList,
+} from "lucide-react";
+import type React from "react";
+import { useState, startTransition } from "react";
+import type { PlantillaPrecio } from "../store/useAppStore";
+import { useAppStore } from "../store/useAppStore";
+import { GestionUsuariosView } from "./GestionUsuariosView";
+import { RolesView } from "./RolesView";
+import { SuccessDialog } from "./SuccessDialog";
+import { SucursalesAdminView } from "./SucursalesAdmin";
+import { AuditoriaView } from "./AuditoriaView";
+
+export const ConfiguracionView: React.FC = () => {
+	const {
+		theme,
+		toggleTheme,
+		plantillasPrecios,
+		categoriasPrecios,
+		ordenesTrabajo,
+		updatePlantillaPrecio,
+		addPlantillaPrecio,
+		deletePlantillaPrecio,
+		addCategoriaPrecio,
+		updateCategoriaPrecio,
+		deleteCategoriaPrecio,
+		notificationsEnabled,
+		notificationTypes,
+		setNotificationsEnabled,
+		setNotificationTypes,
+		usuarios,
+		currentUser,
+		addUsuario,
+		bugs,
+		updateBug,
+		addBugComment,
+	} = useAppStore();
+
+	// Top level config tabs
+	const [configTab, setConfigTab] = useState<"general" | "usuarios" | "roles" | "bugs" | "sucursales" | "auditoria">(
+		"general",
+	);
+	const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
+	const [newComment, setNewComment] = useState("");
+	const [showArchivedBugs, setShowArchivedBugs] = useState(false);
+
+	// Price category tab selector
+	const [activeCategoryTab, setActiveCategoryTab] = useState<string>(
+		categoriasPrecios.length > 0 ? categoriasPrecios[0] : "Bus Urbano",
+	);
+
+	// Category management states
+	const [newCategoryName, setNewCategoryName] = useState("");
+	const [isEditingCategory, setIsEditingCategory] = useState(false);
+	const [editingCategoryName, setEditingCategoryName] = useState("");
+
+	// New Job states
+	const [newConcepto, setNewConcepto] = useState("");
+	const [newPrecioSugerido, setNewPrecioSugerido] = useState<number>(0);
+
+	// Inline editing state for jobs
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const [editingConcepto, setEditingConcepto] = useState<string>("");
+	const [editingPrice, setEditingPrice] = useState<number>(0);
+
+	// Success dialog configs
+	const [alertConfig, setAlertConfig] = useState<{
+		isOpen: boolean;
+		title: string;
+		message: string;
+		type: "success" | "alert" | "delete";
+		onConfirm?: () => void;
+	}>({
+		isOpen: false,
+		title: "",
+		message: "",
+		type: "success",
+	});
+
+	const currentCategory = categoriasPrecios.includes(activeCategoryTab)
+		? activeCategoryTab
+		: categoriasPrecios[0] || "";
+
+	const baseVisibleBugs =
+		currentUser?.rol === "SuperAdmin"
+			? bugs
+			: bugs.filter((b) => b.sucursalId === currentUser?.sucursalId);
+
+	const visibleBugs =
+		currentUser?.rol === "SuperAdmin" && showArchivedBugs
+			? baseVisibleBugs.filter((b) => b.estado === "Resuelto")
+			: baseVisibleBugs.filter((b) => b.estado !== "Resuelto");
+
+	// Category actions handlers
+	const handleCreateCategory = (e: React.FormEvent) => {
+		e.preventDefault();
+		const name = newCategoryName.trim();
+		if (!name) return;
+		if (categoriasPrecios.includes(name)) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Categoría Duplicada",
+				message: `La categoría "${name}" ya está registrada.`,
+				type: "alert",
+			});
+			return;
+		}
+		addCategoriaPrecio(name);
+		setActiveCategoryTab(name);
+		setNewCategoryName("");
+		setAlertConfig({
+			isOpen: true,
+			title: "Categoría Creada",
+			message: `La categoría "${name}" se ha añadido correctamente.`,
+			type: "success",
+		});
+	};
+
+	const handleStartEditCategory = () => {
+		setEditingCategoryName(currentCategory);
+		setIsEditingCategory(true);
+	};
+
+	const handleSaveCategoryName = () => {
+		const newName = editingCategoryName.trim();
+		if (!newName || newName === currentCategory) {
+			setIsEditingCategory(false);
+			return;
+		}
+		if (
+			categoriasPrecios.includes(newName) &&
+			newName.toLowerCase() !== currentCategory.toLowerCase()
+		) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Categoría Duplicada",
+				message: `Ya existe una categoría llamada "${newName}".`,
+				type: "alert",
+			});
+			return;
+		}
+		const oldName = currentCategory;
+		updateCategoriaPrecio(oldName, newName);
+		setActiveCategoryTab(newName);
+		setIsEditingCategory(false);
+		setAlertConfig({
+			isOpen: true,
+			title: "Categoría Actualizada",
+			message: `La categoría ha sido renombrada a "${newName}".`,
+			type: "success",
+		});
+	};
+
+	const handleDeleteCategoryClick = () => {
+		if (!currentCategory) return;
+		setAlertConfig({
+			isOpen: true,
+			title: "¿Eliminar Categoría?",
+			message: `¿Estás seguro de eliminar permanentemente la categoría "${currentCategory}"? Se borrarán todas sus tarifas y se actualizará a los vehículos asignados.`,
+			type: "delete",
+			onConfirm: () => {
+				const remaining = categoriasPrecios.filter(
+					(c) => c !== currentCategory,
+				);
+				deleteCategoriaPrecio(currentCategory);
+				setActiveCategoryTab(remaining[0] || "");
+				setAlertConfig({
+					isOpen: true,
+					title: "Categoría Eliminada",
+					message: "La categoría y sus tarifas han sido removidas.",
+					type: "success",
+				});
+			},
+		});
+	};
+
+	// Job actions handlers
+	const handleAddJob = (e: React.FormEvent) => {
+		e.preventDefault();
+		const concept = newConcepto.trim();
+		if (!concept || !currentCategory) return;
+
+		// Check if job exists in this category
+		const exists = plantillasPrecios.some(
+			(p) =>
+				p.categoriaVehiculo === currentCategory &&
+				p.concepto.toLowerCase() === concept.toLowerCase(),
+		);
+		if (exists) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Trabajo Duplicado",
+				message: `El trabajo "${concept}" ya está registrado en la categoría ${currentCategory}.`,
+				type: "alert",
+			});
+			return;
+		}
+
+		addPlantillaPrecio({
+			categoriaVehiculo: currentCategory,
+			concepto: concept,
+			precioSugerido: newPrecioSugerido,
+		});
+		setNewConcepto("");
+		setNewPrecioSugerido(0);
+		setAlertConfig({
+			isOpen: true,
+			title: "Tarifa Registrada",
+			message: `Se añadió "${concept}" con un precio de $${newPrecioSugerido} USD a ${currentCategory}.`,
+			type: "success",
+		});
+	};
+
+	const handleStartEdit = (tpl: PlantillaPrecio) => {
+		setEditingId(tpl.id);
+		setEditingConcepto(tpl.concepto);
+		setEditingPrice(tpl.precioSugerido);
+	};
+
+	const handleCancelEdit = () => {
+		setEditingId(null);
+	};
+
+	const handleSavePrice = (id: string) => {
+		const concept = editingConcepto.trim();
+		if (!concept || editingPrice < 0) return;
+
+		updatePlantillaPrecio(id, {
+			concepto: concept,
+			precioSugerido: editingPrice,
+		});
+		setEditingId(null);
+
+		setAlertConfig({
+			isOpen: true,
+			title: "Tarifa Actualizada",
+			message:
+				"La plantilla de precios se actualizó. Las nuevas cotizaciones reflejarán este cambio.",
+			type: "success",
+		});
+	};
+
+	const handleDeleteJob = (id: string, concepto: string) => {
+		setAlertConfig({
+			isOpen: true,
+			title: "¿Eliminar Tarifa?",
+			message: `¿Estás seguro de eliminar permanentemente la tarifa sugerida de "${concepto}"?`,
+			type: "delete",
+			onConfirm: () => {
+				deletePlantillaPrecio(id);
+				setAlertConfig({
+					isOpen: true,
+					title: "Tarifa Eliminada",
+					message: "El trabajo se removió de la plantilla con éxito.",
+					type: "success",
+				});
+			},
+		});
+	};
+
+	// Report Export: PDF
+	const handleDownloadReportPDF = () => {
+		const doc = new jsPDF();
+		const today = new Date().toISOString().split("T")[0];
+
+		// Filter orders
+		const validOrders = ordenesTrabajo.filter((o) => o.estado !== "Cancelado");
+		const completedOrders = ordenesTrabajo.filter(
+			(o) => o.estado === "Listo" || o.estado === "Entregado",
+		);
+		const totalEarnings = validOrders.reduce((sum, o) => sum + o.total, 0);
+
+		// Group earnings by client
+		const clientEarnings: Record<string, number> = {};
+		ordenesTrabajo.forEach((o) => {
+			if (o.estado !== "Cancelado") {
+				clientEarnings[o.clienteNombre] =
+					(clientEarnings[o.clienteNombre] || 0) + o.total;
+			}
+		});
+		const topClients = Object.entries(clientEarnings)
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 5);
+
+		// Group by vehicle category
+		const categoryStats: Record<string, { count: number; total: number }> = {};
+		validOrders.forEach((o) => {
+			if (!categoryStats[o.vehiculoTipo]) {
+				categoryStats[o.vehiculoTipo] = { count: 0, total: 0 };
+			}
+			categoryStats[o.vehiculoTipo].count += 1;
+			categoryStats[o.vehiculoTipo].total += o.total;
+		});
+
+		// Page 1: Executive Summary
+		// Draw top blue line
+		doc.setDrawColor(26, 54, 93);
+		doc.setLineWidth(1.5);
+		doc.line(20, 15, 190, 15);
+
+		// Title
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(22);
+		doc.setTextColor(26, 54, 93);
+		doc.text("PLOTTIO", 20, 26);
+
+		doc.setFontSize(10);
+		doc.setFont("Helvetica", "normal");
+		doc.setTextColor(100, 100, 100);
+		doc.text("Taller de Diseño & Rotulado Profesional", 20, 32);
+
+		// Header Right
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(13);
+		doc.setTextColor(197, 48, 48); // Red
+		doc.text("REPORTE GENERAL DE RENDIMIENTO", 110, 26);
+
+		doc.setFontSize(10);
+		doc.setFont("Helvetica", "normal");
+		doc.setTextColor(100, 100, 100);
+		doc.text(`Generado el: ${today}`, 110, 32);
+
+		// Divider line
+		doc.setDrawColor(200, 200, 200);
+		doc.setLineWidth(0.5);
+		doc.line(20, 38, 190, 38);
+
+		// Section 1: operational metrics
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(11);
+		doc.setTextColor(26, 54, 93);
+		doc.text("1. MÉTRICAS OPERATIVAS GENERALES", 20, 48);
+
+		doc.setFont("Helvetica", "normal");
+		doc.setFontSize(10);
+		doc.setTextColor(50, 50, 50);
+
+		doc.text(
+			`Total de órdenes de trabajo registradas: ${ordenesTrabajo.length}`,
+			20,
+			56,
+		);
+		doc.text(
+			`Órdenes de trabajo completadas/entregadas: ${completedOrders.length}`,
+			20,
+			62,
+		);
+		doc.text(
+			`Órdenes de trabajo activas (Pendientes/En Proceso): ${ordenesTrabajo.filter((o) => o.estado === "Pendiente" || o.estado === "En Proceso").length}`,
+			20,
+			68,
+		);
+		doc.text(
+			`Órdenes de trabajo canceladas: ${ordenesTrabajo.filter((o) => o.estado === "Cancelado").length}`,
+			20,
+			74,
+		);
+
+		// Section 2: Earnings summary
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(11);
+		doc.setTextColor(26, 54, 93);
+		doc.text("2. RESUMEN FINANCIERO (TOTAL GANADO)", 20, 88);
+
+		doc.setFillColor(240, 244, 248);
+		doc.rect(20, 94, 170, 18, "F");
+
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(10);
+		doc.setTextColor(26, 54, 93);
+		doc.text("TOTAL DE INGRESOS OPERATIVOS ESTIMADOS:", 25, 101);
+		doc.setTextColor(197, 48, 48);
+		doc.setFontSize(12);
+		doc.text(`$${totalEarnings.toLocaleString("en-US")} USD`, 25, 108);
+
+		// Section 3: Top Clients
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(11);
+		doc.setTextColor(26, 54, 93);
+		doc.text("3. TOP 5 CLIENTES CON MAYOR INVERSIÓN", 20, 126);
+
+		let clientY = 134;
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(9);
+		doc.setFillColor(26, 54, 93);
+		doc.rect(20, clientY, 170, 7, "F");
+		doc.setTextColor(255, 255, 255);
+		doc.text("Nombre del Cliente", 25, clientY + 5);
+		doc.text("Total Invertido", 140, clientY + 5);
+		doc.setTextColor(50, 50, 50);
+		doc.setFont("Helvetica", "normal");
+
+		if (topClients.length === 0) {
+			clientY += 8;
+			doc.text(
+				"No hay datos financieros registrados en el sistema.",
+				25,
+				clientY + 5,
+			);
+		} else {
+			topClients.forEach(([name, amount], index) => {
+				clientY += 8;
+				if (index % 2 === 0) {
+					doc.setFillColor(245, 245, 245);
+					doc.rect(20, clientY, 170, 7, "F");
+				}
+				doc.text(`${index + 1}. ${name}`, 25, clientY + 5);
+				doc.text(`$${amount.toLocaleString("en-US")} USD`, 140, clientY + 5);
+			});
+		}
+
+		// Section 4: Category breakdown
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(11);
+		doc.setTextColor(26, 54, 93);
+		doc.text("4. VENTAS POR CATEGORÍA DE TRANSPORTE", 20, 194);
+
+		let catY = 202;
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(9);
+		doc.setFillColor(26, 54, 93);
+		doc.rect(20, catY, 170, 7, "F");
+		doc.setTextColor(255, 255, 255);
+		doc.text("Categoría de Vehículo", 25, catY + 5);
+		doc.text("Cant. Trabajos", 100, catY + 5);
+		doc.text("Total Generado", 140, catY + 5);
+		doc.setTextColor(50, 50, 50);
+		doc.setFont("Helvetica", "normal");
+
+		const catStatsEntries = Object.entries(categoryStats);
+		if (catStatsEntries.length === 0) {
+			catY += 8;
+			doc.text("No hay trabajos registrados para vehículos.", 25, catY + 5);
+		} else {
+			catStatsEntries.forEach(([catName, stat], index) => {
+				catY += 8;
+				if (index % 2 === 0) {
+					doc.setFillColor(245, 245, 245);
+					doc.rect(20, catY, 170, 7, "F");
+				}
+				doc.text(catName, 25, catY + 5);
+				doc.text(stat.count.toString(), 100, catY + 5);
+				doc.text(`$${stat.total.toLocaleString("en-US")} USD`, 140, catY + 5);
+			});
+		}
+
+		// Page 2: Detailed Log of Jobs
+		doc.addPage();
+		doc.setDrawColor(26, 54, 93);
+		doc.setLineWidth(1.5);
+		doc.line(20, 15, 190, 15);
+
+		doc.setFont("Helvetica", "bold");
+		doc.setFontSize(14);
+		doc.setTextColor(26, 54, 93);
+		doc.text("HISTORIAL DETALLADO DE TRABAJOS", 20, 26);
+
+		doc.setFontSize(10);
+		doc.setFont("Helvetica", "normal");
+		doc.setTextColor(100, 100, 100);
+		doc.text("Registro completo de todas las órdenes de trabajo", 20, 32);
+
+		doc.setDrawColor(200, 200, 200);
+		doc.setLineWidth(0.5);
+		doc.line(20, 36, 190, 36);
+
+		// Table Header
+		let rowY = 46;
+		doc.setFont("Helvetica", "bold");
+		doc.setFillColor(26, 54, 93);
+		doc.rect(20, rowY, 170, 8, "F");
+		doc.setTextColor(255, 255, 255);
+		doc.setFontSize(9);
+		doc.text("ID", 22, rowY + 5);
+		doc.text("Cliente", 42, rowY + 5);
+		doc.text("Vehículo / Placa", 85, rowY + 5);
+		doc.text("Estado", 135, rowY + 5);
+		doc.text("Total", 165, rowY + 5);
+
+		doc.setTextColor(50, 50, 50);
+		doc.setFont("Helvetica", "normal");
+
+		if (ordenesTrabajo.length === 0) {
+			rowY += 9;
+			doc.text("No hay órdenes de trabajo registradas.", 22, rowY + 5);
+		} else {
+			ordenesTrabajo.forEach((o, index) => {
+				rowY += 9;
+
+				// Handle page break
+				if (rowY > 270) {
+					doc.addPage();
+					doc.setDrawColor(26, 54, 93);
+					doc.setLineWidth(1.5);
+					doc.line(20, 15, 190, 15);
+
+					rowY = 26;
+					doc.setFont("Helvetica", "bold");
+					doc.setFillColor(26, 54, 93);
+					doc.rect(20, rowY, 170, 8, "F");
+					doc.setTextColor(255, 255, 255);
+					doc.text("ID", 22, rowY + 5);
+					doc.text("Cliente", 42, rowY + 5);
+					doc.text("Vehículo / Placa", 85, rowY + 5);
+					doc.text("Estado", 135, rowY + 5);
+					doc.text("Total", 165, rowY + 5);
+
+					doc.setTextColor(50, 50, 50);
+					doc.setFont("Helvetica", "normal");
+					rowY += 9;
+				}
+
+				if (index % 2 === 0) {
+					doc.setFillColor(240, 244, 248);
+					doc.rect(20, rowY, 170, 8, "F");
+				}
+
+				doc.text(o.id, 22, rowY + 5);
+				doc.text(o.clienteNombre.substring(0, 18), 42, rowY + 5);
+				doc.text(
+					`${o.vehiculoTipo} (${o.placa})`.substring(0, 22),
+					85,
+					rowY + 5,
+				);
+				doc.text(o.estado, 135, rowY + 5);
+				doc.text(`$${o.total}`, 165, rowY + 5);
+			});
+		}
+
+		doc.save(`Reporte_Operaciones_Plottio_${today}.pdf`);
+
+		setAlertConfig({
+			isOpen: true,
+			title: "Reporte PDF Generado",
+			message:
+				"Se descargó exitosamente el reporte PDF detallado de ganancias y operaciones.",
+			type: "success",
+		});
+	};
+
+	// Report Export: Excel (CSV)
+	const handleDownloadReportExcel = () => {
+		const today = new Date().toISOString().split("T")[0];
+
+		// Build CSV Content
+		let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM for Excel UTF-8 support
+		csvContent +=
+			"ID de Orden,Fecha de Inicio,Fecha Fin,Nombre Cliente,Telefono Cliente,Categoria Vehiculo,Placa,Progreso %,Estado,Total Facturado (USD)\n";
+
+		ordenesTrabajo.forEach((o) => {
+			const row = [
+				o.id,
+				o.fechaInicio,
+				o.fechaFin,
+				`"${o.clienteNombre.replace(/"/g, '""')}"`,
+				`"${o.clienteTelefono}"`,
+				`"${o.vehiculoTipo}"`,
+				`"${o.placa}"`,
+				`${o.progreso}%`,
+				o.estado,
+				o.total,
+			].join(",");
+			csvContent += row + "\n";
+		});
+
+		const encodedUri = encodeURI(csvContent);
+		const link = document.createElement("a");
+		link.setAttribute("href", encodedUri);
+		link.setAttribute("download", `Reporte_Ganancias_Plottio_${today}.csv`);
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+
+		setAlertConfig({
+			isOpen: true,
+			title: "Reporte Excel (CSV) Descargado",
+			message:
+				"Se ha exportado el registro de todas las operaciones y cobros en formato CSV compatible con Excel.",
+			type: "success",
+		});
+	};
+
+	// Filter templates matching current selected category tab
+	const filteredTemplates = plantillasPrecios.filter(
+		(p) => p.categoriaVehiculo === currentCategory,
+	);
+
+	return (
+		<div className="space-y-6">
+			{/* Header and Tabs */}
+			<div className="flex flex-col gap-4">
+				<div>
+					<h1 className="text-3xl font-bold tracking-tight text-foreground">
+						Configuración
+					</h1>
+					<p className="text-muted-foreground">
+						Personaliza el comportamiento del sistema, notificaciones y
+						administra las tarifas de stickers.
+					</p>
+				</div>
+
+				<div className="flex items-center gap-2 border-b border-border pb-px">
+					<button
+						onClick={() => startTransition(() => setConfigTab("general"))}
+						className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+							configTab === "general"
+								? "border-primary text-primary"
+								: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+						}`}
+					>
+						<Settings className="h-4 w-4" />
+						General y Preferencias
+					</button>
+
+					{(currentUser?.rol === "SuperAdmin" ||
+						currentUser?.rol === "AdminSucursal") && (
+						<button
+							onClick={() => startTransition(() => setConfigTab("usuarios"))}
+							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+								configTab === "usuarios"
+									? "border-primary text-primary"
+									: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+							}`}
+						>
+							<Users className="h-4 w-4" />
+							Gestión de Accesos
+						</button>
+					)}
+
+					{(currentUser?.rol === "SuperAdmin" ||
+						currentUser?.rol === "AdminSucursal") && (
+						<button
+							onClick={() => startTransition(() => setConfigTab("roles"))}
+							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+								configTab === "roles"
+									? "border-primary text-primary"
+									: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+							}`}
+						>
+							<Shield className="h-4 w-4" />
+							Roles y Permisos
+						</button>
+					)}
+
+					{(currentUser?.rol === "SuperAdmin" ||
+						currentUser?.rol === "AdminSucursal") && (
+						<button
+							onClick={() => startTransition(() => setConfigTab("bugs"))}
+							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+								configTab === "bugs"
+									? "border-primary text-primary"
+									: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+							}`}
+						>
+							<Bug className="h-4 w-4" />
+							Reportes de Sistema
+							{baseVisibleBugs.filter((b) => b.estado === "Abierto").length >
+								0 && (
+								<span className="ml-1 rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5">
+									{baseVisibleBugs.filter((b) => b.estado === "Abierto").length}
+								</span>
+							)}
+						</button>
+					)}
+
+					{(currentUser?.rol === "SuperAdmin") && (
+						<button
+							onClick={() => startTransition(() => setConfigTab("sucursales"))}
+							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+								configTab === "sucursales"
+									? "border-primary text-primary"
+									: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+							}`}
+						>
+							<Building className="h-4 w-4" />
+							Sucursales
+						</button>
+					)}
+
+					{(currentUser?.rol === "SuperAdmin" ||
+						currentUser?.rol === "AdminSucursal") && (
+						<button
+							onClick={() => startTransition(() => setConfigTab("auditoria"))}
+							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+								configTab === "auditoria"
+									? "border-primary text-primary"
+									: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+							}`}
+						>
+							<ClipboardList className="h-4 w-4" />
+							Auditoría (Log)
+						</button>
+					)}
+				</div>
+			</div>
+
+			{configTab === "roles" ? (
+				<RolesView />
+			) : configTab === "usuarios" ? (
+				<GestionUsuariosView />
+			) : configTab === "sucursales" ? (
+				<SucursalesAdminView onNavigate={() => {}} />
+			) : configTab === "auditoria" ? (
+				<AuditoriaView />
+			) : configTab === "bugs" &&
+				(currentUser?.rol === "SuperAdmin" ||
+					currentUser?.rol === "AdminSucursal") ? (
+				<div className="space-y-4">
+					<div className="flex justify-between items-end">
+						<div>
+							<h2 className="text-xl font-bold text-foreground">
+								{showArchivedBugs
+									? "Bugs Archivados (Resueltos)"
+									: "Reportes de Bugs Activos"}
+							</h2>
+							<p className="text-sm text-muted-foreground">
+								Revisa los problemas reportados por los usuarios.
+							</p>
+						</div>
+						{currentUser?.rol === "SuperAdmin" && (
+							<button
+								onClick={() => setShowArchivedBugs(!showArchivedBugs)}
+								className="text-sm font-semibold bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground px-4 py-2 rounded-lg transition-colors border border-border"
+							>
+								{showArchivedBugs ? "Ver Bugs Activos" : "Ver Bugs Archivados"}
+							</button>
+						)}
+					</div>
+
+					<div className="flex h-[calc(100vh-16rem)] min-h-[500px] border border-border rounded-xl overflow-hidden bg-card animate-fade-in">
+						{/* Master List */}
+						<div className="w-1/3 border-r border-border flex flex-col">
+							<div className="p-4 border-b border-border bg-secondary/20">
+								<h2 className="font-bold text-foreground">Bugs Reportados</h2>
+								<p className="text-xs text-muted-foreground">
+									Selecciona un reporte para ver detalles.
+								</p>
+							</div>
+							<div className="flex-1 overflow-y-auto p-2 space-y-2">
+								{visibleBugs.length === 0 ? (
+									<div className="text-center py-8 text-muted-foreground text-sm">
+										No hay bugs reportados.
+									</div>
+								) : (
+									visibleBugs.map((bug) => (
+										<button
+											key={bug.id}
+											onClick={() => setSelectedBugId(bug.id)}
+											className={`w-full text-left p-3 rounded-lg border transition-all ${
+												selectedBugId === bug.id
+													? "bg-secondary/50 border-primary"
+													: "border-transparent hover:bg-secondary/30 hover:border-border"
+											}`}
+										>
+											<div className="flex justify-between items-start mb-1">
+												<span
+													className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${
+														bug.estado === "Abierto"
+															? "bg-red-500/10 text-red-500"
+															: bug.estado === "En Progreso"
+																? "bg-yellow-500/10 text-yellow-500"
+																: "bg-green-500/10 text-green-500"
+													}`}
+												>
+													{bug.estado}
+												</span>
+												<span className="text-[10px] text-muted-foreground">
+													{bug.fecha}
+												</span>
+											</div>
+											<h4 className="font-semibold text-sm text-foreground truncate">
+												{bug.titulo}
+											</h4>
+											<p className="text-xs text-muted-foreground truncate mt-1">
+												{bug.descripcion}
+											</p>
+										</button>
+									))
+								)}
+							</div>
+						</div>
+
+						{/* Detail View */}
+						<div className="flex-1 flex flex-col bg-background/50">
+							{selectedBugId ? (
+								(() => {
+									const bug = visibleBugs.find((b) => b.id === selectedBugId);
+									if (!bug) return null;
+									return (
+										<>
+											<div className="p-5 border-b border-border bg-card">
+												<div className="flex justify-between items-start mb-4">
+													<div>
+														<h3 className="text-xl font-bold text-foreground mb-2">
+															{bug.titulo}
+														</h3>
+														<div className="flex gap-2">
+															<span className="text-xs font-semibold text-muted-foreground border border-border px-2 py-1 rounded">
+																{bug.tipo}
+															</span>
+															<span
+																className={`text-xs px-2 py-1 rounded font-bold ${
+																	bug.importancia === "Critica"
+																		? "bg-red-600 text-white"
+																		: bug.importancia === "Alta"
+																			? "bg-orange-500 text-white"
+																			: "bg-secondary text-muted-foreground"
+																}`}
+															>
+																{bug.importancia}
+															</span>
+														</div>
+													</div>
+													<select
+														value={bug.estado}
+														onChange={(e) =>
+															updateBug(bug.id, {
+																estado: e.target.value as any,
+															})
+														}
+														className="bg-background border border-border text-sm rounded-lg px-3 py-1.5 font-medium focus:ring-1 focus:ring-primary outline-none"
+													>
+														<option value="Abierto">Abierto</option>
+														<option value="En Progreso">En Progreso</option>
+														<option value="Resuelto">Resuelto</option>
+													</select>
+												</div>
+
+												<div className="bg-secondary/30 p-4 rounded-xl border border-border/50 text-sm mb-4">
+													<p className="text-foreground whitespace-pre-wrap">
+														{bug.descripcion}
+													</p>
+												</div>
+
+												<div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+													<span>
+														<strong>Por:</strong> {bug.usuarioNombre}
+													</span>
+													<span>
+														<strong>Fecha:</strong> {bug.fecha} {bug.hora}
+													</span>
+													<span className="font-mono">
+														<strong>Ruta:</strong> {bug.ruta}
+													</span>
+												</div>
+
+												{bug.imagenes && bug.imagenes.length > 0 && (
+													<div className="mt-4 pt-4 border-t border-border/50">
+														<strong className="text-xs text-muted-foreground mb-2 block">
+															Capturas:
+														</strong>
+														<div className="flex gap-3 overflow-x-auto pb-2">
+															{bug.imagenes.map((img, i) => (
+																<a
+																	key={i}
+																	href={img}
+																	target="_blank"
+																	rel="noreferrer"
+																	className="shrink-0 border border-border rounded-lg overflow-hidden h-24 w-32 hover:opacity-80 transition-opacity"
+																>
+																	<img
+																		src={img}
+																		alt={`Captura ${i + 1}`}
+																		className="h-full w-full object-cover"
+																	/>
+																</a>
+															))}
+														</div>
+													</div>
+												)}
+											</div>
+
+											{/* Comments Section */}
+											<div className="flex-1 overflow-y-auto p-5 space-y-4">
+												<h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+													Comentarios ({bug.comentarios?.length || 0})
+												</h4>
+												<div className="space-y-3">
+													{bug.comentarios?.map((c) => (
+														<div
+															key={c.id}
+															className={`p-3 rounded-xl max-w-[85%] ${c.autorId === currentUser?.id ? "bg-primary/10 border border-primary/20 ml-auto" : "bg-secondary border border-border"}`}
+														>
+															<div className="flex justify-between items-baseline mb-1">
+																<span className="text-xs font-bold text-foreground">
+																	{c.autorNombre}
+																</span>
+																<span className="text-[10px] text-muted-foreground">
+																	{c.fecha} {c.hora}
+																</span>
+															</div>
+															<p className="text-sm text-foreground">
+																{c.texto}
+															</p>
+														</div>
+													))}
+												</div>
+											</div>
+
+											{/* Comment Input */}
+											<div className="p-4 border-t border-border bg-card">
+												<form
+													onSubmit={(e) => {
+														e.preventDefault();
+														if (!newComment.trim() || !currentUser) return;
+														addBugComment(bug.id, {
+															autorId: currentUser.id,
+															autorNombre: currentUser.nombre,
+															texto: newComment.trim(),
+														});
+														setNewComment("");
+													}}
+													className="flex gap-2"
+												>
+													<input
+														type="text"
+														value={newComment}
+														onChange={(e) => setNewComment(e.target.value)}
+														placeholder="Escribe un comentario..."
+														className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+													/>
+													<button
+														type="submit"
+														disabled={!newComment.trim()}
+														className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50 transition-opacity"
+													>
+														Enviar
+													</button>
+												</form>
+											</div>
+										</>
+									);
+								})()
+							) : (
+								<div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+									<Bug className="h-16 w-16 mb-4 opacity-20" />
+									<p>Selecciona un reporte de la lista para ver sus detalles</p>
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			) : (
+				<div className="grid gap-6 md:grid-cols-3 animate-fade-in">
+					{/* Left Col: General configs & System Notifications */}
+					<div className="md:col-span-1 space-y-6">
+						{/* Card 1: Notifications Control */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+							<h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+								<Bell className="h-4.5 w-4.5 text-primary" />
+								Notificaciones del Sistema
+							</h3>
+							<p className="text-xs text-muted-foreground">
+								Configura las notificaciones emergentes de los procesos del
+								taller.
+							</p>
+
+							{/* Activation Toggle */}
+							<div className="flex items-center justify-between border-b border-border pb-3.5">
+								<span className="text-xs font-bold text-foreground">
+									Activar Notificaciones
+								</span>
+								<button
+									onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+									className="focus:outline-none transition-transform active:scale-95 cursor-pointer"
+									title={notificationsEnabled ? "Desactivar" : "Activar"}
+								>
+									{notificationsEnabled ? (
+										<ToggleRight className="h-9 w-9 text-primary" />
+									) : (
+										<ToggleLeft className="h-9 w-9 text-muted-foreground" />
+									)}
+								</button>
+							</div>
+
+							{/* Notification Types Settings */}
+							<div
+								className={`space-y-2.5 transition-opacity ${notificationsEnabled ? "opacity-100" : "opacity-50 pointer-events-none"}`}
+							>
+								<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+									Tipos de Notificaciones Activas:
+								</span>
+
+								<button
+									type="button"
+									onClick={() =>
+										setNotificationTypes({ citas: !notificationTypes.citas })
+									}
+									className="w-full flex items-center justify-between rounded-lg border border-border p-2.5 text-left text-xs font-semibold hover:bg-secondary/40 transition-colors"
+								>
+									<div className="flex items-center gap-2">
+										{notificationTypes.citas ? (
+											<CheckSquare className="h-4.5 w-4.5 text-primary shrink-0" />
+										) : (
+											<Square className="h-4.5 w-4.5 text-muted-foreground shrink-0" />
+										)}
+										<span>Citas e Instalaciones</span>
+									</div>
+								</button>
+
+								<button
+									type="button"
+									onClick={() =>
+										setNotificationTypes({
+											ordenes: !notificationTypes.ordenes,
+										})
+									}
+									className="w-full flex items-center justify-between rounded-lg border border-border p-2.5 text-left text-xs font-semibold hover:bg-secondary/40 transition-colors"
+								>
+									<div className="flex items-center gap-2">
+										{notificationTypes.ordenes ? (
+											<CheckSquare className="h-4.5 w-4.5 text-primary shrink-0" />
+										) : (
+											<Square className="h-4.5 w-4.5 text-muted-foreground shrink-0" />
+										)}
+										<span>Órdenes de Trabajo</span>
+									</div>
+								</button>
+
+								<button
+									type="button"
+									onClick={() =>
+										setNotificationTypes({
+											cotizaciones: !notificationTypes.cotizaciones,
+										})
+									}
+									className="w-full flex items-center justify-between rounded-lg border border-border p-2.5 text-left text-xs font-semibold hover:bg-secondary/40 transition-colors"
+								>
+									<div className="flex items-center gap-2">
+										{notificationTypes.cotizaciones ? (
+											<CheckSquare className="h-4.5 w-4.5 text-primary shrink-0" />
+										) : (
+											<Square className="h-4.5 w-4.5 text-muted-foreground shrink-0" />
+										)}
+										<span>Presupuestos y Cotizaciones</span>
+									</div>
+								</button>
+							</div>
+						</div>
+
+						{/* Card 2: Theme Selector */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+							<h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+								<Sun className="h-4 w-4" />
+								Tema Visual
+							</h3>
+							<p className="text-xs text-muted-foreground">
+								Alterna entre modos claro y oscuro para comodidad de lectura.
+							</p>
+
+							<div className="grid grid-cols-2 gap-2">
+								<button
+									onClick={() => {
+										if (theme !== "light") toggleTheme();
+									}}
+									className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-semibold border transition-all cursor-pointer ${
+										theme === "light"
+											? "bg-primary text-primary-foreground border-primary shadow-sm"
+											: "border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									<Sun className="h-4 w-4" />
+									Claro
+								</button>
+								<button
+									onClick={() => {
+										if (theme !== "dark") toggleTheme();
+									}}
+									className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-semibold border transition-all cursor-pointer ${
+										theme === "dark"
+											? "bg-primary text-primary-foreground border-primary shadow-sm"
+											: "border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									<Moon className="h-4 w-4" />
+									Oscuro
+								</button>
+							</div>
+						</div>
+
+						{/* Card 3: Currency */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+							<h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+								<DollarSign className="h-4 w-4" />
+								Moneda del Sistema
+							</h3>
+							<p className="text-xs text-muted-foreground">
+								La moneda estándar del sistema está fijada de manera rígida.
+							</p>
+
+							<div className="flex items-center gap-3 rounded-lg border border-border p-3.5 bg-secondary/20">
+								<div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-black">
+									$
+								</div>
+								<div>
+									<div className="text-xs text-muted-foreground">
+										Moneda Principal
+									</div>
+									<div className="text-sm font-bold text-foreground">
+										Dólar Estadounidense (USD)
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Card 4: operational reports */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+							<h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+								<FileText className="h-4.5 w-4.5 text-primary" />
+								Reportes de Actividad y Ganancias
+							</h3>
+							<p className="text-xs text-muted-foreground">
+								Exporta un resumen de los trabajos realizados, facturación
+								total, y el listado de vehículos/clientes atendidos.
+							</p>
+
+							<div className="space-y-2">
+								<button
+									onClick={handleDownloadReportPDF}
+									className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 shadow-sm transition-all cursor-pointer"
+								>
+									<Download className="h-4 w-4" />
+									Descargar Reporte PDF
+								</button>
+
+								<button
+									onClick={handleDownloadReportExcel}
+									className="w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-card py-2.5 text-xs font-semibold text-foreground hover:bg-secondary transition-all cursor-pointer"
+								>
+									<FileText className="h-4 w-4 text-green-500" />
+									Descargar Reporte Excel (CSV)
+								</button>
+							</div>
+						</div>
+					</div>
+
+					{/* Right Col: Price List Editor (Divided by tabs/categories) */}
+					<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between space-y-4">
+						<div className="space-y-4">
+							<div className="pb-3 border-b border-border flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+								<div>
+									<h3 className="text-base font-bold text-foreground flex items-center gap-2">
+										<Settings className="h-5 w-5 text-muted-foreground" />
+										Plantilla de Precios para Stickers
+									</h3>
+									<p className="text-xs text-muted-foreground mt-0.5">
+										Establece tarifas de referencia por tipo de transporte para
+										cotizar rápido.
+									</p>
+								</div>
+
+								{/* Add category inline form */}
+								<form
+									onSubmit={handleCreateCategory}
+									className="flex gap-1.5 items-center shrink-0"
+								>
+									<input
+										type="text"
+										required
+										placeholder="Nueva Categoría (Ej. Motos)"
+										value={newCategoryName}
+										onChange={(e) => setNewCategoryName(e.target.value)}
+										className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none w-36 sm:w-40"
+									/>
+									<button
+										type="submit"
+										className="rounded-lg bg-primary text-primary-foreground p-1.5 hover:opacity-90 transition-opacity cursor-pointer"
+										title="Añadir Categoría"
+									>
+										<Plus className="h-4 w-4" />
+									</button>
+								</form>
+							</div>
+
+							{/* Price Category Tabs Selector */}
+							<div className="flex flex-wrap gap-1.5 border-b border-border/60 pb-2">
+								{categoriasPrecios.map((cat) => (
+									<button
+										key={cat}
+										onClick={() => {
+											setActiveCategoryTab(cat);
+											setEditingId(null);
+											setIsEditingCategory(false);
+										}}
+										className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+											currentCategory === cat
+												? "bg-primary text-primary-foreground shadow-sm font-black"
+												: "text-muted-foreground hover:text-foreground hover:bg-secondary/40 border border-transparent"
+										}`}
+									>
+										<Car className="h-3.5 w-3.5" />
+										{cat}
+									</button>
+								))}
+							</div>
+
+							{/* Category Rename/Delete Toolbar */}
+							{currentCategory && (
+								<div className="flex items-center justify-between bg-secondary/20 border border-border rounded-lg p-2.5 text-xs gap-3">
+									{isEditingCategory ? (
+										<div className="flex items-center gap-2 w-full">
+											<input
+												type="text"
+												value={editingCategoryName}
+												onChange={(e) => setEditingCategoryName(e.target.value)}
+												className="flex-1 rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none"
+											/>
+											<button
+												onClick={handleSaveCategoryName}
+												className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
+												title="Guardar nombre"
+											>
+												<Check className="h-4 w-4" />
+											</button>
+											<button
+												onClick={() => setIsEditingCategory(false)}
+												className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
+												title="Cancelar"
+											>
+												<X className="h-4 w-4" />
+											</button>
+										</div>
+									) : (
+										<>
+											<div className="font-semibold flex items-center gap-1 text-muted-foreground">
+												Categoría seleccionada:{" "}
+												<span className="text-foreground font-bold">
+													{currentCategory}
+												</span>
+											</div>
+											<div className="flex items-center gap-2">
+												<button
+													onClick={handleStartEditCategory}
+													className="flex items-center gap-1 text-[11px] font-semibold text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
+												>
+													<Edit2 className="h-3 w-3" />
+													Renombrar
+												</button>
+												<button
+													onClick={handleDeleteCategoryClick}
+													className="flex items-center gap-1 text-[11px] font-semibold text-destructive border border-destructive/20 px-2 py-1 rounded hover:bg-destructive/10 transition-colors cursor-pointer"
+												>
+													<Trash2 className="h-3 w-3" />
+													Eliminar Categoría
+												</button>
+											</div>
+										</>
+									)}
+								</div>
+							)}
+
+							{/* Price list tables of selected Category */}
+							<div className="divide-y divide-border overflow-y-auto max-h-[220px] pr-1 space-y-1">
+								{filteredTemplates.map((tpl) => {
+									const isEditing = editingId === tpl.id;
+									return (
+										<div
+											key={tpl.id}
+											className="flex flex-col sm:flex-row sm:items-center justify-between py-2 px-2 hover:bg-secondary/20 rounded-lg transition-colors gap-3"
+										>
+											<div className="truncate pr-2 flex-1">
+												{isEditing ? (
+													<input
+														type="text"
+														value={editingConcepto}
+														onChange={(e) => setEditingConcepto(e.target.value)}
+														className="w-full rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:border-ring"
+														placeholder="Concepto del trabajo"
+													/>
+												) : (
+													<div className="font-semibold text-sm text-foreground truncate">
+														{tpl.concepto}
+													</div>
+												)}
+											</div>
+
+											<div className="flex items-center gap-3 justify-end shrink-0">
+												{isEditing ? (
+													<div className="flex items-center gap-1.5 animate-fade-in">
+														<span className="text-xs text-muted-foreground font-bold">
+															$
+														</span>
+														<input
+															type="number"
+															min="0"
+															value={editingPrice}
+															onChange={(e) =>
+																setEditingPrice(Number(e.target.value))
+															}
+															className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-foreground font-bold focus:outline-none focus:border-ring"
+														/>
+														<button
+															onClick={() => handleSavePrice(tpl.id)}
+															className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
+															title="Guardar tarifa"
+														>
+															<Check className="h-4 w-4" />
+														</button>
+														<button
+															onClick={handleCancelEdit}
+															className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
+															title="Cancelar"
+														>
+															<X className="h-4 w-4" />
+														</button>
+													</div>
+												) : (
+													<div className="flex items-center gap-3">
+														<span className="text-sm font-bold text-foreground">
+															${tpl.precioSugerido}
+														</span>
+														<button
+															onClick={() => handleStartEdit(tpl)}
+															className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
+														>
+															<Edit2 className="h-3 w-3" />
+															Editar
+														</button>
+														<button
+															onClick={() =>
+																handleDeleteJob(tpl.id, tpl.concepto)
+															}
+															className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
+															title="Eliminar tarifa"
+														>
+															<Trash2 className="h-3.5 w-3.5" />
+														</button>
+													</div>
+												)}
+											</div>
+										</div>
+									);
+								})}
+								{filteredTemplates.length === 0 && (
+									<div className="text-center py-8 text-muted-foreground text-sm">
+										No hay plantillas de tarifas sugeridas registradas para esta
+										categoría.
+									</div>
+								)}
+							</div>
+
+							{/* Add pricing job inline form */}
+							{currentCategory && (
+								<form
+									onSubmit={handleAddJob}
+									className="border-t border-border pt-3.5 mt-2 space-y-3"
+								>
+									<div className="text-xs font-bold text-foreground">
+										Añadir Nuevo Trabajo/Precio a la Categoría:{" "}
+										{currentCategory}
+									</div>
+									<div className="grid gap-3 sm:grid-cols-3">
+										<div className="sm:col-span-2">
+											<input
+												type="text"
+												required
+												placeholder="Concepto (Ej. Rotulado Caja Delantera)"
+												value={newConcepto}
+												onChange={(e) => setNewConcepto(e.target.value)}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
+											/>
+										</div>
+										<div>
+											<input
+												type="number"
+												required
+												min="0"
+												placeholder="Precio Sugerido ($)"
+												value={newPrecioSugerido || ""}
+												onChange={(e) =>
+													setNewPrecioSugerido(Number(e.target.value))
+												}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
+											/>
+										</div>
+									</div>
+									<button
+										type="submit"
+										className="w-full rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+									>
+										<Plus className="h-4.5 w-4.5" />
+										Agregar Tarifa de Referencia
+									</button>
+								</form>
+							)}
+						</div>
+
+						<div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-xs text-muted-foreground font-medium">
+							<TrendingUp className="h-4 w-4 text-purple-500" />
+							<span>
+								Las modificaciones de tarifas solo afectarán a las nuevas
+								cotizaciones y órdenes de trabajo creadas a futuro.
+							</span>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* CONFIRMATION OR SUCCESS OVERLAYS */}
+			<SuccessDialog
+				isOpen={alertConfig.isOpen}
+				onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
+				title={alertConfig.title}
+				message={alertConfig.message}
+				type={alertConfig.type}
+				onConfirm={alertConfig.onConfirm}
+				confirmText={alertConfig.onConfirm ? "Aceptar" : "Entendido"}
+			/>
+		</div>
+	);
+};
