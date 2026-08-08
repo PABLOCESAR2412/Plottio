@@ -22,6 +22,7 @@ import { InventarioView } from "../components/InventarioView";
 import { CatalogoView } from "../components/CatalogoView";
 import { LotesProduccionView } from "../components/LotesProduccionView";
 import { KitsFlotaView } from "../components/KitsFlotaView";
+import { Loader } from "../components/Loader";
 import { useAppStore } from "../store/useAppStore";
 
 export const Route = createFileRoute("/")({
@@ -194,6 +195,14 @@ function AppLayout() {
 					window.location.href = "/";
 				}}
 			/>
+		);
+	}
+
+	if (loading) {
+		return (
+			<div className="w-screen h-screen flex items-center justify-center bg-background">
+				<Loader />
+			</div>
 		);
 	}
 
