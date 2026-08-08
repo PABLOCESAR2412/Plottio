@@ -14,6 +14,7 @@ import {
 	Layers,
 	Factory,
 	Box,
+	Component,
 	X,
 	Activity,
 } from "lucide-react";
@@ -47,7 +48,7 @@ interface SidebarProps {
 			| "inventario"
 			| "catalogo"
 			| "lotes"
-			| "kits";
+			| "kits"
 	) => void;
 	isOpenMobile: boolean;
 	onCloseMobile: () => void;
