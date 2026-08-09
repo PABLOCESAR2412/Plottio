@@ -48,34 +48,41 @@
   - `VehiculosView.tsx`: eliminada línea rota `useAppStore()` (no importada; `categoriasPrecios` venía de `rawCategorias`).
   - Archivo borrado. `tsc`: de 94 → 88 errores (ninguno de `useAppStore`).
 
-- [ ] **Hacer commit de los cambios sin stage**
-  - **Volumen actual:** 40 archivos modificados + 5 nuevos (2 697 inserciones / 770 eliminaciones).
-  - **Plan sugerido de commits (uno por concern):**
-    1. `chore(convex): add bugs + lib/auditoria + lib/crypto helpers`
+- [x] **Hacer commit de los cambios sin stage**
+  - **Hecho (2026-08-09).** 8 commits por concern (`git log --oneline -8`):
+    1. `chore(convex): add bugs module, auditoria and crypto helpers`
     2. `feat(convex): plantillasPrecios and categoriasPrecios module`
     3. `feat(store): introduce useSessionStore and persist only session/UI prefs`
-    4. `feat(ui): refactor views to consume Convex queries (Clientes, Vehiculos, Empresas, …)`
-    5. `feat(ui): Skeleton + TableSkeleton components`
-    6. `fix(convex): move bcrypt to action, fix setTimeout in login`
-    7. `chore: remove legacy useAppStore`
+    4. `feat(ui): refactor views to consume Convex queries`
+    5. `fix(convex): move bcrypt to action, fix setTimeout in login`
+    6. `chore: remove legacy useAppStore`
+    7. `docs: track TODO with migration progress`
+    8. `feat(convex): extend module queries to support migrated views`
 
 ---
 
 ## 🟡 Limpieza de código
 
-- [ ] **Unificar `RolUsuario`**
-  - `useSessionStore.ts` y `useAppStore.ts` declaran el mismo tipo con los mismos literales (`SuperAdmin | AdminSucursal | GerentePV | Cotizador | Instalador | Contador`).
-  - **Decisión:** mover la definición a un archivo compartido (`src/types/auth.ts` o `convex/auth.ts`) y re-exportar.
-  - **Por qué:** evitar drift entre cliente y backend.
+- [x] **Unificar `RolUsuario`**
+  - Hecho (2026-08-09): quinto paso completado.
+  - La definición única ahora vive en `src/types/auth.ts` y se re-exporta.
+  - `useSessionStore.ts` ya no declara el tipo: `import { RolUsuario }` + `export type { RolUsuario }`.
+  - El backend (`convex/auth.ts`) usa el mismo concepto de roles/permisos; el literal vive en el cliente compartido.
 
-- [ ] **Verificar build / tipos / lint**
-  - `bun run check` (biome)
-  - `bun run build` (vite)
-  - Pendiente tras los 40 archivos modificados — no se ha corrido desde la última ronda grande.
+- [x] **Verificar build / tipos / lint** (resultado documentado)
+  - `bun run build` (vite): ✅ pasa (`✓ built in 18.25s`).
+  - `bun run check` (biome): ❌ **382 errores + 181 warnings + 10 infos**.
+    - Causa raíz parcial: `biome.json` targeta `$schema 2.2.4` vs CLI 2.4.5 (`biome migrate` pendiente).
+  - `bunx tsc --noEmit`: ❌ **88 errores** (la mayoría *unused imports / implicit any*).
+  - **⚠️ Crítico detectado durante la verificación:** `login` y `aceptarInvitacion` usan `ctx.runAction`, pero `GenericMutationCtx` **no lo expone** en Convex 1.42.1 (`convex/usuarios.ts:122, 232`). El item `[x]` "Arreglar setTimeout en login" quedó marcado como hecho, pero su fix **no compila** actualmente. `convex dev --once` pasa porque su typecheck va en modo `try`.
 
-- [ ] **Tests**
-  - `vitest` está en `package.json` pero no hay archivos de test.
-  - Mínimo a cubrir: helpers de `lib/crypto`, `registrarAccion`, validación de schemas, y al menos un test E2E del flujo de login.
+- [x] **Tests** (vitest)
+  - Hecho (2026-08-09): 4 archivos / **11 tests pasando** (`bun run test`).
+  - `tests/crypto.test.ts`: helpers de `lib/crypto` (bcrypt + token).
+  - `tests/auditoria.test.ts`: `registrarAccion` (inserción, no bloqueante, cambios vacíos).
+  - `tests/schema.test.ts`: validación de las 24 tablas de `convex/schema.ts`.
+  - `tests/login.test.ts`: flujo de login (3 casos de `verifyPasswordAction` replicados sobre helpers compartidos).
+  - Nota: Convex no expone runner E2E a app en esta versión; el flujo de login se prueba a nivel de lógica de negocio.
 
 ---
 

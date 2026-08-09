@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { RolUsuario } from "../types/auth";
+
+export type { RolUsuario };
 
 /**
  * Sesión y preferencias de UI locales.
@@ -11,14 +14,6 @@ import { persist } from "zustand/middleware";
  * Los datos de negocio (clientes, vehículos, cotizaciones, etc.) ahora viven
  * en Convex y se consultan vía `useQuery(api.*)`. Ya no se persisten en local.
  */
-
-export type RolUsuario =
-	| "SuperAdmin"
-	| "AdminSucursal"
-	| "GerentePV"
-	| "Cotizador"
-	| "Instalador"
-	| "Contador";
 
 export interface SessionUser {
 	id: string;
