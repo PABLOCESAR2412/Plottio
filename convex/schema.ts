@@ -277,10 +277,48 @@ export default defineSchema({
   catalogoServicios: defineTable({
     empresaId: v.id("empresas"),
     nombre: v.string(),
-    categoria: v.string(), // 'rotulado', 'placa', 'cinta_seguridad', 'sticker', 'sello', 'otro'
+    categoria: v.string(),
     precioBase: v.number(),
     activo: v.boolean(),
     fechaCreacion: v.string(),
   }).index("by_empresa", ["empresaId"]).index("by_categoria", ["categoria"]),
+
+  // --- REPORTES DE BUGS ---
+  bugs: defineTable({
+    titulo: v.string(),
+    descripcion: v.string(),
+    tipo: v.string(),
+    importancia: v.string(),
+    ruta: v.string(),
+    fecha: v.string(),
+    hora: v.string(),
+    usuarioId: v.id("usuarios"),
+    usuarioNombre: v.string(),
+    sucursalId: v.optional(v.id("sucursales")),
+    empresaId: v.id("empresas"),
+    imagenes: v.array(v.string()),
+    estado: v.string(),
+    comentarios: v.array(v.object({
+      id: v.string(),
+      autorId: v.id("usuarios"),
+      autorNombre: v.string(),
+      texto: v.string(),
+      fecha: v.string(),
+      hora: v.string(),
+    })),
+  }).index("by_empresa", ["empresaId"]).index("by_estado", ["estado"]),
+
+  // --- PLANTILLAS DE PRECIOS Y CATEGORÍAS DE VEHÍCULOS ---
+  plantillasPrecios: defineTable({
+    empresaId: v.id("empresas"),
+    categoriaVehiculo: v.string(),
+    concepto: v.string(),
+    precioSugerido: v.number(),
+  }).index("by_empresa", ["empresaId"]).index("by_categoria", ["categoriaVehiculo"]),
+
+  categoriasPrecios: defineTable({
+    empresaId: v.id("empresas"),
+    nombre: v.string(),
+  }).index("by_empresa", ["empresaId"]),
 
 });
