@@ -1,12 +1,12 @@
 import { ShieldCheck, Loader2, Mail, Lock, ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import React, { useState } from "react";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 
 export const LoginView: React.FC = () => {
-	const { setCurrentUser } = useAppStore();
+	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
 	const loginMutation = useMutation(api.usuarios.login);
 
 	const [email, setEmail] = useState("");
@@ -20,11 +20,22 @@ export const LoginView: React.FC = () => {
 
 		setIsLoading(true);
 		try {
-			const userId = await loginMutation({ email, password });
+			const usuario = await loginMutation({ email, password });
+			// Convex login devuelve el usuario con _id; el SessionStore lo adapta.
+			setCurrentUser({
+				id: (usuario as { _id: string })._id,
+				nombre: (usuario as { nombre?: string }).nombre ?? "",
+				email: (usuario as { email?: string }).email ?? email,
+				rol: (usuario as { rol?: string }).rol ?? "Cotizador",
+				sucursalId: (usuario as { sucursalId?: string | null }).sucursalId ?? null,
+				pvId: (usuario as { pvId?: string | null }).pvId ?? null,
+				activo: (usuario as { activo?: boolean }).activo ?? true,
+			});
 			toast.success("¡Bienvenido a Plottio!");
-			setCurrentUser(userId);
-		} catch (error: any) {
-			toast.error(error.message || "Error al iniciar sesión");
+		} catch (error) {
+			toast.error(
+				(error as Error).message || "Error al iniciar sesión",
+			);
 		} finally {
 			setIsLoading(false);
 		}

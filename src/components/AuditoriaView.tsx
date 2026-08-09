@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { Activity, Search, Server, Clock, User, FileText } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
+import { TableSkeleton } from "./Skeleton";
 
 export function AuditoriaView() {
-  const { currentUser } = useAppStore();
+  const currentUser = useSessionStore((s) => s.currentUser);
   const logs = useQuery(api.auditoria.getAuditoria, { 
     empresaId: currentUser?.empresa?.id 
   });
@@ -13,11 +14,7 @@ export function AuditoriaView() {
   const [searchTerm, setSearchTerm] = useState("");
 
   if (logs === undefined) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
   const filteredLogs = logs.filter(log => 

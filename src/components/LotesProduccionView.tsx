@@ -2,12 +2,13 @@ import React, { useState, useDeferredValue, startTransition } from "react";
 import { PlusCircle, Search, Package, Factory, Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { toast } from "sonner";
 import type { Id } from "../../convex/_generated/dataModel";
+import { TableSkeleton } from "./Skeleton";
 
 export function LotesProduccionView() {
-  const { currentUser } = useAppStore();
+  const currentUser = useSessionStore((s) => s.currentUser);
   
   // Asumiremos que creas una query getLotes en convex/lotesProduccion.ts
   // Para fines de esta pantalla, necesitamos `api.lotesProduccion.getLotes` y `api.lotesProduccion.crearLoteProduccion`
@@ -30,7 +31,7 @@ export function LotesProduccionView() {
   });
 
   if (!currentUser) return <p>Cargando...</p>;
-  if (lotes === undefined) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-500 w-8 h-8" /></div>;
+  if (lotes === undefined) return <TableSkeleton />;
 
   const filteredLotes = lotes.filter((l: any) => 
     l.numero.toLowerCase().includes(deferredSearchTerm.toLowerCase()) || 

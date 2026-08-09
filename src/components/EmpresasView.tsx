@@ -13,9 +13,10 @@ import {
 	Wrench,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
-import type { Empresa, Vehiculo } from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
 interface EmpresasViewProps {
@@ -33,18 +34,88 @@ interface EmpresasViewProps {
 	onSelectVehicle: (vId: string) => void;
 }
 
+type LocalEmpresa = {
+	id: string;
+	nombre: string;
+	ruc: string;
+	razonSocial?: string;
+	contactoNombre?: string;
+	contactoTelefono?: string;
+	direccion?: string;
+	email?: string;
+	telefono?: string;
+	sucursalId?: string;
+};
+
+type LocalVehiculo = {
+	id: string;
+	propietarioId: string;
+	propietarioTipo: "cliente" | "empresa";
+	placa: string;
+	marca?: string;
+	modelo?: string;
+	anio?: string | number;
+	categoria?: string;
+	numeroSerie?: string;
+	estado?: string;
+	servicios?: Array<{ subtotal?: number }>;
+};
+
 export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	onNavigate,
 	onSelectVehicle,
 }) => {
-	const {
-		empresas,
-		vehiculos,
-		addEmpresa,
-		updateEmpresa,
-		deleteEmpresa,
-		currentUser,
-	} = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+
+	// ── QUERIES ──────────────────────────────────────────────────────────────
+	const rawEmpresas = useQuery(
+		api.organizacion.getEmpresas,
+		{},
+	) as Array<LocalEmpresa & { _id: string }> | undefined;
+	const rawVehiculos = useQuery(
+		api.vehiculos.fetchVehiculos,
+		currentUser?.id ? { usuarioId: currentUser.id as unknown as any } : "skip",
+	) as Array<LocalVehiculo & { _id: string }> | undefined;
+
+	// ── MUTATIONS ────────────────────────────────────────────────────────────
+	const createEmpresaMut = useMutation(api.organizacion.createEmpresa);
+	const updateEmpresaMut = useMutation(api.organizacion.updateEmpresa);
+	const deleteEmpresaMut = useMutation(api.organizacion.deleteEmpresa);
+
+	const empresas: LocalEmpresa[] = useMemo(
+		() =>
+			(rawEmpresas ?? []).map((e) => ({
+				id: e._id,
+				nombre: e.nombre ?? "",
+				ruc: e.ruc ?? "",
+				razonSocial: e.razonSocial,
+				contactoNombre: e.contactoNombre,
+				contactoTelefono: e.contactoTelefono,
+				direccion: e.direccion,
+				email: e.email,
+				telefono: e.telefono,
+				sucursalId: (e as { sucursalId?: string }).sucursalId,
+			})),
+		[rawEmpresas],
+	);
+
+	const vehiculos: LocalVehiculo[] = useMemo(
+		() =>
+			(rawVehiculos ?? []).map((v) => ({
+				id: v._id,
+				propietarioId: v.propietarioId ?? "",
+				propietarioTipo: (v.propietarioTipo as "cliente" | "empresa") ?? "cliente",
+				placa: v.placa ?? "",
+				marca: v.marca,
+				modelo: v.modelo,
+				anio: v.anio,
+				categoria: v.categoria,
+				numeroSerie: v.numeroSerie,
+				estado: v.estado,
+				servicios: v.servicios as Array<{ subtotal?: number }> | undefined,
+			})),
+		[rawVehiculos],
+	);
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedEmpresaId, setSelectedEmpresaId] = useState<string | null>(
@@ -77,7 +148,18 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	const [direccion, setDireccion] = useState("");
 
 	// Selected company for editing
-	const [editingEmpresa, setEditingEmpresa] = useState<Empresa | null>(null);
+	const [editingEmpresa, setEditingEmpresa] = useState<LocalEmpresa | null>(null);
+
+	// Reset selectedEmpresaId si la empresa desaparece
+	useEffect(() => {
+		if (
+			selectedEmpresaId &&
+			!empresas.some((e) => e.id === selectedEmpresaId) &&
+			empresas.length > 0
+		) {
+			setSelectedEmpresaId(empresas[0].id);
+		}
+	}, [empresas, selectedEmpresaId]);
 
 	// Filter companies
 	const filteredEmpresas = empresas.filter((e) => {
@@ -125,7 +207,10 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	).length;
 
 	const totalInvestment = empresaVehiculos.reduce((sum, v) => {
-		const servicesTotal = v.servicios.reduce((sSum, s) => sSum + s.costo, 0);
+		const servicesTotal = (v.servicios ?? []).reduce(
+			(sSum, s) => sSum + ((s as { costo?: number }).costo ?? s.subtotal ?? 0),
+			0,
+		);
 		return sum + servicesTotal;
 	}, 0);
 
@@ -138,80 +223,106 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		setIsCreateOpen(true);
 	};
 
-	const handleCreate = (e: React.FormEvent) => {
+	const handleCreate = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!nombre.trim() || !ruc.trim()) return;
 
-		const newEmp = addEmpresa({
-			nombre: nombre.trim(),
-			ruc: ruc.trim(),
-			contactoNombre: contactoNombre.trim(),
-			contactoTelefono: contactoTelefono.trim(),
-			direccion: direccion.trim(),
-			sucursalId: currentUser?.sucursalId || undefined,
-		});
+		try {
+			const newEmp = (await createEmpresaMut({
+				nombre: nombre.trim(),
+				ruc: ruc.trim(),
+				razonSocial: contactoNombre.trim() || nombre.trim(),
+				email: "",
+				telefono: contactoTelefono.trim() || "",
+				direccion: direccion.trim() || "",
+			})) as unknown as LocalEmpresa & { _id: string };
 
-		setIsCreateOpen(false);
-		setSelectedEmpresaId(newEmp.id);
+			setIsCreateOpen(false);
+			setSelectedEmpresaId(newEmp._id);
 
-		setAlertConfig({
-			isOpen: true,
-			title: "Empresa Registrada",
-			message: `La empresa/flota "${newEmp.nombre}" ha sido creada correctamente.`,
-			type: "success",
-		});
+			setAlertConfig({
+				isOpen: true,
+				title: "Empresa Registrada",
+				message: `La empresa/flota "${newEmp.nombre}" ha sido creada correctamente.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al registrar empresa",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
-	const handleOpenEdit = (emp: Empresa) => {
+	const handleOpenEdit = (emp: LocalEmpresa) => {
 		setEditingEmpresa(emp);
 		setNombre(emp.nombre);
 		setRuc(emp.ruc);
-		setContactoNombre(emp.contactoNombre || "");
-		setContactoTelefono(emp.contactoTelefono || "");
+		setContactoNombre(emp.contactoNombre || emp.razonSocial || "");
+		setContactoTelefono(emp.contactoTelefono || emp.telefono || "");
 		setDireccion(emp.direccion || "");
 		setIsEditOpen(true);
 	};
 
-	const handleEdit = (e: React.FormEvent) => {
+	const handleEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!editingEmpresa || !nombre.trim() || !ruc.trim()) return;
 
-		updateEmpresa(editingEmpresa.id, {
-			nombre: nombre.trim(),
-			ruc: ruc.trim(),
-			contactoNombre: contactoNombre.trim(),
-			contactoTelefono: contactoTelefono.trim(),
-			direccion: direccion.trim(),
-		});
-
-		setIsEditOpen(false);
-
-		setAlertConfig({
-			isOpen: true,
-			title: "Empresa Actualizada",
-			message: `Los datos de "${nombre}" se actualizaron correctamente.`,
-			type: "success",
-		});
+		try {
+			await updateEmpresaMut({
+				id: editingEmpresa.id as unknown as any,
+				nombre: nombre.trim(),
+				ruc: ruc.trim(),
+				razonSocial: contactoNombre.trim() || nombre.trim(),
+				telefono: contactoTelefono.trim() || "",
+				direccion: direccion.trim() || "",
+			});
+			setIsEditOpen(false);
+			setAlertConfig({
+				isOpen: true,
+				title: "Empresa Actualizada",
+				message: `Los datos de "${nombre}" se actualizaron correctamente.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al actualizar",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
-	const handleDeleteClick = (emp: Empresa) => {
+	const handleDeleteClick = (emp: LocalEmpresa) => {
 		setAlertConfig({
 			isOpen: true,
 			title: "¿Eliminar Empresa?",
 			message: `¿Estás seguro de eliminar a "${emp.nombre}"? Esto romperá el vínculo con sus vehículos de flota y desvinculará a los clientes asignados.`,
 			type: "delete",
-			onConfirm: () => {
-				deleteEmpresa(emp.id);
-				if (selectedEmpresaId === emp.id) {
-					const remaining = empresas.filter((e) => e.id !== emp.id);
-					setSelectedEmpresaId(remaining.length > 0 ? remaining[0].id : null);
+			onConfirm: async () => {
+				try {
+					await deleteEmpresaMut({ id: emp.id as unknown as any });
+					if (selectedEmpresaId === emp.id) {
+						const remaining = empresas.filter((e) => e.id !== emp.id);
+						setSelectedEmpresaId(remaining.length > 0 ? remaining[0].id : null);
+					}
+					setAlertConfig({
+						isOpen: true,
+						title: "Empresa Eliminada",
+						message: "La empresa y sus métricas de flota han sido removidas.",
+						type: "success",
+					});
+				} catch (err) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Error al eliminar",
+						message: err instanceof Error ? err.message : "Error desconocido",
+						type: "alert",
+					});
 				}
-				setAlertConfig({
-					isOpen: true,
-					title: "Empresa Eliminada",
-					message: "La empresa y sus métricas de flota han sido removidas.",
-					type: "success",
-				});
 			},
 		});
 	};
@@ -420,7 +531,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 												</div>
 												<div>
 													<div className="font-semibold text-sm text-foreground">
-														{veh.marca} {veh.modelo} ({veh.año})
+														{veh.marca} {veh.modelo} ({veh.anio})
 													</div>
 													<div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
 														<span className="font-bold text-foreground bg-secondary/80 px-1.5 py-0.5 rounded">

@@ -10,14 +10,37 @@ import {
 	Store,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
+type LocalSucursal = {
+	id: string;
+	nombre: string;
+	direccion?: string;
+	esMatriz?: boolean;
+};
+
 export const SucursalSelector: React.FC = () => {
-	const { sucursales, currentUser, setCurrentUser } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
+
+	const rawSucursales = useQuery(api.organizacion.getSucursales, {}) as
+		| Array<LocalSucursal & { _id: string }>
+		| undefined;
+
+	const sucursales: LocalSucursal[] = useMemo(
+		() =>
+			(rawSucursales ?? []).map((s) => ({
+				id: s._id,
+				nombre: s.nombre ?? "",
+				direccion: s.direccion,
+				esMatriz: s.esMatriz as boolean | undefined,
+			})),
+		[rawSucursales],
+	);
 
 	if (!currentUser || currentUser.rol !== "SuperAdmin") return null;
 
@@ -31,8 +54,10 @@ export const SucursalSelector: React.FC = () => {
 				onChange={(e) =>
 					setCurrentUser({
 						...currentUser,
-						sucursalId: e.target.value === "todas" ? undefined : e.target.value,
-					} as any)
+						sucursalId: (e.target.value === "todas"
+							? null
+							: e.target.value) as string | null,
+					})
 				}
 				className="bg-background border border-border text-foreground text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
 			>
@@ -48,12 +73,27 @@ export const SucursalSelector: React.FC = () => {
 };
 
 export const SucursalBadge: React.FC = () => {
-	const { currentUser, sucursales } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const rawSucursales = useQuery(api.organizacion.getSucursales, {}) as
+		| Array<LocalSucursal & { _id: string }>
+		| undefined;
+
+	const sucursales: LocalSucursal[] = useMemo(
+		() =>
+			(rawSucursales ?? []).map((s) => ({
+				id: s._id,
+				nombre: s.nombre ?? "",
+				direccion: s.direccion,
+				esMatriz: s.esMatriz as boolean | undefined,
+			})),
+		[rawSucursales],
+	);
+
 	if (!currentUser) return null;
 
 	const sucursal = sucursales.find((s) => s.id === currentUser.sucursalId);
 	const nombre = sucursal
-		? `${sucursal.nombre} - ${sucursal.direccion}`
+		? `${sucursal.nombre} - ${sucursal.direccion ?? ""}`
 		: "Global (Todas las Sucursales)";
 
 	return (
@@ -79,7 +119,7 @@ interface SucursalesAdminProps {
 }
 
 export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
-	const { currentUser } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
 
 	const empresas = useQuery(api.organizacion.getEmpresas) || [];
 	const sucursales = useQuery(api.organizacion.getSucursales, {}) || [];

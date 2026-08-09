@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { Shield, PlusCircle, Settings2, Check, X, Server } from "lucide-react";
 import { toast } from "sonner";
+import { TableSkeleton } from "./Skeleton";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export function RolesView() {
-  const { currentUser } = useAppStore();
+  const currentUser = useSessionStore((s) => s.currentUser);
   
   const roles = useQuery(api.roles.getRoles, {});
   
@@ -47,11 +48,7 @@ export function RolesView() {
   }, [editingRole, loadRolePermissions]);
 
   if (roles === undefined || permisos === undefined) {
-    return (
-      <div className="flex justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
   const handleOpenModal = (role?: any) => {

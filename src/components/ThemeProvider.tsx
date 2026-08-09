@@ -1,6 +1,6 @@
 import type React from "react";
 import { createContext, useContext, useEffect, useState } from "react";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 
 const ThemeContext = createContext<{
 	theme: "light" | "dark";
@@ -10,7 +10,8 @@ const ThemeContext = createContext<{
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
-	const { theme, toggleTheme } = useAppStore();
+	const theme = useSessionStore((s) => s.theme);
+	const toggleTheme = useSessionStore((s) => s.toggleTheme);
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {

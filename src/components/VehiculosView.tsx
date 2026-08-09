@@ -23,13 +23,13 @@ import type {
 	Empresa,
 	ServicioVehiculo,
 	Vehiculo,
-} from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+} from "../types/data";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Loader } from "./Loader";
+import { TableSkeleton } from "./Skeleton";
 
 interface VehiculosViewProps {
 	onNavigate: (
@@ -54,11 +54,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	clearPreselectedVehicle,
 	onSelectOrder,
 }) => {
-	const {
-		addOrdenTrabajo,
-		categoriasPrecios,
-		currentUser,
-	} = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
 
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
@@ -69,6 +65,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip"
 	);
 	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
+	const rawCategorias = useQuery(
+		api.plantillas.getCategorias,
+		currentUser ? { usuarioId: currentUser.id as unknown as any } : "skip",
+	) as string[] | undefined;
+	const categoriasPrecios: string[] = rawCategorias ?? [];
 
 	const createVehiculoMut = useMutation(api.vehiculos.createVehiculo);
 	const updateVehiculoMut = useMutation(api.vehiculos.updateVehiculo);
@@ -76,6 +77,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	const addServicioVehiculoMut = useMutation(api.vehiculos.addServicioVehiculo);
 	const updateServicioVehiculoMut = useMutation(api.vehiculos.updateServicioVehiculo);
 	const deleteServicioVehiculoMut = useMutation(api.vehiculos.deleteServicioVehiculo);
+	const createOrdenTrabajoMut = useMutation(api.ordenes.createOrdenTrabajo);
 
 	const vehiculos = (rawVehiculos || []).map((v) => ({
 		...v,
@@ -490,7 +492,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	};
 
 	if (rawVehiculos === undefined || rawClientes === undefined || rawEmpresas === undefined) {
-		return <Loader />;
+		return <TableSkeleton />;
 	}
 
 	return (

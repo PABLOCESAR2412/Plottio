@@ -7,12 +7,16 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
-import { useAppStore } from "../store/useAppStore";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useSessionStore } from "../store/useSessionStore";
+import { toast } from "sonner";
 
 export const BugReporter: React.FC<{ currentSection?: string }> = ({
 	currentSection = "Desconocida",
 }) => {
-	const { currentUser, addBug } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const createBugMut = useMutation(api.bugs.createBug);
 	const [isOpen, setIsOpen] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -26,28 +30,34 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 
 	if (!currentUser) return null;
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!titulo.trim() || !descripcion.trim()) return;
 
-		addBug({
-			titulo,
-			descripcion,
-			tipo,
-			importancia,
-			ruta: `/${currentSection.toLowerCase().replace(/ /g, "-")}`,
-			usuarioId: currentUser.id,
-			usuarioNombre: currentUser.nombre,
-			sucursalId: currentUser.sucursalId,
-			imagenes,
-		});
-
-		setIsOpen(false);
-		setTitulo("");
-		setDescripcion("");
-		setTipo("Visual");
-		setImportancia("Media");
-		setImagenes([]);
+		try {
+			await createBugMut({
+				usuarioId: currentUser.id as unknown as any,
+				titulo,
+				descripcion,
+				tipo,
+				importancia,
+				ruta: `/${currentSection.toLowerCase().replace(/ /g, "-")}`,
+				imagenes,
+			});
+			setIsOpen(false);
+			setTitulo("");
+			setDescripcion("");
+			setTipo("Visual");
+			setImportancia("Media");
+			setImagenes([]);
+			toast.success("Reporte enviado", {
+				description: "Tu reporte fue enviado al equipo de Plottio.",
+			});
+		} catch (err) {
+			toast.error("Error al enviar el reporte", {
+				description: (err as Error).message,
+			});
+		}
 	};
 
 	const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

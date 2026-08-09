@@ -1,8 +1,7 @@
 import { jsPDF } from "jspdf";
 import {
-	AlertCircle,
 	Bell,
-	Bug,
+	Bug as BugIcon,
 	Car,
 	Check,
 	CheckSquare,
@@ -26,39 +25,152 @@ import {
 	ClipboardList,
 } from "lucide-react";
 import type React from "react";
-import { useState, startTransition } from "react";
-import type { PlantillaPrecio } from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+import { useState, startTransition, useMemo } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type {
+	PlantillaPrecio,
+	ComentarioBug,
+	Bug as BugType,
+} from "../types/data";
+import { useSessionStore } from "../store/useSessionStore";
 import { GestionUsuariosView } from "./GestionUsuariosView";
 import { RolesView } from "./RolesView";
 import { SuccessDialog } from "./SuccessDialog";
 import { SucursalesAdminView } from "./SucursalesAdmin";
 import { AuditoriaView } from "./AuditoriaView";
 
+type LocalCategoria = {
+	id: string;
+	nombre: string;
+};
+
+type LocalPlantilla = {
+	id: string;
+	categoriaVehiculo: string;
+	concepto: string;
+	precioSugerido: number;
+};
+
+type LocalOrden = {
+	id: string;
+	clienteNombre: string;
+	clienteTelefono?: string;
+	vehiculoTipo: string;
+	placa: string;
+	estado: string;
+	total: number;
+	progreso: number;
+	fechaInicio: string;
+	fechaFin?: string;
+};
+
 export const ConfiguracionView: React.FC = () => {
-	const {
-		theme,
-		toggleTheme,
-		plantillasPrecios,
-		categoriasPrecios,
-		ordenesTrabajo,
-		updatePlantillaPrecio,
-		addPlantillaPrecio,
-		deletePlantillaPrecio,
-		addCategoriaPrecio,
-		updateCategoriaPrecio,
-		deleteCategoriaPrecio,
-		notificationsEnabled,
-		notificationTypes,
-		setNotificationsEnabled,
-		setNotificationTypes,
-		usuarios,
-		currentUser,
-		addUsuario,
-		bugs,
-		updateBug,
-		addBugComment,
-	} = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const theme = useSessionStore((s) => s.theme);
+	const toggleTheme = useSessionStore((s) => s.toggleTheme);
+	const notificationsEnabled = useSessionStore((s) => s.notificationsEnabled);
+	const notificationTypes = useSessionStore((s) => s.notificationTypes);
+	const setNotificationsEnabled = useSessionStore(
+		(s) => s.setNotificationsEnabled,
+	);
+	const setNotificationTypes = useSessionStore((s) => s.setNotificationTypes);
+
+	const usuarioId = currentUser?.id;
+
+	// ── QUERIES ──────────────────────────────────────────────────────────────
+	const rawPlantillas = useQuery(
+		api.plantillas.getPlantillas,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalPlantilla & { _id: string }> | undefined;
+
+	const rawCategorias = useQuery(
+		api.plantillas.getCategoriasFull,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalCategoria & { _id: string }> | undefined;
+
+	const rawOrdenes = useQuery(
+		api.ordenes.fetchOrdenes,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalOrden & { _id: string }> | undefined;
+
+	const rawBugs = useQuery(
+		api.bugs.fetchBugs,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<BugType & { _id: string }> | undefined;
+
+	// ── MUTATIONS ────────────────────────────────────────────────────────────
+	const createPlantillaMut = useMutation(api.plantillas.createPlantillaPrecio);
+	const updatePlantillaMut = useMutation(api.plantillas.updatePlantillaPrecio);
+	const deletePlantillaMut = useMutation(api.plantillas.deletePlantillaPrecio);
+	const addCategoriaMut = useMutation(api.plantillas.addCategoriaPrecio);
+	const updateCategoriaMut = useMutation(api.plantillas.updateCategoriaPrecio);
+	const deleteCategoriaMut = useMutation(api.plantillas.deleteCategoriaPrecio);
+	const updateBugMut = useMutation(api.bugs.updateBug);
+	const addBugCommentMut = useMutation(api.bugs.addBugComment);
+
+	const plantillasPrecios: PlantillaPrecio[] = useMemo(
+		() =>
+			(rawPlantillas ?? []).map((p) => ({
+				id: p._id,
+				categoriaVehiculo: p.categoriaVehiculo ?? "",
+				concepto: p.concepto ?? "",
+				precioSugerido: p.precioSugerido ?? 0,
+			})),
+		[rawPlantillas],
+	);
+
+	const categoriasPrecios: string[] = useMemo(
+		() => (rawCategorias ?? []).map((c) => c.nombre ?? ""),
+		[rawCategorias],
+	);
+
+	// Para operaciones que requieren id (updateCategoriaPrecio / deleteCategoriaPrecio)
+	const categoriasMap = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const c of rawCategorias ?? []) {
+			map.set(c.nombre, c._id);
+		}
+		return map;
+	}, [rawCategorias]);
+
+	const ordenesTrabajo: LocalOrden[] = useMemo(
+		() =>
+			(rawOrdenes ?? []).map((o) => ({
+				id: o._id,
+				clienteNombre: o.clienteNombre ?? "",
+				clienteTelefono: (o as { clienteTelefono?: string }).clienteTelefono,
+				vehiculoTipo: o.vehiculoTipo ?? "",
+				placa: (o as { placa?: string }).placa ?? "",
+				estado: o.estado ?? "Pendiente",
+				total: o.total ?? 0,
+				progreso: o.progreso ?? 0,
+				fechaInicio: (o as { fechaInicio?: string }).fechaInicio ?? "",
+				fechaFin: (o as { fechaFin?: string }).fechaFin,
+			})),
+		[rawOrdenes],
+	);
+
+	const bugs: BugType[] = useMemo(
+		() =>
+			(rawBugs ?? []).map((b) => ({
+				id: b._id,
+				titulo: b.titulo ?? "",
+				descripcion: b.descripcion ?? "",
+				tipo: (b.tipo as BugType["tipo"]) ?? "Otro",
+				importancia: (b.importancia as BugType["importancia"]) ?? "Media",
+				ruta: b.ruta ?? "",
+				fecha: b.fecha ?? "",
+				hora: b.hora ?? "",
+				usuarioId: b.usuarioId ?? "",
+				usuarioNombre: b.usuarioNombre ?? "",
+				sucursalId: b.sucursalId ?? null,
+				imagenes: b.imagenes ?? [],
+				estado: b.estado ?? "Abierto",
+				comentarios: (b.comentarios ?? []) as ComentarioBug[],
+			})),
+		[rawBugs],
+	);
 
 	// Top level config tabs
 	const [configTab, setConfigTab] = useState<"general" | "usuarios" | "roles" | "bugs" | "sucursales" | "auditoria">(
@@ -116,7 +228,7 @@ export const ConfiguracionView: React.FC = () => {
 			: baseVisibleBugs.filter((b) => b.estado !== "Resuelto");
 
 	// Category actions handlers
-	const handleCreateCategory = (e: React.FormEvent) => {
+	const handleCreateCategory = async (e: React.FormEvent) => {
 		e.preventDefault();
 		const name = newCategoryName.trim();
 		if (!name) return;
@@ -129,15 +241,27 @@ export const ConfiguracionView: React.FC = () => {
 			});
 			return;
 		}
-		addCategoriaPrecio(name);
-		setActiveCategoryTab(name);
-		setNewCategoryName("");
-		setAlertConfig({
-			isOpen: true,
-			title: "Categoría Creada",
-			message: `La categoría "${name}" se ha añadido correctamente.`,
-			type: "success",
-		});
+		try {
+			await addCategoriaMut({
+				usuarioId: currentUser!.id as unknown as any,
+				nombre: name,
+			});
+			setActiveCategoryTab(name);
+			setNewCategoryName("");
+			setAlertConfig({
+				isOpen: true,
+				title: "Categoría Creada",
+				message: `La categoría "${name}" se ha añadido correctamente.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error",
+				message: `No se pudo crear la categoría: ${(err as Error).message}`,
+				type: "alert",
+			});
+		}
 	};
 
 	const handleStartEditCategory = () => {
@@ -145,7 +269,7 @@ export const ConfiguracionView: React.FC = () => {
 		setIsEditingCategory(true);
 	};
 
-	const handleSaveCategoryName = () => {
+	const handleSaveCategoryName = async () => {
 		const newName = editingCategoryName.trim();
 		if (!newName || newName === currentCategory) {
 			setIsEditingCategory(false);
@@ -163,16 +287,30 @@ export const ConfiguracionView: React.FC = () => {
 			});
 			return;
 		}
-		const oldName = currentCategory;
-		updateCategoriaPrecio(oldName, newName);
-		setActiveCategoryTab(newName);
-		setIsEditingCategory(false);
-		setAlertConfig({
-			isOpen: true,
-			title: "Categoría Actualizada",
-			message: `La categoría ha sido renombrada a "${newName}".`,
-			type: "success",
-		});
+		try {
+			const catId = categoriasMap.get(currentCategory);
+			if (!catId) throw new Error("Categoría sin id");
+			await updateCategoriaMut({
+				usuarioId: currentUser!.id as unknown as any,
+				categoriaId: catId as unknown as any,
+				nuevoNombre: newName,
+			});
+			setActiveCategoryTab(newName);
+			setIsEditingCategory(false);
+			setAlertConfig({
+				isOpen: true,
+				title: "Categoría Actualizada",
+				message: `La categoría ha sido renombrada a "${newName}".`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error",
+				message: `No se pudo renombrar la categoría: ${(err as Error).message}`,
+				type: "alert",
+			});
+		}
 	};
 
 	const handleDeleteCategoryClick = () => {
@@ -182,24 +320,39 @@ export const ConfiguracionView: React.FC = () => {
 			title: "¿Eliminar Categoría?",
 			message: `¿Estás seguro de eliminar permanentemente la categoría "${currentCategory}"? Se borrarán todas sus tarifas y se actualizará a los vehículos asignados.`,
 			type: "delete",
-			onConfirm: () => {
-				const remaining = categoriasPrecios.filter(
-					(c) => c !== currentCategory,
-				);
-				deleteCategoriaPrecio(currentCategory);
-				setActiveCategoryTab(remaining[0] || "");
-				setAlertConfig({
-					isOpen: true,
-					title: "Categoría Eliminada",
-					message: "La categoría y sus tarifas han sido removidas.",
-					type: "success",
-				});
+			onConfirm: async () => {
+				try {
+					const catId = categoriasMap.get(currentCategory);
+					if (!catId) throw new Error("Categoría sin id");
+					const remaining = categoriasPrecios.filter(
+						(c) => c !== currentCategory,
+					);
+					await deleteCategoriaMut({
+						usuarioId: currentUser!.id as unknown as any,
+						categoriaId: catId as unknown as any,
+						fallback: remaining[0],
+					});
+					setActiveCategoryTab(remaining[0] || "");
+					setAlertConfig({
+						isOpen: true,
+						title: "Categoría Eliminada",
+						message: "La categoría y sus tarifas han sido removidas.",
+						type: "success",
+					});
+				} catch (err) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Error",
+						message: `No se pudo eliminar la categoría: ${(err as Error).message}`,
+						type: "alert",
+					});
+				}
 			},
 		});
 	};
 
 	// Job actions handlers
-	const handleAddJob = (e: React.FormEvent) => {
+	const handleAddJob = async (e: React.FormEvent) => {
 		e.preventDefault();
 		const concept = newConcepto.trim();
 		if (!concept || !currentCategory) return;
@@ -220,19 +373,29 @@ export const ConfiguracionView: React.FC = () => {
 			return;
 		}
 
-		addPlantillaPrecio({
-			categoriaVehiculo: currentCategory,
-			concepto: concept,
-			precioSugerido: newPrecioSugerido,
-		});
-		setNewConcepto("");
-		setNewPrecioSugerido(0);
-		setAlertConfig({
-			isOpen: true,
-			title: "Tarifa Registrada",
-			message: `Se añadió "${concept}" con un precio de $${newPrecioSugerido} USD a ${currentCategory}.`,
-			type: "success",
-		});
+		try {
+			await createPlantillaMut({
+				usuarioId: currentUser!.id as unknown as any,
+				categoriaVehiculo: currentCategory,
+				concepto: concept,
+				precioSugerido: newPrecioSugerido,
+			});
+			setNewConcepto("");
+			setNewPrecioSugerido(0);
+			setAlertConfig({
+				isOpen: true,
+				title: "Tarifa Registrada",
+				message: `Se añadió "${concept}" con un precio de $${newPrecioSugerido} USD a ${currentCategory}.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error",
+				message: `No se pudo crear la tarifa: ${(err as Error).message}`,
+				type: "alert",
+			});
+		}
 	};
 
 	const handleStartEdit = (tpl: PlantillaPrecio) => {
@@ -245,23 +408,34 @@ export const ConfiguracionView: React.FC = () => {
 		setEditingId(null);
 	};
 
-	const handleSavePrice = (id: string) => {
+	const handleSavePrice = async (id: string) => {
 		const concept = editingConcepto.trim();
 		if (!concept || editingPrice < 0) return;
 
-		updatePlantillaPrecio(id, {
-			concepto: concept,
-			precioSugerido: editingPrice,
-		});
-		setEditingId(null);
+		try {
+			await updatePlantillaMut({
+				usuarioId: currentUser!.id as unknown as any,
+				plantillaId: id as unknown as any,
+				concepto: concept,
+				precioSugerido: editingPrice,
+			});
+			setEditingId(null);
 
-		setAlertConfig({
-			isOpen: true,
-			title: "Tarifa Actualizada",
-			message:
-				"La plantilla de precios se actualizó. Las nuevas cotizaciones reflejarán este cambio.",
-			type: "success",
-		});
+			setAlertConfig({
+				isOpen: true,
+				title: "Tarifa Actualizada",
+				message:
+					"La plantilla de precios se actualizó. Las nuevas cotizaciones reflejarán este cambio.",
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error",
+				message: `No se pudo actualizar la tarifa: ${(err as Error).message}`,
+				type: "alert",
+			});
+		}
 	};
 
 	const handleDeleteJob = (id: string, concepto: string) => {
@@ -270,14 +444,26 @@ export const ConfiguracionView: React.FC = () => {
 			title: "¿Eliminar Tarifa?",
 			message: `¿Estás seguro de eliminar permanentemente la tarifa sugerida de "${concepto}"?`,
 			type: "delete",
-			onConfirm: () => {
-				deletePlantillaPrecio(id);
-				setAlertConfig({
-					isOpen: true,
-					title: "Tarifa Eliminada",
-					message: "El trabajo se removió de la plantilla con éxito.",
-					type: "success",
-				});
+			onConfirm: async () => {
+				try {
+					await deletePlantillaMut({
+						usuarioId: currentUser!.id as unknown as any,
+						plantillaId: id as unknown as any,
+					});
+					setAlertConfig({
+						isOpen: true,
+						title: "Tarifa Eliminada",
+						message: "El trabajo se removió de la plantilla con éxito.",
+						type: "success",
+					});
+				} catch (err) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Error",
+						message: `No se pudo eliminar la tarifa: ${(err as Error).message}`,
+						type: "alert",
+					});
+				}
 			},
 		});
 	};
@@ -676,7 +862,7 @@ export const ConfiguracionView: React.FC = () => {
 									: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
 							}`}
 						>
-							<Bug className="h-4 w-4" />
+							<BugIcon className="h-4 w-4" />
 							Reportes de Sistema
 							{baseVisibleBugs.filter((b) => b.estado === "Abierto").length >
 								0 && (
@@ -837,11 +1023,17 @@ export const ConfiguracionView: React.FC = () => {
 													</div>
 													<select
 														value={bug.estado}
-														onChange={(e) =>
-															updateBug(bug.id, {
-																estado: e.target.value as any,
-															})
-														}
+														onChange={async (e) => {
+															try {
+																await updateBugMut({
+																	usuarioId: currentUser.id as unknown as any,
+																	bugId: bug.id as unknown as any,
+																	estado: e.target.value as "Abierto" | "En Progreso" | "Resuelto",
+																});
+															} catch (err) {
+																console.error("Error updating bug:", err);
+															}
+														}}
 														className="bg-background border border-border text-sm rounded-lg px-3 py-1.5 font-medium focus:ring-1 focus:ring-primary outline-none"
 													>
 														<option value="Abierto">Abierto</option>
@@ -924,15 +1116,19 @@ export const ConfiguracionView: React.FC = () => {
 											{/* Comment Input */}
 											<div className="p-4 border-t border-border bg-card">
 												<form
-													onSubmit={(e) => {
+													onSubmit={async (e) => {
 														e.preventDefault();
 														if (!newComment.trim() || !currentUser) return;
-														addBugComment(bug.id, {
-															autorId: currentUser.id,
-															autorNombre: currentUser.nombre,
-															texto: newComment.trim(),
-														});
-														setNewComment("");
+														try {
+															await addBugCommentMut({
+																usuarioId: currentUser.id as unknown as any,
+																bugId: bug.id as unknown as any,
+																texto: newComment.trim(),
+															});
+															setNewComment("");
+														} catch (err) {
+															console.error("Error adding comment:", err);
+														}
 													}}
 													className="flex gap-2"
 												>
@@ -957,7 +1153,7 @@ export const ConfiguracionView: React.FC = () => {
 								})()
 							) : (
 								<div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-									<Bug className="h-16 w-16 mb-4 opacity-20" />
+									<BugIcon className="h-16 w-16 mb-4 opacity-20" />
 									<p>Selecciona un reporte de la lista para ver sus detalles</p>
 								</div>
 							)}

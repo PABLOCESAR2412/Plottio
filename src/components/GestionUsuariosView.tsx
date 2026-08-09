@@ -11,22 +11,92 @@ import {
 	X,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import type { RolUsuario, Usuario } from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+import { api } from "../../convex/_generated/api";
+import type { RolUsuario, Usuario } from "../types/auth";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
+type LocalSucursal = {
+	id: string;
+	nombre: string;
+};
+
+type LocalPuntoVenta = {
+	id: string;
+	nombre: string;
+	sucursalId: string;
+};
+
+type LocalUsuario = {
+	id: string;
+	nombre: string;
+	email: string;
+	rol: string;
+	sucursalId: string | null;
+	pvId: string | null;
+	activo: boolean;
+};
+
 export const GestionUsuariosView: React.FC = () => {
-	const {
-		usuarios,
-		sucursales,
-		puntosVenta,
-		currentUser,
-		updateUsuario,
-		archiveUsuario,
-		addUsuario,
-	} = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const usuarioId = currentUser?.id;
+
+	// ── QUERIES ──────────────────────────────────────────────────────────────
+	const rawUsuarios = useQuery(
+		api.usuarios.getUsuarios,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalUsuario & { _id: string }> | undefined;
+
+	const rawSucursales = useQuery(
+		api.organizacion.getSucursales,
+		{},
+	) as Array<LocalSucursal & { _id: string }> | undefined;
+
+	const rawPuntosVenta = useQuery(
+		api.organizacion.getPuntosVenta,
+		{},
+	) as Array<LocalPuntoVenta & { _id: string }> | undefined;
+
+	// ── MUTATIONS ────────────────────────────────────────────────────────────
+	const updateUsuarioMut = useMutation(api.usuarios.updateUsuario);
+	const archiveUsuarioMut = useMutation(api.usuarios.archiveUsuario);
+	const invitarUsuarioMut = useMutation(api.usuarios.invitarUsuario);
+
+	const usuarios: Usuario[] = useMemo(
+		() =>
+			(rawUsuarios ?? []).map((u) => ({
+				id: u._id,
+				nombre: u.nombre ?? "",
+				email: u.email ?? "",
+				rol: (u.rol as RolUsuario) ?? "Cotizador",
+				sucursalId: u.sucursalId ?? null,
+				pvId: u.pvId ?? null,
+				activo: u.activo ?? false,
+			})),
+		[rawUsuarios],
+	);
+
+	const sucursales: LocalSucursal[] = useMemo(
+		() =>
+			(rawSucursales ?? []).map((s) => ({
+				id: s._id,
+				nombre: s.nombre ?? "",
+			})),
+		[rawSucursales],
+	);
+
+	const puntosVenta: LocalPuntoVenta[] = useMemo(
+		() =>
+			(rawPuntosVenta ?? []).map((p) => ({
+				id: p._id,
+				nombre: p.nombre ?? "",
+				sucursalId: (p as { sucursalId?: string }).sucursalId ?? "",
+			})),
+		[rawPuntosVenta],
+	);
 
 	// Modals state
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -93,23 +163,33 @@ export const GestionUsuariosView: React.FC = () => {
 		setIsEditModalOpen(true);
 	};
 
-	const handleSaveEdit = (e: React.FormEvent) => {
+	const handleSaveEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!editingUser) return;
 
-		updateUsuario(editingUser.id, {
-			rol: editRol,
-			sucursalId: editSucursalId || null,
-			pvId: editPvId || null,
-		});
-
-		setIsEditModalOpen(false);
-		setAlertConfig({
-			isOpen: true,
-			title: "Usuario Actualizado",
-			message: `Los permisos de ${editingUser.nombre} han sido guardados.`,
-			type: "success",
-		});
+		try {
+			await updateUsuarioMut({
+				adminId: currentUser.id as unknown as any,
+				usuarioId: editingUser.id as unknown as any,
+				rol: editRol as string,
+				sucursalId: (editSucursalId || undefined) as unknown as any,
+				pvId: (editPvId || undefined) as unknown as any,
+			});
+			setIsEditModalOpen(false);
+			setAlertConfig({
+				isOpen: true,
+				title: "Usuario Actualizado",
+				message: `Los permisos de ${editingUser.nombre} han sido guardados.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error",
+				message: `No se pudo actualizar el usuario: ${(err as Error).message}`,
+				type: "alert",
+			});
+		}
 	};
 
 	const handleArchiveClick = (u: Usuario) => {
@@ -118,20 +198,32 @@ export const GestionUsuariosView: React.FC = () => {
 			title: "¿Archivar Usuario?",
 			message: `¿Estás seguro de quitarle el acceso al sistema a ${u.nombre}? Su historial se mantendrá.`,
 			type: "delete",
-			onConfirm: () => {
-				archiveUsuario(u.id);
-				setAlertConfig({
-					isOpen: true,
-					title: "Usuario Archivado",
-					message: `${u.nombre} ya no tiene acceso al sistema.`,
-					type: "success",
-				});
+			onConfirm: async () => {
+				try {
+					await archiveUsuarioMut({
+						adminId: currentUser.id as unknown as any,
+						usuarioId: u.id as unknown as any,
+					});
+					setAlertConfig({
+						isOpen: true,
+						title: "Usuario Archivado",
+						message: `${u.nombre} ya no tiene acceso al sistema.`,
+						type: "success",
+					});
+				} catch (err) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Error",
+						message: `No se pudo archivar: ${(err as Error).message}`,
+						type: "alert",
+					});
+				}
 			},
 		});
 	};
 
 	// Handles user invite form submission
-	const handleInviteUser = (e: React.FormEvent) => {
+	const handleInviteUser = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!inviteNombre.trim() || !inviteEmail.trim()) return;
 
@@ -146,44 +238,51 @@ export const GestionUsuariosView: React.FC = () => {
 			return;
 		}
 
-		const result = addUsuario({
-			nombre: inviteNombre,
-			email: inviteEmail,
-			rol: inviteRol,
-			sucursalId:
-				currentUser?.rol === "AdminSucursal"
+		try {
+			const result = await invitarUsuarioMut({
+				adminId: currentUser.id as unknown as any,
+				nombre: inviteNombre,
+				email: inviteEmail,
+				rol: inviteRol as string,
+				sucursalId: (currentUser?.rol === "AdminSucursal"
 					? currentUser.sucursalId
-					: inviteSucursalId || null,
-			pvId: null,
-			activo: false, // pending accept
-		});
+					: inviteSucursalId || undefined) as unknown as any,
+			});
 
-		setIsInviteModalOpen(false);
-		setInviteNombre("");
-		setInviteEmail("");
-		setInviteRol("Cotizador");
-		setInviteSucursalId("");
+			setIsInviteModalOpen(false);
+			setInviteNombre("");
+			setInviteEmail("");
+			setInviteRol("Cotizador");
+			setInviteSucursalId("");
 
-		// Simulate sending email by showing toast with magic link
-		const magicLink = `${window.location.origin}/?token=${result.token}`;
-		toast.success("Invitación generada", {
-			description: (
-				<div className="flex flex-col gap-2 mt-1">
-					<span className="text-xs">Enlace mágico para {inviteNombre}:</span>
-					<input
-						readOnly
-						value={magicLink}
-						className="w-full text-[10px] bg-background border border-border p-1 rounded font-mono"
-						onClick={(e) => {
-							(e.target as HTMLInputElement).select();
-							navigator.clipboard.writeText(magicLink);
-							toast.success("Enlace copiado al portapapeles");
-						}}
-					/>
-				</div>
-			),
-			duration: 10000,
-		});
+			// Mostrar toast con magic link (token generado por Convex)
+			const magicLink = `${window.location.origin}/?token=${result.token}`;
+			toast.success("Invitación generada", {
+				description: (
+					<div className="flex flex-col gap-2 mt-1">
+						<span className="text-xs">Enlace mágico para {inviteNombre}:</span>
+						<input
+							readOnly
+							value={magicLink}
+							className="w-full text-[10px] bg-background border border-border p-1 rounded font-mono"
+							onClick={(e) => {
+								(e.target as HTMLInputElement).select();
+								navigator.clipboard.writeText(magicLink);
+								toast.success("Enlace copiado al portapapeles");
+							}}
+						/>
+					</div>
+				),
+				duration: 10000,
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error",
+				message: `No se pudo generar la invitación: ${(err as Error).message}`,
+				type: "alert",
+			});
+		}
 	};
 
 	return (

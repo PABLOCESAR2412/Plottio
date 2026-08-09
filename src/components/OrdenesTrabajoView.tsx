@@ -21,16 +21,10 @@ import {
 	Wrench,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState, useDeferredValue, startTransition } from "react";
-import { useQuery } from "convex/react";
+import { useEffect, useMemo, useState, useDeferredValue } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import type {
-	Cliente,
-	Empresa,
-	ItemOrdenTrabajo,
-	OrdenTrabajo,
-} from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
 interface OrdenesTrabajoViewProps {
@@ -38,21 +32,172 @@ interface OrdenesTrabajoViewProps {
 	clearPreselectedOrder?: () => void;
 }
 
+type LocalCliente = {
+	id: string;
+	nombre: string;
+	telefono: string;
+	email: string;
+	empresaId: string | null;
+	direccion?: string;
+};
+
+type LocalEmpresa = {
+	id: string;
+	nombre: string;
+	ruc: string;
+	direccion?: string;
+};
+
+type LocalVehiculo = {
+	id: string;
+	placa: string;
+	categoria: string;
+	marca: string;
+	modelo: string;
+	año: string;
+	anio: string;
+	numeroSerie: string;
+};
+
+interface ItemOrdenTrabajo {
+	descripcion: string;
+	cantidad: number;
+	precioUnitario: number;
+	completado: boolean;
+}
+
+interface OrdenTrabajo {
+	id: string;
+	clienteNombre: string;
+	clienteTelefono: string;
+	placa: string;
+	vehiculoTipo: string;
+	items: ItemOrdenTrabajo[];
+	total: number;
+	prioridad: "Alta" | "Media" | "Baja";
+	progreso: number;
+	estado: "Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado";
+	fechaInicio: string;
+	fechaFin: string;
+	notas: string[];
+	fotos: string[];
+	sucursalId?: string;
+	pvId?: string;
+}
+
 export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	preselectedOrderId,
 	clearPreselectedOrder,
 }) => {
-	const {
-		ordenesTrabajo,
-		clientes,
-		empresas,
-		vehiculos,
-		addOrdenTrabajo,
-		updateOrdenTrabajo,
-		deleteOrdenTrabajo,
-		categoriasPrecios,
-		currentUser,
-	} = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const usuarioId = currentUser?.id;
+
+	// ── QUERIES ──────────────────────────────────────────────────────────────
+	const rawOrdenes = useQuery(
+		api.ordenes.fetchOrdenes,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<OrdenTrabajo & { _id: string }> | undefined;
+	const rawClientes = useQuery(
+		api.clientes.fetchClientes,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalCliente & { _id: string }> | undefined;
+	const rawEmpresas = useQuery(
+		api.organizacion.getEmpresas,
+		{},
+	) as Array<LocalEmpresa & { _id: string }> | undefined;
+	const rawVehiculos = useQuery(
+		api.vehiculos.fetchVehiculos,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalVehiculo & { _id: string }> | undefined;
+	const rawCategorias = useQuery(
+		api.plantillas.getCategorias,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<{ _id: string; nombre: string }> | undefined;
+	const rawCatalogo = useQuery(
+		api.catalogoServicios.getServicios,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<{ _id: string; nombre: string; categoria: string; precio: number }> | undefined;
+
+	// ── MUTATIONS ────────────────────────────────────────────────────────────
+	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
+	const updateOrdenMut = useMutation(api.ordenes.updateOrdenTrabajo);
+	const deleteOrdenMut = useMutation(api.ordenes.deleteOrdenTrabajo);
+	const toggleItemMut = useMutation(api.ordenes.toggleItemCompletado);
+
+	// ── ADAPTACIÓN: _id → id ────────────────────────────────────────────────
+	const ordenesTrabajo: OrdenTrabajo[] = useMemo(
+		() =>
+			(rawOrdenes ?? []).map((o) => ({
+				id: o._id,
+				clienteNombre: o.clienteNombre ?? "",
+				clienteTelefono: o.clienteTelefono ?? "",
+				placa: o.placa ?? "",
+				vehiculoTipo: o.vehiculoTipo ?? "",
+				items: (o.items ?? []).map((it) => ({
+					descripcion: it.descripcion ?? "",
+					cantidad: it.cantidad ?? 1,
+					precioUnitario: it.precioUnitario ?? 0,
+					completado: it.completado ?? false,
+				})),
+				total: o.total ?? 0,
+				prioridad: (o.prioridad as OrdenTrabajo["prioridad"]) ?? "Media",
+				progreso: o.progreso ?? 0,
+				estado: (o.estado as OrdenTrabajo["estado"]) ?? "Pendiente",
+				fechaInicio: o.fechaInicio ?? "",
+				fechaFin: o.fechaFin ?? "",
+				notas: o.notas ?? [],
+				fotos: o.fotos ?? [],
+				sucursalId: o.sucursalId,
+				pvId: o.pvId,
+			})),
+		[rawOrdenes],
+	);
+
+	const clientes: LocalCliente[] = useMemo(
+		() =>
+			(rawClientes ?? []).map((c) => ({
+				id: c._id,
+				nombre: c.nombre ?? "",
+				telefono: c.telefono ?? "",
+				email: c.email ?? "",
+				empresaId: c.empresaId ?? null,
+				direccion: c.direccion,
+			})),
+		[rawClientes],
+	);
+
+	const empresas: LocalEmpresa[] = useMemo(
+		() =>
+			(rawEmpresas ?? []).map((e) => ({
+				id: e._id,
+				nombre: e.nombre ?? "",
+				ruc: e.ruc ?? "",
+				direccion: e.direccion,
+			})),
+		[rawEmpresas],
+	);
+
+	const vehiculos: LocalVehiculo[] = useMemo(
+		() =>
+			(rawVehiculos ?? []).map((v) => ({
+				id: v._id,
+				placa: v.placa ?? "",
+				categoria: v.categoria ?? "",
+				marca: v.marca ?? "",
+				modelo: v.modelo ?? "",
+				año: v.anio ?? "",
+				anio: v.anio ?? "",
+				numeroSerie: v.numeroSerie ?? "",
+			})),
+		[rawVehiculos],
+	);
+
+	const categoriasPrecios: string[] = useMemo(
+		() => (rawCategorias ?? []).map((c) => c.nombre),
+		[rawCategorias],
+	);
+
+	const catalogoServicios = rawCatalogo ?? [];
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -60,7 +205,6 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		"Todos" | "Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado"
 	>("Todos");
 
-	const catalogoServicios = useQuery(api.catalogoServicios.getServicios, {}) || [];
 	const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
 		ordenesTrabajo.length > 0 ? ordenesTrabajo[0].id : null,
 	);
@@ -164,24 +308,34 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		}
 	}, [selectedOrder?.id]);
 
-	const handleSaveOrderChanges = () => {
-		if (!selectedOrder || isLocked) return;
-		updateOrdenTrabajo(selectedOrder.id, {
-			placa: editPlaca.trim().toUpperCase(),
-			prioridad: editPrioridad,
-			fechaFin: editFechaFin,
-			notas: [
-				...(selectedOrder.notas || []),
-				"Se actualizaron los datos principales de la orden.",
-			],
-		});
-
-		setAlertConfig({
-			isOpen: true,
-			title: "Cambios Guardados",
-			message: "Los cambios a las especificaciones se guardaron correctamente.",
-			type: "success",
-		});
+	const handleSaveOrderChanges = async () => {
+		if (!selectedOrder || isLocked || !usuarioId) return;
+		try {
+			await updateOrdenMut({
+				usuarioId: usuarioId as unknown as any,
+				ordenId: selectedOrder.id as unknown as any,
+				placa: editPlaca.trim().toUpperCase(),
+				prioridad: editPrioridad,
+				fechaFin: editFechaFin,
+				notas: [
+					...(selectedOrder.notas || []),
+					"Se actualizaron los datos principales de la orden.",
+				],
+			});
+			setAlertConfig({
+				isOpen: true,
+				title: "Cambios Guardados",
+				message: "Los cambios a las especificaciones se guardaron correctamente.",
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al guardar",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	// Handle redirection and auto-selection of work order
@@ -279,60 +433,92 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		setOrderItems((prev) => prev.filter((_, i) => i !== idx));
 	};
 
-	const handleCreateOrder = (e: React.FormEvent) => {
+	const handleCreateOrder = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!clienteNombre.trim() || orderItems.length === 0) return;
+		if (!clienteNombre.trim() || orderItems.length === 0 || !usuarioId) return;
 
-		const newOrd = addOrdenTrabajo({
-			clienteNombre: clienteNombre.trim(),
-			clienteTelefono: clienteTelefono.trim(),
-			placa: placa.trim().toUpperCase() || "S/P",
-			vehiculoTipo,
-			items: orderItems,
-			total: orderItems.reduce(
-				(acc, it) => acc + it.cantidad * it.precioUnitario,
-				0,
-			),
-			prioridad,
-			estado: "Pendiente",
-			fechaInicio: new Date().toISOString().split("T")[0],
-			fechaFin: fechaFin,
-			notas: ["Orden de trabajo iniciada."],
-			fotos: [],
-			sucursalId: currentUser?.sucursalId || undefined,
-			pvId: currentUser?.pvId || undefined,
-		});
+		try {
+			const newOrd = (await createOrdenMut({
+				usuarioId: usuarioId as unknown as any,
+				clienteNombre: clienteNombre.trim(),
+				clienteTelefono: clienteTelefono.trim(),
+				placa: placa.trim().toUpperCase() || "S/P",
+				vehiculoTipo,
+				items: orderItems,
+				prioridad,
+				estado: "Pendiente" as const,
+				fechaInicio: new Date().toISOString().split("T")[0],
+				fechaFin: fechaFin,
+				notas: ["Orden de trabajo iniciada."],
+				fotos: [],
+				sucursalId: currentUser?.sucursalId
+					? (currentUser.sucursalId as unknown as any)
+					: undefined,
+				pvOrigen: currentUser?.pvId ?? undefined,
+			})) as unknown as { _id: string };
 
-		setIsCreateOpen(false);
-		setSelectedOrderId(newOrd.id);
+			setIsCreateOpen(false);
+			setSelectedOrderId(newOrd._id);
 
-		setAlertConfig({
-			isOpen: true,
-			title: "Orden Iniciada",
-			message: `La orden de trabajo "${newOrd.id}" ha sido creada exitosamente.`,
-			type: "success",
-		});
+			setAlertConfig({
+				isOpen: true,
+				title: "Orden Iniciada",
+				message: `La orden de trabajo "${newOrd._id}" ha sido creada exitosamente.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al iniciar la orden",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	// Realtime Checkbox toggle for subtasks
-	const handleToggleTask = (itemIdx: number) => {
-		if (!selectedOrder || isLocked) return; // Disallow toggling if locked
-		const updatedItems = selectedOrder.items.map((it, idx) =>
-			idx === itemIdx ? { ...it, completado: !it.completado } : it,
-		);
-		updateOrdenTrabajo(selectedOrder.id, { items: updatedItems });
+	const handleToggleTask = async (itemIdx: number) => {
+		if (!selectedOrder || isLocked || !usuarioId) return;
+		const item = selectedOrder.items[itemIdx];
+		if (!item) return;
+		try {
+			await toggleItemMut({
+				usuarioId: usuarioId as unknown as any,
+				ordenId: selectedOrder.id as unknown as any,
+				itemIndex: itemIdx,
+				completado: !item.completado,
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al actualizar",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	// Status changes from drop-down
-	const handleStatusChange = (newStatus: OrdenTrabajo["estado"]) => {
-		if (!selectedOrder) return;
-		updateOrdenTrabajo(selectedOrder.id, {
-			estado: newStatus,
-			notas: [
-				...(selectedOrder.notas || []),
-				`Estado cambiado a: ${newStatus}.`,
-			],
-		});
+	const handleStatusChange = async (newStatus: OrdenTrabajo["estado"]) => {
+		if (!selectedOrder || !usuarioId) return;
+		try {
+			await updateOrdenMut({
+				usuarioId: usuarioId as unknown as any,
+				ordenId: selectedOrder.id as unknown as any,
+				estado: newStatus,
+				notas: [
+					...(selectedOrder.notas || []),
+					`Estado cambiado a: ${newStatus}.`,
+				],
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al cambiar estado",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	const handleDeleteOrderClick = (ord: OrdenTrabajo) => {
@@ -341,59 +527,89 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			title: "¿Eliminar Orden de Trabajo?",
 			message: `¿Estás seguro de que deseas eliminar la orden "${ord.id}"? Esta acción removerá el registro del panel de control permanentemente.`,
 			type: "delete",
-			onConfirm: () => {
-				deleteOrdenTrabajo(ord.id);
-				const remaining = ordenesTrabajo.filter((o) => o.id !== ord.id);
-				setSelectedOrderId(remaining.length > 0 ? remaining[0].id : null);
-				setAlertConfig({
-					isOpen: true,
-					title: "Orden Eliminada",
-					message: "La orden fue removida del historial.",
-					type: "success",
-				});
+			onConfirm: async () => {
+				if (!usuarioId) return;
+				try {
+					await deleteOrdenMut({
+						usuarioId: usuarioId as unknown as any,
+						ordenId: ord.id as unknown as any,
+					});
+					const remaining = ordenesTrabajo.filter((o) => o.id !== ord.id);
+					setSelectedOrderId(remaining.length > 0 ? remaining[0].id : null);
+					setAlertConfig({
+						isOpen: true,
+						title: "Orden Eliminada",
+						message: "La orden fue removida del historial.",
+						type: "success",
+					});
+				} catch (err) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Error al eliminar",
+						message: err instanceof Error ? err.message : "Error desconocido",
+						type: "alert",
+					});
+				}
 			},
 		});
 	};
 
 	// Timeline: Add custom text notes
-	const handleAddNote = (e: React.FormEvent) => {
+	const handleAddNote = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!selectedOrder || !newNote.trim()) return;
-
-		updateOrdenTrabajo(selectedOrder.id, {
-			notas: [...(selectedOrder.notas || []), newNote.trim()],
-		});
-		setNewNote("");
+		if (!selectedOrder || !newNote.trim() || !usuarioId) return;
+		try {
+			await updateOrdenMut({
+				usuarioId: usuarioId as unknown as any,
+				ordenId: selectedOrder.id as unknown as any,
+				notas: [...(selectedOrder.notas || []), newNote.trim()],
+			});
+			setNewNote("");
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al añadir nota",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	// Timeline: Add simulated wrapping photos using Unsplash gallery elements
-	const handleAddPhoto = () => {
-		if (!selectedOrder) return;
-
+	const handleAddPhoto = async () => {
+		if (!selectedOrder || !usuarioId) return;
 		// Realistic Unsplash wrapper vehicle pictures
 		const mockPhotos = [
 			"https://images.unsplash.com/photo-1611245807205-9f170fe79155?auto=format&fit=crop&w=600&q=80",
 			"https://images.unsplash.com/photo-1507136566006-cfc505b114fc?auto=format&fit=crop&w=600&q=80",
 			"https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80",
 		];
-
 		const randomPhoto =
 			mockPhotos[Math.floor(Math.random() * mockPhotos.length)];
-
-		updateOrdenTrabajo(selectedOrder.id, {
-			fotos: [...(selectedOrder.fotos || []), randomPhoto],
-			notas: [
-				...(selectedOrder.notas || []),
-				"Se añadió una nueva foto del proceso de instalación.",
-			],
-		});
-
-		setAlertConfig({
-			isOpen: true,
-			title: "Imagen Registrada",
-			message: "Se cargó una foto de instalación en el timeline de la orden.",
-			type: "success",
-		});
+		try {
+			await updateOrdenMut({
+				usuarioId: usuarioId as unknown as any,
+				ordenId: selectedOrder.id as unknown as any,
+				fotos: [...(selectedOrder.fotos || []), randomPhoto],
+				notas: [
+					...(selectedOrder.notas || []),
+					"Se añadió una nueva foto del proceso de instalación.",
+				],
+			});
+			setAlertConfig({
+				isOpen: true,
+				title: "Imagen Registrada",
+				message: "Se cargó una foto de instalación en el timeline de la orden.",
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al añadir foto",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	// INVOICE COPY HANDLER
@@ -680,19 +896,20 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												{!isLocked && (
 													<button
 														type="button"
-														onClick={() => {
+														onClick={async () => {
+															if (!selectedOrder || !usuarioId) return;
 															const updatedItems = selectedOrder.items.filter(
 																(_, i) => i !== idx,
 															);
-															const newTotal = updatedItems.reduce(
-																(sum, item) =>
-																	sum + item.cantidad * item.precioUnitario,
-																0,
-															);
-															updateOrdenTrabajo(selectedOrder.id, {
-																items: updatedItems,
-																total: newTotal,
-															});
+															try {
+																await updateOrdenMut({
+																	usuarioId: usuarioId as unknown as any,
+																	ordenId: selectedOrder.id as unknown as any,
+																	items: updatedItems,
+																});
+															} catch (err) {
+																console.error(err);
+															}
 														}}
 														className="text-destructive hover:bg-destructive/10 p-1.5 rounded transition-colors shrink-0"
 														title="Eliminar tarea/sticker"
@@ -711,7 +928,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 									{!isLocked && (
 										<form
-											onSubmit={(e) => {
+											onSubmit={async (e) => {
 												e.preventDefault();
 												const form = e.currentTarget;
 												const descInput = form.elements.namedItem(
@@ -740,16 +957,17 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 													},
 												];
 
-												const newTotal = updatedItems.reduce(
-													(sum, item) =>
-														sum + item.cantidad * item.precioUnitario,
-													0,
-												);
-
-												updateOrdenTrabajo(selectedOrder.id, {
-													items: updatedItems,
-													total: newTotal,
-												});
+												if (usuarioId) {
+													try {
+														await updateOrdenMut({
+															usuarioId: usuarioId as unknown as any,
+															ordenId: selectedOrder.id as unknown as any,
+															items: updatedItems,
+														});
+													} catch (err) {
+														console.error(err);
+													}
+												}
 
 												form.reset();
 											}}
@@ -769,7 +987,10 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 													if (found) {
 														const priceInput = e.target.form?.elements.namedItem("taskPrice") as HTMLInputElement;
 														if (priceInput && Number(priceInput.value) === 0) {
-															priceInput.value = found.precioBase.toString();
+															const precio = (found as { precio?: number }).precio
+																?? (found as { precioBase?: number }).precioBase
+																?? 0;
+															priceInput.value = precio.toString();
 														}
 													}
 												}}
@@ -777,11 +998,16 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-ring"
 											/>
 											<datalist id="orden-servicios-list">
-												{catalogoServicios.map((s) => (
-													<option key={s._id} value={s.nombre}>
-														${s.precioBase} - {s.categoria}
-													</option>
-												))}
+												{catalogoServicios.map((s) => {
+													const precio = (s as { precio?: number }).precio
+														?? (s as { precioBase?: number }).precioBase
+														?? 0;
+													return (
+														<option key={s._id} value={s.nombre}>
+															${precio} - {s.categoria}
+														</option>
+													);
+												})}
 											</datalist>
 											<div className="grid grid-cols-2 gap-2">
 												<div>

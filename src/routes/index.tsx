@@ -23,7 +23,7 @@ import { CatalogoView } from "../components/CatalogoView";
 import { LotesProduccionView } from "../components/LotesProduccionView";
 import { KitsFlotaView } from "../components/KitsFlotaView";
 import { Loader } from "../components/Loader";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 
 export const Route = createFileRoute("/")({
 	component: AppLayout,
@@ -44,7 +44,7 @@ type TabId =
 	| "kits";
 
 function AppLayout() {
-	const { currentUser } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
 	const [activeTab, setActiveTab] = useState<TabId>("dashboard");
 	const [isOpenMobile, setIsOpenMobile] = useState(false);
 	const [loading, setLoading] = useState(true);

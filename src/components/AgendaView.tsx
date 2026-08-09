@@ -14,22 +14,26 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import type { Cita } from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { TableSkeleton } from "./Skeleton";
 
 export const AgendaView: React.FC = () => {
-	const { currentUser } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
 	
 	const citasData = useQuery(api.citas.fetchCitas, currentUser ? { usuarioId: currentUser.id as any } : "skip");
 	const createCitaMutation = useMutation(api.citas.createCita);
 	const updateCitaMutation = useMutation(api.citas.updateCita);
 	const deleteCitaMutation = useMutation(api.citas.deleteCita);
 
-	const citas = citasData || [];
+	if (citasData === undefined) {
+		return <TableSkeleton />;
+	}
+
+	const citas = citasData;
 
 	// Selected date on calendar. Today is June 3, 2026 according to system local time
 	const [currentYear, setCurrentYear] = useState(2026);

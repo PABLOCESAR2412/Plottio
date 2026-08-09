@@ -2,11 +2,19 @@ import React, { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { PackageSearch, AlertTriangle, ArrowRightLeft, Plus, Settings2, Package, TrendingDown, TrendingUp, X, Loader2 } from "lucide-react";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { toast } from "sonner";
+import { TableSkeleton } from "./Skeleton";
 
 export const InventarioView: React.FC = () => {
-  const { currentUser, sucursales } = useAppStore();
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const rawSucursales = useQuery(api.organizacion.getSucursales, {}) as
+    | Array<{ id: string; nombre: string }>
+    | undefined;
+  const sucursales = (rawSucursales ?? []).map((s) => ({
+    id: (s as { _id?: string })._id ?? s.id,
+    nombre: s.nombre,
+  }));
   const inventario = useQuery(api.inventario.getInventarioConsolidado, currentUser ? { usuarioId: currentUser.id as any } : "skip");
   
   const createItemMutation = useMutation(api.inventario.createInventarioItems);
@@ -21,6 +29,10 @@ export const InventarioView: React.FC = () => {
 
   // New Item Form
   const [newItem, setNewItem] = useState({ nombre: "", tipo: "", descripcion: "", costoUnitario: 0, unidadMedida: "Unidades" });
+
+  if (inventario === undefined) {
+    return <TableSkeleton />;
+  }
 
   // Transfer Form
   const [transfer, setTransfer] = useState({ desde: "", hacia: "", itemId: "", cantidad: 0 });
@@ -182,13 +194,7 @@ export const InventarioView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {inventario === undefined ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
-                    Cargando inventario...
-                  </td>
-                </tr>
-              ) : inventario.length === 0 ? (
+              {inventario?.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                     No hay ítems en el inventario.

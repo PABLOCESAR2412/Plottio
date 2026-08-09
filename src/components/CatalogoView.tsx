@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { PlusCircle, Search, Settings, Tag, Layers, Settings2, Loader2, Edit, Trash2 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { toast } from "sonner";
 import type { Id } from "../../convex/_generated/dataModel";
+import { TableSkeleton } from "./Skeleton";
 
 export function CatalogoView() {
-  const { currentUser } = useAppStore();
+  const currentUser = useSessionStore((s) => s.currentUser);
   const servicios = useQuery(api.catalogoServicios.getServicios, {});
   
   const createServicio = useMutation(api.catalogoServicios.createServicio);
@@ -21,7 +22,7 @@ export function CatalogoView() {
     precioBase: 0,
   });
 
-  if (servicios === undefined) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
+  if (servicios === undefined) return <TableSkeleton />;
 
   const filteredServicios = servicios.filter(s => 
     s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 

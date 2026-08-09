@@ -9,7 +9,10 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import type React from "react";
-import { useAppStore } from "../store/useAppStore";
+import { useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useSessionStore } from "../store/useSessionStore";
 
 interface DashboardViewProps {
 	onNavigate: (
@@ -27,12 +30,71 @@ interface DashboardViewProps {
 	onAgendarCitaClick: () => void;
 }
 
+type LocalOrden = {
+	id: string;
+	clienteNombre: string;
+	vehiculoTipo: string;
+	total: number;
+	progreso: number;
+	estado: string;
+	sucursalId?: string;
+};
+
+type LocalCita = {
+	id: string;
+	clienteNombre: string;
+	vehiculoPlaca: string;
+	servicio: string;
+	fecha: string;
+	hora: string;
+	estado: "Confirmada" | "Pendiente" | "Cancelada";
+};
+
 export const DashboardView: React.FC<DashboardViewProps> = ({
 	onNavigate,
 	onCreateCotizacionClick,
 	onAgendarCitaClick,
 }) => {
-	const { ordenesTrabajo, citas, clientes, currentUser } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const usuarioId = currentUser?.id;
+
+	const rawOrdenes = useQuery(
+		api.ordenes.fetchOrdenes,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalOrden & { _id: string }> | undefined;
+
+	const rawCitas = useQuery(
+		api.citas.fetchCitas,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalCita & { _id: string }> | undefined;
+
+	const ordenesTrabajo: LocalOrden[] = useMemo(
+		() =>
+			(rawOrdenes ?? []).map((o) => ({
+				id: o._id,
+				clienteNombre: o.clienteNombre ?? "",
+				vehiculoTipo: o.vehiculoTipo ?? "",
+				total: o.total ?? 0,
+				progreso: o.progreso ?? 0,
+				estado: o.estado ?? "Pendiente",
+				sucursalId: o.sucursalId,
+			})),
+		[rawOrdenes],
+	);
+
+	const citas: LocalCita[] = useMemo(
+		() =>
+			(rawCitas ?? []).map((c) => ({
+				id: c._id,
+				clienteNombre: c.clienteNombre ?? "",
+				vehiculoPlaca: c.vehiculoPlaca ?? "",
+				servicio: c.servicio ?? "",
+				fecha: c.fecha ?? "",
+				hora: c.hora ?? "",
+				estado: (c.estado as LocalCita["estado"]) ?? "Pendiente",
+			})),
+		[rawCitas],
+	);
 
 	// SaaS Multi-tenant filtering
 	const visibleOrders =
@@ -51,8 +113,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 		(o) => o.estado === "Listo" || o.estado === "Entregado",
 	).length;
 
-	// Today is defined as 2026-06-03 according to instructions
-	const todayStr = "2026-06-03";
+	// Citas para hoy (fecha real, no hardcoded)
+	const todayStr = new Date().toISOString().split("T")[0];
 	const todayCitas = citas.filter((c) => c.fecha === todayStr);
 	const todayCitasCount = todayCitas.length;
 
@@ -176,7 +238,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 							{todayCitasCount}
 						</span>
 						<span className="text-xs text-blue-500 font-medium">
-							03 de Junio
+							{new Date().toLocaleDateString("es-EC", {
+								day: "2-digit",
+								month: "long",
+							})}
 						</span>
 					</div>
 				</div>

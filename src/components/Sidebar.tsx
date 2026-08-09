@@ -18,8 +18,10 @@ import {
 	X,
 	Activity,
 } from "lucide-react";
-import React, { useState, startTransition } from "react";
-import { useAppStore } from "../store/useAppStore";
+import React, { useState, startTransition, useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useSessionStore } from "../store/useSessionStore";
 
 interface SidebarProps {
 	activeTab:
@@ -54,6 +56,16 @@ interface SidebarProps {
 	onCloseMobile: () => void;
 }
 
+type LocalOrden = {
+	id: string;
+	estado: string;
+};
+
+type LocalCita = {
+	id: string;
+	estado: string;
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({
 	activeTab,
 	onNavigate,
@@ -61,15 +73,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
 	onCloseMobile,
 }) => {
 	const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-	const {
-		theme,
-		toggleTheme,
-		ordenesTrabajo,
-		citas,
-		usuarios,
-		currentUser,
-		setCurrentUser,
-	} = useAppStore();
+	const theme = useSessionStore((s) => s.theme);
+	const toggleTheme = useSessionStore((s) => s.toggleTheme);
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
+
+	const usuarioId = currentUser?.id;
+
+	const rawOrdenes = useQuery(
+		api.ordenes.fetchOrdenes,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalOrden & { _id: string }> | undefined;
+
+	const rawCitas = useQuery(
+		api.citas.fetchCitas,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalCita & { _id: string }> | undefined;
+
+	const ordenesTrabajo: LocalOrden[] = useMemo(
+		() =>
+			(rawOrdenes ?? []).map((o) => ({
+				id: o._id,
+				estado: o.estado ?? "Pendiente",
+			})),
+		[rawOrdenes],
+	);
+
+	const citas: LocalCita[] = useMemo(
+		() =>
+			(rawCitas ?? []).map((c) => ({
+				id: c._id,
+				estado: c.estado ?? "Pendiente",
+			})),
+		[rawCitas],
+	);
 
 	// Statistics indicators
 	const activeOrdersCount = ordenesTrabajo.filter(
@@ -79,7 +116,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 		(c) => c.estado === "Pendiente",
 	).length;
 
-	const menuItems = [
+	type MenuItem = {
+		id:
+			| "dashboard"
+			| "clientes"
+			| "empresas"
+			| "vehiculos"
+			| "cotizaciones"
+			| "ordenes"
+			| "agenda"
+			| "configuracion"
+			| "inventario"
+			| "catalogo"
+			| "lotes"
+			| "kits";
+		label: string;
+		icon: React.ComponentType<{ className?: string }>;
+		badge?: number;
+		roles?: readonly string[];
+	};
+
+	const menuItems: readonly MenuItem[] = [
 		{ id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
 		{ id: "clientes", label: "Clientes", icon: Users },
 		{ id: "empresas", label: "Empresas / Flotas", icon: Building2 },
@@ -124,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 			icon: Settings,
 			roles: ["SuperAdmin"],
 		},
-	] as const;
+	];
 
 	const filteredMenuItems = menuItems.filter((item) => {
 		if (!currentUser) return false;

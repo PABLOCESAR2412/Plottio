@@ -1,31 +1,31 @@
 import { AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { useAppStore } from "../store/useAppStore";
+import { api } from "../../convex/_generated/api";
+
+type InvitedUser = {
+	id: string;
+	nombre: string;
+	email: string;
+	invitationAccepted: boolean;
+};
 
 export const AceptarInvitacionView: React.FC<{
 	token: string;
 	onNavigateToLogin: () => void;
 }> = ({ token, onNavigateToLogin }) => {
-	const { usuarios } = useAppStore();
-	const [user, setUser] = useState<any>(undefined);
-
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isSuccess, setIsSuccess] = useState(false);
 
-	useEffect(() => {
-		// Mock token verification from store
-		const foundUser = usuarios.find((u) => (u as any).activo === false); // We can just simulate picking the inactive user
-		// Since we don't store the token permanently in the mock, we just trust it if there's an inactive user
-		if (foundUser) {
-			setUser(foundUser);
-		} else {
-			setUser(null); // invalid
-		}
-	}, [token, usuarios]);
+	const user = useQuery(api.usuarios.getUserByToken, { token }) as
+		| InvitedUser
+		| null
+		| undefined;
+	const aceptarInvitacionMut = useMutation(api.usuarios.aceptarInvitacion);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -40,16 +40,16 @@ export const AceptarInvitacionView: React.FC<{
 
 		setIsSubmitting(true);
 		try {
-			// Mock activation
-			await new Promise((r) => setTimeout(r, 1000));
-			// Normally we would use: await acceptMutation({ token, password });
+			await aceptarInvitacionMut({ token, password });
 			setIsSuccess(true);
 			toast.success("Cuenta activada exitosamente");
 			setTimeout(() => {
 				onNavigateToLogin();
 			}, 3000);
-		} catch (error: any) {
-			toast.error(error.message || "Error al aceptar invitación");
+		} catch (error) {
+			toast.error(
+				(error as Error).message || "Error al aceptar invitación",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}

@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { PlusCircle, Box, Truck, Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { toast } from "sonner";
+import { TableSkeleton } from "./Skeleton";
 
 export function KitsFlotaView() {
-  const { currentUser } = useAppStore();
+  const currentUser = useSessionStore((s) => s.currentUser);
   
   const kits = useQuery(api.kitsFlota.getKits, {});
   
@@ -34,7 +35,7 @@ export function KitsFlotaView() {
   const [selectedServicioId, setSelectedServicioId] = useState("");
 
   if (!currentUser) return <p>Cargando...</p>;
-  if (kits === undefined || servicios === undefined) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-500 w-8 h-8" /></div>;
+  if (kits === undefined || servicios === undefined) return <TableSkeleton />;
 
   const filteredKits = kits.filter((k: any) => 
     k.nombre.toLowerCase().includes(searchTerm.toLowerCase())

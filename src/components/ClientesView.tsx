@@ -13,13 +13,13 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import type { Cliente, Vehiculo, Empresa } from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+import type { Cliente, Vehiculo, Empresa } from "../types/data";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Loader } from "./Loader";
+import { TableSkeleton } from "./Skeleton";
 
 interface ClientesViewProps {
 	onNavigate: (
@@ -40,7 +40,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	onNavigate,
 	onSelectVehicle,
 }) => {
-	const { currentUser } = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
 
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
@@ -248,7 +248,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	};
 
 	if (rawClientes === undefined || rawVehiculos === undefined || rawEmpresas === undefined) {
-		return <Loader />;
+		return <TableSkeleton />;
 	}
 
 	return (

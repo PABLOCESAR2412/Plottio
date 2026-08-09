@@ -20,17 +20,10 @@ import {
 	User,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import type {
-	Cliente,
-	Cotizacion,
-	ItemCotizacion,
-	PlantillaPrecio,
-	Vehiculo,
-} from "../store/useAppStore";
-import { useAppStore } from "../store/useAppStore";
+import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
 interface CotizacionesViewProps {
@@ -47,23 +40,170 @@ interface CotizacionesViewProps {
 	) => void;
 }
 
+// Tipos mínimos que necesitamos localmente (Convex devuelve _id; alias id para no romper la UI)
+type LocalCliente = {
+	id: string;
+	nombre: string;
+	telefono: string;
+	email: string;
+	empresaId: string | null;
+	sucursalId?: string;
+};
+
+type LocalVehiculo = {
+	id: string;
+	propietarioId: string;
+	propietarioTipo: "cliente" | "empresa";
+	placa: string;
+	categoria: string;
+	marca: string;
+	modelo: string;
+	año: string;
+	anio: string;
+	numeroSerie: string;
+	estado: "Activo" | "En Mantenimiento" | "Inactivo";
+};
+
+type LocalPlantilla = {
+	id: string;
+	categoriaVehiculo: string;
+	concepto: string;
+	precioSugerido: number;
+};
+
+interface ItemCotizacion {
+	descripcion: string;
+	cantidad: number;
+	precioUnitario: number;
+}
+
+interface Cotizacion {
+	id: string;
+	clienteNombre: string;
+	clienteTelefono: string;
+	vehiculoTipo: string;
+	items: ItemCotizacion[];
+	total: number;
+	estado: "Pendiente" | "Aceptada" | "Rechazada";
+	fecha: string;
+	sucursalId?: string;
+	pvId?: string;
+}
+
 export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	onNavigate,
 }) => {
-	const {
-		clientes,
-		plantillasPrecios,
-		addCotizacion,
-		addOrdenTrabajo,
-		cotizaciones,
-		deleteCotizacion,
-		addVehiculo,
-		vehiculos,
-		categoriasPrecios,
-		currentUser,
-	} = useAppStore();
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const usuarioId = currentUser?.id as
+		| (string & { _id?: string })
+		| undefined;
 
-	const catalogoServicios = useQuery(api.catalogoServicios.getServicios, {}) || [];
+	// ── QUERIES (sustituyen a los arrays del store) ─────────────────────────
+	const rawCotizaciones = useQuery(
+		api.cotizaciones.fetchCotizaciones,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<Cotizacion & { _id: string }> | undefined;
+
+	const rawClientes = useQuery(
+		api.clientes.fetchClientes,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalCliente & { _id: string }> | undefined;
+
+	const rawVehiculos = useQuery(
+		api.vehiculos.fetchVehiculos,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalVehiculo & { _id: string }> | undefined;
+
+	const rawPlantillas = useQuery(
+		api.plantillas.getPlantillas,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<LocalPlantilla & { _id: string }> | undefined;
+
+	const rawCategorias = useQuery(
+		api.plantillas.getCategorias,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<{ _id: string; nombre: string }> | undefined;
+
+	const rawCatalogoServicios = useQuery(
+		api.catalogoServicios.getServicios,
+		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+	) as Array<{ _id: string; nombre: string; categoria: string; precio: number }> | undefined;
+
+	// ── MUTATIONS (sustituyen a los setters de Zustand) ─────────────────────
+	const createCotizacionMut = useMutation(api.cotizaciones.createCotizacion);
+	const deleteCotizacionMut = useMutation(api.cotizaciones.deleteCotizacion);
+	const createVehiculoMut = useMutation(api.vehiculos.createVehiculo);
+	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
+	const createClienteMut = useMutation(api.clientes.createCliente);
+
+	// ── ADAPTACIÓN: Convex devuelve _id; mapeamos a `id` para mantener la UI ──
+	const cotizaciones: Cotizacion[] = useMemo(
+		() =>
+			(rawCotizaciones ?? []).map((c) => ({
+				id: c._id,
+				clienteNombre: c.clienteNombre ?? "",
+				clienteTelefono: c.clienteTelefono ?? "",
+				vehiculoTipo: c.vehiculoTipo ?? "",
+				items: (c.items ?? []).map((it) => ({
+					descripcion: it.descripcion ?? "",
+					cantidad: it.cantidad ?? 1,
+					precioUnitario: it.precioUnitario ?? 0,
+				})),
+				total: c.total ?? 0,
+				estado: (c.estado as Cotizacion["estado"]) ?? "Pendiente",
+				fecha: c.fecha ?? "",
+			})),
+		[rawCotizaciones],
+	);
+
+	const clientes: LocalCliente[] = useMemo(
+		() =>
+			(rawClientes ?? []).map((c) => ({
+				id: c._id,
+				nombre: c.nombre ?? "",
+				telefono: c.telefono ?? "",
+				email: c.email ?? "",
+				empresaId: c.empresaId ?? null,
+				sucursalId: c.sucursalId,
+			})),
+		[rawClientes],
+	);
+
+	const vehiculos: LocalVehiculo[] = useMemo(
+		() =>
+			(rawVehiculos ?? []).map((v) => ({
+				id: v._id,
+				propietarioId: v.propietarioId ?? "",
+				propietarioTipo: (v.propietarioTipo as "cliente" | "empresa") ?? "cliente",
+				placa: v.placa ?? "",
+				categoria: v.categoria ?? "",
+				marca: v.marca ?? "",
+				modelo: v.modelo ?? "",
+				año: v.anio ?? "",
+				numeroSerie: v.numeroSerie ?? "",
+				estado: (v.estado as LocalVehiculo["estado"]) ?? "Activo",
+				anio: v.anio ?? "",
+			})),
+		[rawVehiculos],
+	);
+
+	const plantillasPrecios: LocalPlantilla[] = useMemo(
+		() =>
+			(rawPlantillas ?? []).map((p) => ({
+				id: p._id,
+				categoriaVehiculo: p.categoriaVehiculo ?? "",
+				concepto: p.concepto ?? "",
+				precioSugerido: p.precioSugerido ?? 0,
+			})),
+		[rawPlantillas],
+	);
+
+	const categoriasPrecios: string[] = useMemo(
+		() => (rawCategorias ?? []).map((c) => c.nombre),
+		[rawCategorias],
+	);
+
+	const catalogoServicios = rawCatalogoServicios ?? [];
 
 	// Selected Quote for browsing list
 	const [selectedCotizacionId, setSelectedCotizacionId] = useState<
@@ -82,7 +222,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	const [placa, setPlaca] = useState("");
 
 	// Client matching & Vehicle Dual-Lookup states
-	const [matchedCliente, setMatchedCliente] = useState<Cliente | null>(null);
+	const [matchedCliente, setMatchedCliente] = useState<LocalCliente | null>(null);
 	const [selectedVehiculoId, setSelectedVehiculoId] = useState<string>("nuevo");
 	const [showNewVehicleForm, setShowNewVehicleForm] = useState(false);
 
@@ -232,12 +372,13 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	};
 
 	// Inline Vehicle Registration Save Handler
-	const handleInlineRegisterVehicle = () => {
+	const handleInlineRegisterVehicle = async () => {
 		if (
 			!newPlaca.trim() ||
 			!newMarca.trim() ||
 			!newModelo.trim() ||
-			!matchedCliente
+			!matchedCliente ||
+			!usuarioId
 		) {
 			setAlertConfig({
 				isOpen: true,
@@ -249,36 +390,46 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 			return;
 		}
 
-		const regVeh = addVehiculo({
-			placa: newPlaca.trim().toUpperCase(),
-			marca: newMarca.trim(),
-			modelo: newModelo.trim(),
-			año: newAño.trim() || "2025",
-			categoria: vehiculoTipo,
-			numeroSerie: newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
-			propietarioId: matchedCliente.id,
-			propietarioTipo: "cliente",
-			estado: "Activo",
-		});
+		try {
+			const regVeh = (await createVehiculoMut({
+				usuarioId: usuarioId as unknown as any,
+				placa: newPlaca.trim().toUpperCase(),
+				marca: newMarca.trim(),
+				modelo: newModelo.trim(),
+				anio: newAño.trim() || "2025",
+				categoria: vehiculoTipo,
+				numeroSerie: newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
+				propietarioId: matchedCliente.id,
+				propietarioTipo: "cliente",
+				estado: "Activo",
+			})) as unknown as LocalVehiculo & { _id: string };
 
-		// Auto-select newly created vehicle
-		setSelectedVehiculoId(regVeh.id);
-		setPlaca(regVeh.placa);
-		setVehiculoTipo(regVeh.categoria);
-		setShowNewVehicleForm(false);
+			// Auto-select newly created vehicle
+			setSelectedVehiculoId(regVeh._id);
+			setPlaca(regVeh.placa);
+			setVehiculoTipo(regVeh.categoria);
+			setShowNewVehicleForm(false);
 
-		// Reset inputs
-		setNewPlaca("");
-		setNewMarca("");
-		setNewModelo("");
-		setNewSerie("");
+			// Reset inputs
+			setNewPlaca("");
+			setNewMarca("");
+			setNewModelo("");
+			setNewSerie("");
 
-		setAlertConfig({
-			isOpen: true,
-			title: "Vehículo Registrado",
-			message: `El vehículo ${regVeh.marca} ${regVeh.modelo} (${regVeh.placa}) ha sido vinculado a ${matchedCliente.nombre}.`,
-			type: "success",
-		});
+			setAlertConfig({
+				isOpen: true,
+				title: "Vehículo Registrado",
+				message: `El vehículo ${regVeh.marca} ${regVeh.modelo} (${regVeh.placa}) ha sido vinculado a ${matchedCliente.nombre}.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al registrar vehículo",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	// 3. Dynamic total calculation
@@ -293,7 +444,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	);
 
 	// Checkbox action for template suggestion items
-	const handleTemplateCheckboxToggle = (tpl: PlantillaPrecio) => {
+	const handleTemplateCheckboxToggle = (tpl: LocalPlantilla) => {
 		const isChecked = !checkedTemplates[tpl.id];
 		setCheckedTemplates((prev) => ({ ...prev, [tpl.id]: isChecked }));
 
@@ -351,7 +502,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	};
 
 	// 4. SAVE QUOTE
-	const handleSaveQuote = () => {
+	const handleSaveQuote = async () => {
 		if (!clienteNombre.trim() || items.length === 0) {
 			setAlertConfig({
 				isOpen: true,
@@ -362,66 +513,105 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 			});
 			return;
 		}
-
-		// Save inline vehicle if new user registered it details manually
-		if (
-			selectedVehiculoId === "nuevo" &&
-			newPlaca.trim() &&
-			newMarca.trim() &&
-			newModelo.trim()
-		) {
-			// Register customer first to get an ID if they are new
-			const customer = useAppStore
-				.getState()
-				.getOrCreateClienteByName(clienteNombre, clienteTelefono);
-			const inlineVeh = addVehiculo({
-				placa: newPlaca.trim().toUpperCase(),
-				marca: newMarca.trim(),
-				modelo: newModelo.trim(),
-				año: newAño.trim() || "2025",
-				categoria: vehiculoTipo,
-				numeroSerie:
-					newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
-				propietarioId: customer.id,
-				propietarioTipo: "cliente",
-				estado: "Activo",
-				sucursalId: currentUser?.sucursalId || undefined,
+		if (!usuarioId) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Sesión requerida",
+				message: "Necesitas iniciar sesión para crear cotizaciones.",
+				type: "alert",
 			});
-			setPlaca(inlineVeh.placa);
+			return;
 		}
 
-		const savedCot = addCotizacion({
-			clienteNombre: clienteNombre.trim(),
-			clienteTelefono: clienteTelefono.trim(),
-			vehiculoTipo,
-			items,
-			estado: "Pendiente",
-			fecha: new Date().toISOString().split("T")[0],
-			sucursalId: currentUser?.sucursalId || undefined,
-			pvId: currentUser?.pvId || undefined,
-			creadoPor: currentUser?.id || undefined,
-		});
+		try {
+			// Save inline vehicle if new user registered it details manually
+			let clienteIdParaVehiculo = matchedCliente?.id;
+			if (
+				selectedVehiculoId === "nuevo" &&
+				newPlaca.trim() &&
+				newMarca.trim() &&
+				newModelo.trim()
+			) {
+				// Si no hay cliente matcheado, crearlo primero (reemplaza getOrCreateClienteByName)
+				if (!clienteIdParaVehiculo) {
+					const nuevoCliente = (await createClienteMut({
+						usuarioId: usuarioId as unknown as any,
+						nombre: clienteNombre.trim(),
+						telefono: clienteTelefono.trim() || "+593 ",
+						email: `${clienteNombre
+							.trim()
+							.toLowerCase()
+							.replace(/\s+/g, ".")}@email.com`,
+					})) as unknown as { _id: string };
+					clienteIdParaVehiculo = nuevoCliente._id;
+				}
+				const inlineVeh = (await createVehiculoMut({
+					usuarioId: usuarioId as unknown as any,
+					placa: newPlaca.trim().toUpperCase(),
+					marca: newMarca.trim(),
+					modelo: newModelo.trim(),
+					anio: newAño.trim() || "2025",
+					categoria: vehiculoTipo,
+					numeroSerie:
+						newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
+					propietarioId: clienteIdParaVehiculo,
+					propietarioTipo: "cliente",
+					estado: "Activo",
+					sucursalId: currentUser?.sucursalId
+						? (currentUser.sucursalId as unknown as any)
+						: undefined,
+				})) as unknown as { placa: string };
+				setPlaca(inlineVeh.placa);
+			}
 
-		setAlertConfig({
-			isOpen: true,
-			title: "Cotización Guardada",
-			message: `El presupuesto para "${clienteNombre.trim()}" se guardó con ID: ${savedCot.id}.`,
-			type: "success",
-			onConfirm: () => {
-				// Automatically switch view to browse the saved quote
-				setSelectedCotizacionId(savedCot.id);
-			},
-		});
+			const savedCot = (await createCotizacionMut({
+				usuarioId: usuarioId as unknown as any,
+				clienteNombre: clienteNombre.trim(),
+				clienteTelefono: clienteTelefono.trim(),
+				vehiculoTipo,
+				items: items.map((it) => ({
+					descripcion: it.descripcion,
+					cantidad: it.cantidad,
+					precioUnitario: it.precioUnitario,
+				})),
+				estado: "Pendiente",
+				fecha: new Date().toISOString().split("T")[0],
+				sucursalId: currentUser?.sucursalId
+					? (currentUser.sucursalId as unknown as any)
+					: undefined,
+				pvId: currentUser?.pvId
+					? (currentUser.pvId as unknown as any)
+					: undefined,
+			})) as unknown as Cotizacion & { _id: string };
 
-		// Reset Form
-		setClienteNombre("");
-		setClienteTelefono("");
-		setItems([]);
-		setCheckedTemplates({});
-		setPlaca("");
-		setMatchedCliente(null);
-		setSelectedVehiculoId("nuevo");
-		setShowNewVehicleForm(false);
+			setAlertConfig({
+				isOpen: true,
+				title: "Cotización Guardada",
+				message: `El presupuesto para "${clienteNombre.trim()}" se guardó con ID: ${savedCot._id}.`,
+				type: "success",
+				onConfirm: () => {
+					// Automatically switch view to browse the saved quote
+					setSelectedCotizacionId(savedCot._id);
+				},
+			});
+
+			// Reset Form
+			setClienteNombre("");
+			setClienteTelefono("");
+			setItems([]);
+			setCheckedTemplates({});
+			setPlaca("");
+			setMatchedCliente(null);
+			setSelectedVehiculoId("nuevo");
+			setShowNewVehicleForm(false);
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al guardar cotización",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	// Browse details mapping
@@ -567,41 +757,60 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 			title: "¿Convertir en Orden de Trabajo?",
 			message: `Esto generará una Orden de Trabajo activa e iniciará la producción del taller para "${cot.clienteNombre}".`,
 			type: "alert",
-			onConfirm: () => {
-				const orderItems = cot.items.map((it) => ({
-					descripcion: it.descripcion,
-					cantidad: it.cantidad,
-					precioUnitario: it.precioUnitario,
-					completado: false,
-				}));
+			onConfirm: async () => {
+				if (!usuarioId) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Sesión requerida",
+						message: "Necesitas iniciar sesión para crear órdenes.",
+						type: "alert",
+					});
+					return;
+				}
+				try {
+					const orderItems = cot.items.map((it) => ({
+						descripcion: it.descripcion,
+						cantidad: it.cantidad,
+						precioUnitario: it.precioUnitario,
+						completado: false,
+					}));
 
-				const newOrder = addOrdenTrabajo({
-					clienteNombre: cot.clienteNombre,
-					clienteTelefono: cot.clienteTelefono,
-					placa: placa.toUpperCase() || "S/P",
-					vehiculoTipo: cot.vehiculoTipo,
-					items: orderItems,
-					total: cot.total,
-					prioridad: "Media",
-					estado: "Pendiente",
-					fechaInicio: new Date().toISOString().split("T")[0],
-					fechaFin: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
-						.toISOString()
-						.split("T")[0], // 3 days
-					notas: [`Generado desde la cotización ${cot.id}.`],
-					fotos: [],
-				});
+					const newOrder = (await createOrdenMut({
+						usuarioId: usuarioId as unknown as any,
+						clienteNombre: cot.clienteNombre,
+						clienteTelefono: cot.clienteTelefono,
+						placa: placa.toUpperCase() || "S/P",
+						vehiculoTipo: cot.vehiculoTipo,
+						items: orderItems,
+						prioridad: "Media" as const,
+						estado: "Pendiente" as const,
+						fechaInicio: new Date().toISOString().split("T")[0],
+						fechaFin: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+							.toISOString()
+							.split("T")[0], // 3 days
+						notas: [`Generado desde la cotización ${cot.id}.`],
+						fotos: [],
+						cotizacionId: cot.id as unknown as any,
+					})) as { _id: string };
 
-				// Trigger Success feedback
-				setAlertConfig({
-					isOpen: true,
-					title: "Orden Creada",
-					message: `Se generó la orden de trabajo ${newOrder.id}. Redirigiendo a producción...`,
-					type: "success",
-					onConfirm: () => {
-						onNavigate("ordenes");
-					},
-				});
+					// Trigger Success feedback
+					setAlertConfig({
+						isOpen: true,
+						title: "Orden Creada",
+						message: `Se generó la orden de trabajo ${newOrder._id}. Redirigiendo a producción...`,
+						type: "success",
+						onConfirm: () => {
+							onNavigate("ordenes");
+						},
+					});
+				} catch (err) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Error al crear la orden",
+						message: err instanceof Error ? err.message : "Error desconocido",
+						type: "alert",
+					});
+				}
 			},
 		});
 	};
@@ -612,16 +821,29 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 			title: "¿Eliminar Cotización?",
 			message: `¿Estás seguro de que deseas eliminar permanentemente la cotización "${id}"?`,
 			type: "delete",
-			onConfirm: () => {
-				deleteCotizacion(id);
-				const remaining = cotizaciones.filter((c) => c.id !== id);
-				setSelectedCotizacionId(remaining.length > 0 ? remaining[0].id : null);
-				setAlertConfig({
-					isOpen: true,
-					title: "Cotización Eliminada",
-					message: "El presupuesto ha sido removido del sistema.",
-					type: "success",
-				});
+			onConfirm: async () => {
+				if (!usuarioId) return;
+				try {
+					await deleteCotizacionMut({
+						usuarioId: usuarioId as unknown as any,
+						id: id as unknown as any,
+					});
+					const remaining = cotizaciones.filter((c) => c.id !== id);
+					setSelectedCotizacionId(remaining.length > 0 ? remaining[0].id : null);
+					setAlertConfig({
+						isOpen: true,
+						title: "Cotización Eliminada",
+						message: "El presupuesto ha sido removido del sistema.",
+						type: "success",
+					});
+				} catch (err) {
+					setAlertConfig({
+						isOpen: true,
+						title: "Error al eliminar",
+						message: err instanceof Error ? err.message : "Error desconocido",
+						type: "alert",
+					});
+				}
 			},
 		});
 	};
@@ -1177,7 +1399,10 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 													setCustomDesc(val);
 													const found = catalogoServicios.find((s) => s.nombre === val);
 													if (found && customPrecio === 0) {
-														setCustomPrecio(found.precioBase);
+														const precio = (found as { precio?: number; precioBase?: number }).precio
+															?? (found as { precio?: number; precioBase?: number }).precioBase
+															?? 0;
+														setCustomPrecio(precio);
 													}
 												}}
 												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
@@ -1185,7 +1410,9 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											<datalist id="cotizacion-servicios-list">
 												{catalogoServicios.map((s) => (
 													<option key={s._id} value={s.nombre}>
-														${s.precioBase} - {s.categoria}
+														${(s as { precio?: number; precioBase?: number }).precio
+															?? (s as { precio?: number; precioBase?: number }).precioBase
+															?? 0} - {s.categoria}
 													</option>
 												))}
 											</datalist>
