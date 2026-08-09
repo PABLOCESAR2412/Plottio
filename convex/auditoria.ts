@@ -1,17 +1,23 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requirePermission } from "./auth";
 
 export const getAuditoria = query({
-  args: { empresaId: v.optional(v.id("empresas")) },
+  args: {
+    usuarioId: v.id("usuarios"),
+    empresaId: v.optional(v.id("empresas")),
+  },
   handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "ver_auditoria");
+
     // Si no mandan empresaId, se trae todo (útil para dev)
     if (!args.empresaId) {
       return await ctx.db.query("auditoria").order("desc").take(100);
     }
-    
+
     return await ctx.db
       .query("auditoria")
-      .withIndex("by_empresa", (q) => q.eq("empresaId", args.empresaId))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", args.empresaId!))
       .order("desc")
       .take(100);
   },
