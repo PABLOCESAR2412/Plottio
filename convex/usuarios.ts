@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation, internalAction } from "./_generated/server";
+import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import {
   generateSecureToken,
@@ -104,30 +105,73 @@ export const getUserByToken = query({
   }
 });
 
+// Internal query: usuario por token de invitación (usado por la action)
+export const getUserByTokenInternal = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, args): Promise<Doc<"usuarios"> | null> => {
+    const users = await ctx.db
+      .query("usuarios")
+      .filter((q) => q.eq(q.field("invitationToken"), args.token))
+      .collect();
+    return users[0] ?? null;
+  },
+});
+
+// Internal query: usuario por email (usado por la action de login)
+export const getUserByEmailInternal = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, args): Promise<Doc<"usuarios"> | null> => {
+    return await ctx.db
+      .query("usuarios")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+  },
+});
+
+// Internal query: usuario por id (usado por la action de login)
+export const getUserByIdInternal = internalQuery({
+  args: { userId: v.id("usuarios") },
+  handler: async (ctx, args): Promise<Doc<"usuarios"> | null> => {
+    return await ctx.db.get(args.userId);
+  },
+});
+
+// Internal mutation: aceptar invitación y fijar password (usado por la action)
+export const aceptarInvitacionInternal = internalMutation({
+  args: {
+    userId: v.id("usuarios"),
+    hashed: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      password: args.hashed,
+      invitationAccepted: true,
+      activo: true,
+      invitationToken: undefined,
+    });
+  },
+});
+
 // Accept invitation and set password
-export const aceptarInvitacion = mutation({
+export const aceptarInvitacion = action({
   args: {
     token: v.string(),
     password: v.string()
   },
   handler: async (ctx, args) => {
-    const users = await ctx.db.query("usuarios").filter(q => q.eq(q.field("invitationToken"), args.token)).collect();
-    if (users.length === 0) throw new Error("Token inválido o expirado.");
+    const user = await ctx.runQuery(internal.usuarios.getUserByTokenInternal, {
+      token: args.token,
+    });
+    if (!user) throw new Error("Token inválido o expirado.");
 
-    const user = users[0];
     if (user.invitationAccepted) throw new Error("Esta invitación ya fue aceptada.");
 
-    // El hashing se hace en una action porque bcrypt usa scheduling interno
-    // y las mutations de Convex no permiten setTimeout.
-    const hashed = await ctx.runAction(internal.usuarios.hashPasswordAction, {
-      plain: args.password,
-    });
+    // bcrypt requiere ejecutarse en una action (usa scheduling interno).
+    const hashed = await hashPassword(args.password);
 
-    await ctx.db.patch(user._id, {
-      password: hashed,
-      invitationAccepted: true,
-      activo: true,
-      invitationToken: undefined
+    await ctx.runMutation(internal.usuarios.aceptarInvitacionInternal, {
+      userId: user._id,
+      hashed,
     });
 
     return true;
@@ -211,90 +255,58 @@ export const deleteUsuario = mutation({
 });
 
 // Login real — con verificación bcrypt y migración suave desde texto plano.
-// La verificación de password se delega a una action porque bcrypt
-// internamente usa scheduling que las mutations de Convex no permiten.
-export const login = mutation({
+// Es una action porque bcrypt internamente usa scheduling que las mutations
+// de Convex no permiten. Como action, puede hacer runQuery/runMutation.
+export const login = action({
   args: {
     email: v.string(),
     password: v.string()
   },
-  handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("usuarios")
-      .withIndex("by_email", q => q.eq("email", args.email))
-      .first();
+  handler: async (ctx, args): Promise<Doc<"usuarios"> | null> => {
+    const user = await ctx.runQuery(internal.usuarios.getUserByEmailInternal, {
+      email: args.email,
+    });
 
     if (!user) throw new Error("Credenciales incorrectas");
     if (!user.activo) throw new Error("Tu cuenta está inactiva");
 
-    // Delegamos a la action. Devuelve el user con password ya migrado a hash
-    // si era el caso de "primer login" o "legacy plaintext".
-    const userId = await ctx.runAction(internal.usuarios.verifyPasswordAction, {
-      userId: user._id,
-      plain: args.password,
-      stored: user.password ?? null,
-    });
+    const stored = user.password ?? null;
 
-    return await ctx.db.get(userId);
-  }
-});
-
-/**
- * Hashea una contraseña usando bcrypt.
- * SOLO se llama desde actions (no desde mutations).
- * Expuesto como internal para que `aceptarInvitacion` lo use sin
- * que el cliente pueda invocarlo directamente.
- */
-export const hashPasswordAction = internalAction({
-  args: { plain: v.string() },
-  handler: async (_ctx, args) => {
-    return await hashPassword(args.plain);
-  },
-});
-
-/**
- * Verifica la contraseña de un usuario.
- * - Si `stored === null`: primer login → hashea y guarda.
- * - Si es hash bcrypt: compara.
- * - Si es texto plano legacy: compara, re-hashea y guarda.
- * Devuelve el `userId` actualizado.
- */
-export const verifyPasswordAction = internalAction({
-  args: {
-    userId: v.id("usuarios"),
-    plain: v.string(),
-    stored: v.union(v.string(), v.null()),
-  },
-  handler: async (ctx, args) => {
     // Caso 1: usuario sin password (primer login / recién invitado)
-    if (args.stored === null) {
-      const hashed = await hashPassword(args.plain);
+    if (stored === null) {
+      const hashed = await hashPassword(args.password);
       await ctx.runMutation(internal.usuarios.setPasswordInternal, {
-        userId: args.userId,
+        userId: user._id,
         hashed,
       });
-      return args.userId;
+      return await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
+        userId: user._id,
+      });
     }
 
     // Caso 2: hash bcrypt
-    if (isBcryptHash(args.stored)) {
-      const ok = await verifyPassword(args.plain, args.stored);
+    if (isBcryptHash(stored)) {
+      const ok = await verifyPassword(args.password, stored);
       if (!ok) throw new Error("Credenciales incorrectas");
-      return args.userId;
+      return await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
+        userId: user._id,
+      });
     }
 
-    // Caso 3: texto plano legacy
-    if (args.stored === args.plain) {
-      const hashed = await hashPassword(args.plain);
+    // Caso 3: texto plano legacy → verificar, re-hashear y guardar
+    if (args.password === stored) {
+      const hashed = await hashPassword(args.password);
       await ctx.runMutation(internal.usuarios.setPasswordInternal, {
-        userId: args.userId,
+        userId: user._id,
         hashed,
       });
-      return args.userId;
+      return await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
+        userId: user._id,
+      });
     }
 
     throw new Error("Credenciales incorrectas");
-  },
+  }
 });
 
 /**

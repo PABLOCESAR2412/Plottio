@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 
@@ -25,7 +25,7 @@ export const AceptarInvitacionView: React.FC<{
 		| InvitedUser
 		| null
 		| undefined;
-	const aceptarInvitacionMut = useMutation(api.usuarios.aceptarInvitacion);
+	const aceptarInvitacionAction = useAction(api.usuarios.aceptarInvitacion);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -40,7 +40,7 @@ export const AceptarInvitacionView: React.FC<{
 
 		setIsSubmitting(true);
 		try {
-			await aceptarInvitacionMut({ token, password });
+			await aceptarInvitacionAction({ token, password });
 			setIsSuccess(true);
 			toast.success("Cuenta activada exitosamente");
 			setTimeout(() => {

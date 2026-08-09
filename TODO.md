@@ -10,14 +10,14 @@
 
 ## 🔴 Crítico — bloquea deploy / login
 
-- [x] **Arreglar `setTimeout` en `login`** (`convex/usuarios.ts:241`)
+- [x] **Arreglar `setTimeout` en `login`** (`convex/usuarios.ts`)
   - **Causa:** `hashPassword` / `verifyPassword` de `bcryptjs` usan scheduling interno. Convex prohíbe `setTimeout` en queries/mutations.
-  - **Solución aplicada (2026-08-09):**
-    1. ✅ Creada `verifyPasswordAction` (internalAction) en `convex/usuarios.ts` que recibe `userId`, `plain` y `stored` y maneja los 3 casos (sin password, hash bcrypt, texto plano legacy).
-    2. ✅ Creada `hashPasswordAction` (internalAction) para uso de `aceptarInvitacion`.
-    3. ✅ Creada `setPasswordInternal` (internalMutation) — no expuesta al cliente.
-    4. ✅ `login` ahora delega vía `ctx.runAction(internal.usuarios.verifyPasswordAction, ...)`.
-    5. ✅ `aceptarInvitacion` delega el hashing a `hashPasswordAction`.
+  - **Solución aplicada (2026-08-09, v2):**
+    1. ✅ `login` y `aceptarInvitacion` ahora son **actions** (no mutations): en Convex 1.42 las mutations ya no tienen `ctx.runAction`, y las actions sí pueden ejecutar bcrypt.
+    2. ✅ Creados `getUserByTokenInternal`, `getUserByEmailInternal`, `getUserByIdInternal` (internalQuery) y `aceptarInvitacionInternal` (internalMutation) como puente de las actions a la BD.
+    3. ✅ Eliminadas `verifyPasswordAction` y `hashPasswordAction` (obsoletas: `ctx.runAction` no existe en mutations).
+    4. ✅ El cliente usa `useAction(api.usuarios.login)` y `useAction(api.usuarios.aceptarInvitacion)` en vez de `useMutation`.
+    5. ✅ Fix de tipo: anotación `Promise<Doc<"usuarios"> | null>` rompe la circularidad de inferencia del módulo.
 
 - [x] **Hacer deploy a Convex** (`useful-koala-184`)
   - Hecho via `npx convex dev --once` (desde la raíz), que regenera tipos y empuja código al dev deployment.

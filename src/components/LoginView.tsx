@@ -1,13 +1,13 @@
 import { ShieldCheck, Loader2, Mail, Lock, ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import React, { useState } from "react";
 import { useSessionStore } from "../store/useSessionStore";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 
 export const LoginView: React.FC = () => {
 	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
-	const loginMutation = useMutation(api.usuarios.login);
+	const loginAction = useAction(api.usuarios.login);
 
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -20,7 +20,7 @@ export const LoginView: React.FC = () => {
 
 		setIsLoading(true);
 		try {
-			const usuario = await loginMutation({ email, password });
+			const usuario = await loginAction({ email, password });
 			// Convex login devuelve el usuario con _id; el SessionStore lo adapta.
 			setCurrentUser({
 				id: (usuario as { _id: string })._id,
