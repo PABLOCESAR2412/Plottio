@@ -1,19 +1,32 @@
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
+export type UserContext = {
+  usuarioId: Id<"usuarios">;
+  email: string;
+  nombre: string;
+  empresa: { id: Id<"empresas">; nombre: string } | null;
+  sucursal: { id: Id<"sucursales">; nombre: string } | null;
+  pv: { id: Id<"puntosVenta">; nombre: string } | null;
+  roles: Array<{ roleId: Id<"roles">; roleNombre: string; sucursalId: Id<"sucursales"> }>;
+  permisos: string[];
+};
+
 // 3.1 CREAR FUNCIÓN: getCurrentUserContext()
-export async function getCurrentUserContext(ctx: QueryCtx, usuarioId: Id<"usuarios">) {
+export async function getCurrentUserContext(
+  ctx: QueryCtx,
+  usuarioId: Id<"usuarios">,
+): Promise<UserContext> {
   const user = await ctx.db.get(usuarioId);
   if (!user) throw new Error("Usuario no encontrado");
 
-  // Obtenemos los roles asignados al usuario
   const userRoles = await ctx.db
     .query("usuariosRolesSucursal")
     .withIndex("by_usuario", (q) => q.eq("usuarioId", user._id))
     .filter((q) => q.eq(q.field("activo"), true))
     .collect();
 
-  const roles = [];
+  const roles: UserContext["roles"] = [];
   const permissionsSet = new Set<string>();
 
   for (const ur of userRoles) {
@@ -25,7 +38,6 @@ export async function getCurrentUserContext(ctx: QueryCtx, usuarioId: Id<"usuari
         sucursalId: ur.sucursalId,
       });
 
-      // Obtenemos permisos del rol
       const rolePerms = await ctx.db
         .query("rolePermisos")
         .withIndex("by_role", (q) => q.eq("roleId", role._id))
@@ -38,23 +50,28 @@ export async function getCurrentUserContext(ctx: QueryCtx, usuarioId: Id<"usuari
     }
   }
 
-  let empresa = null;
+  let empresa: UserContext["empresa"] = null;
   if (user.empresaId) {
     const emp = await ctx.db.get(user.empresaId);
     empresa = emp ? { id: emp._id, nombre: emp.nombre } : null;
   }
 
-  let sucursal = null;
+  let sucursal: UserContext["sucursal"] = null;
   if (user.sucursalId) {
     const suc = await ctx.db.get(user.sucursalId);
     sucursal = suc ? { id: suc._id, nombre: suc.nombre } : null;
   }
 
-  let pv = null;
+  let pv: UserContext["pv"] = null;
   if (user.pvId) {
     const pvd = await ctx.db.get(user.pvId);
     pv = pvd ? { id: pvd._id, nombre: pvd.nombre } : null;
   }
+
+  const esSuperAdmin = roles.some((r) => r.roleNombre === "SuperAdmin");
+  const permisos = esSuperAdmin
+    ? ["ver_todas_sucursales", ...Array.from(permissionsSet)]
+    : Array.from(permissionsSet);
 
   return {
     usuarioId: user._id,
@@ -64,9 +81,7 @@ export async function getCurrentUserContext(ctx: QueryCtx, usuarioId: Id<"usuari
     sucursal,
     pv,
     roles,
-    permisos: roles.some(r => r.roleNombre === "SuperAdmin") 
-        ? ["ver_todas_sucursales", "ver_inventario", ...Array.from(permissionsSet)] 
-        : Array.from(permissionsSet),
+    permisos,
   };
 }
 

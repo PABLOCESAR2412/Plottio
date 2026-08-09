@@ -5,7 +5,7 @@ import { getCurrentUserContext, requirePermission } from "./auth";
 // 12.3 FUNCIÓN: crearKitFlota()
 export const crearKitFlota = mutation({
   args: {
-    usuarioId: v.optional(v.any()),
+    usuarioId: v.id("usuarios"),
     clienteId: v.optional(v.id("clientes")),
     nombre: v.string(),
     descripcion: v.optional(v.string()),
@@ -17,10 +17,12 @@ export const crearKitFlota = mutation({
     }))
   },
   handler: async (ctx, args) => {
-    const empresa = await ctx.db.query("empresas").first();
+    await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
 
     const kitId = await ctx.db.insert("kitsFlota", {
-      empresaId: empresa!._id,
+      empresaId: userContext.empresa.id,
       clienteId: args.clienteId,
       nombre: args.nombre,
       descripcion: args.descripcion,
@@ -36,10 +38,16 @@ export const crearKitFlota = mutation({
 
 export const getKits = query({
   args: {
-    usuarioId: v.optional(v.any())
+    usuarioId: v.id("usuarios"),
   },
   handler: async (ctx, args) => {
-    const kits = await ctx.db.query("kitsFlota").collect();
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) return [];
+
+    const kits = await ctx.db
+      .query("kitsFlota")
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .collect();
     return kits.sort((a, b) => a.nombre.localeCompare(b.nombre));
   }
 });

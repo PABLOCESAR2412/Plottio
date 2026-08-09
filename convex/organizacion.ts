@@ -46,10 +46,14 @@ export const updateEmpresa = mutation({
 export const getSucursales = query({
   args: { empresaId: v.optional(v.id("empresas")) },
   handler: async (ctx, args) => {
-    if (args.empresaId) {
-      return await ctx.db.query("sucursales").withIndex("by_empresa", q => q.eq("empresaId", args.empresaId)).collect();
+    const empresaId = args.empresaId;
+    if (!empresaId) {
+      return await ctx.db.query("sucursales").collect();
     }
-    return await ctx.db.query("sucursales").collect();
+    return await ctx.db
+      .query("sucursales")
+      .withIndex("by_empresa", (q) => q.eq("empresaId", empresaId))
+      .collect();
   }
 });
 
@@ -98,10 +102,14 @@ export const updateSucursal = mutation({
 export const getPuntosVenta = query({
   args: { sucursalId: v.optional(v.id("sucursales")) },
   handler: async (ctx, args) => {
-    if (args.sucursalId) {
-      return await ctx.db.query("puntosVenta").withIndex("by_sucursal", q => q.eq("sucursalId", args.sucursalId)).collect();
+    const sucursalId = args.sucursalId;
+    if (!sucursalId) {
+      return await ctx.db.query("puntosVenta").collect();
     }
-    return await ctx.db.query("puntosVenta").collect();
+    return await ctx.db
+      .query("puntosVenta")
+      .withIndex("by_sucursal", (q) => q.eq("sucursalId", sucursalId))
+      .collect();
   }
 });
 
@@ -141,5 +149,84 @@ export const updatePuntoVenta = mutation({
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     return await ctx.db.patch(id, updates);
+  }
+});
+
+// --- DELETES CON VALIDACIÓN DE HIJOS ---
+
+export const deleteEmpresa = mutation({
+  args: { id: v.id("empresas") },
+  handler: async (ctx, args) => {
+    const empresa = await ctx.db.get(args.id);
+    if (!empresa) throw new Error("Empresa no encontrada");
+
+    // Verificar que no tenga sucursales activas
+    const sucursales = await ctx.db
+      .query("sucursales")
+      .withIndex("by_empresa", (q) => q.eq("empresaId", args.id))
+      .collect();
+    if (sucursales.length > 0) {
+      throw new Error(
+        `No se puede eliminar: la empresa tiene ${sucursales.length} sucursal(es) asociada(s). Elimínelas primero.`,
+      );
+    }
+
+    await ctx.db.delete(args.id);
+    return { success: true };
+  }
+});
+
+export const deleteSucursal = mutation({
+  args: { id: v.id("sucursales") },
+  handler: async (ctx, args) => {
+    const sucursal = await ctx.db.get(args.id);
+    if (!sucursal) throw new Error("Sucursal no encontrada");
+
+    // Verificar que no tenga puntos de venta
+    const pvs = await ctx.db
+      .query("puntosVenta")
+      .withIndex("by_sucursal", (q) => q.eq("sucursalId", args.id))
+      .collect();
+    if (pvs.length > 0) {
+      throw new Error(
+        `No se puede eliminar: la sucursal tiene ${pvs.length} punto(s) de venta. Elimínelos primero.`,
+      );
+    }
+
+    // Verificar que no tenga usuarios asignados (sin importar si están activos o no)
+    const usuariosAsignados = await ctx.db
+      .query("usuarios")
+      .withIndex("by_sucursal", (q) => q.eq("sucursalId", args.id))
+      .collect();
+    if (usuariosAsignados.length > 0) {
+      throw new Error(
+        `No se puede eliminar: la sucursal tiene ${usuariosAsignados.length} usuario(s) asignado(s). Reasígnelos primero.`,
+      );
+    }
+
+    await ctx.db.delete(args.id);
+    return { success: true };
+  }
+});
+
+export const deletePuntoVenta = mutation({
+  args: { id: v.id("puntosVenta") },
+  handler: async (ctx, args) => {
+    const pv = await ctx.db.get(args.id);
+    if (!pv) throw new Error("Punto de venta no encontrado");
+
+    // Verificar que no tenga cotizaciones u órdenes asociadas
+    const cotizaciones = await ctx.db
+      .query("cotizaciones")
+      .filter((q) => q.eq(q.field("pvId"), args.id))
+      .first();
+    if (cotizaciones) {
+      throw new Error(
+        "No se puede eliminar: el punto de venta tiene cotizaciones asociadas.",
+      );
+    }
+
+    await ctx.db.delete(args.id);
+    return { success: true };
   }
 });

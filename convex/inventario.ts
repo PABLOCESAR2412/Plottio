@@ -259,7 +259,7 @@ export const getAlertasStockMinimo = query({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     
     // Obtener todo el stock de las sucursales a las que tiene acceso
-    let stocks = [];
+    let stocks: Array<{ _id: any; cantidad: number; cantidadMinima: number; itemId: any; sucursalId: any }> = [];
     if (userContext.permisos.includes("ver_todas_sucursales")) {
       stocks = await ctx.db.query("inventarioSucursal").collect();
     } else if (userContext.sucursal) {

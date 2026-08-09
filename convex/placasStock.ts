@@ -5,18 +5,25 @@ import { actualizarEstadoLoteHelper } from "./lotesProduccion";
 
 // 11.0 FUNCIÓN: getTodasPlacasStock()
 export const getTodasPlacasStock = query({
-  handler: async (ctx) => {
+  args: { usuarioId: v.id("usuarios") },
+  handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) return [];
+
     const placas = await ctx.db.query("placasStock").order("desc").collect();
-    
-    // Enrich with Lote info
-    return await Promise.all(placas.map(async (placa) => {
-      let lote_numero = null;
-      const lote = await ctx.db.get(placa.loteId);
-      if (lote) {
-        lote_numero = lote.numero;
-      }
-      return { ...placa, lote_numero };
-    }));
+
+    // Enriquecer con info del lote y filtrar por empresa
+    const enriquecidas = await Promise.all(
+      placas.map(async (placa) => {
+        const lote = await ctx.db.get(placa.loteId);
+        if (!lote) return null;
+        if (lote.empresaId !== userContext.empresa!.id) return null;
+
+        return { ...placa, lote_numero: lote.numero };
+      }),
+    );
+
+    return enriquecidas.filter((p): p is NonNullable<typeof p> => p !== null);
   }
 });
 

@@ -5,10 +5,11 @@ import { getCurrentUserContext, requirePermission } from "./auth";
 // 10.3 FUNCIÓN: crearLoteProduccion()
 export const crearLoteProduccion = mutation({
   args: {
-    usuarioId: v.optional(v.any()),
+    usuarioId: v.id("usuarios"),
     clienteId: v.optional(v.id("clientes")),
     cotizacionId: v.optional(v.id("cotizaciones")),
     notas: v.optional(v.string()),
+    sucursalId: v.optional(v.id("sucursales")),
     placas: v.array(v.object({
       material: v.string(), // 'acrilico' | 'lona'
       ancho_cm: v.optional(v.number()),
@@ -17,20 +18,25 @@ export const crearLoteProduccion = mutation({
     }))
   },
   handler: async (ctx, args) => {
-    const empresa = await ctx.db.query("empresas").first();
-    const sucursal = await ctx.db.query("sucursales").first();
+    await requirePermission(ctx, args.usuarioId, "producir_lotes");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+
+    const sucursalId = args.sucursalId ?? userContext.sucursal?.id;
+    if (!sucursalId) throw new Error("Usuario sin sucursal asignada");
 
     // Generar número de lote LOTE-XXXX
-    const lotesExistentes = await ctx.db
+    const lotesEmpresa = await ctx.db
       .query("lotesProduccion")
+      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id).eq("sucursalId", sucursalId))
       .collect();
-    
-    const numeroStr = String(lotesExistentes.length + 1).padStart(4, '0');
+
+    const numeroStr = String(lotesEmpresa.length + 1).padStart(4, '0');
     const numeroLote = `LOTE-${numeroStr}`;
 
     const loteId = await ctx.db.insert("lotesProduccion", {
-      empresaId: empresa!._id,
-      sucursalId: sucursal!._id,
+      empresaId: userContext.empresa.id,
+      sucursalId,
       clienteId: args.clienteId,
       cotizacionId: args.cotizacionId,
       numero: numeroLote,
@@ -38,7 +44,7 @@ export const crearLoteProduccion = mutation({
       notas: args.notas,
       creadoPorUsuarioId: args.usuarioId,
       fechaCreacion: new Date().toISOString(),
-      fechaActualizacion: new Date().toISOString()
+      fechaActualizacion: new Date().toISOString(),
     });
 
     const loteCreado = await ctx.db.get(loteId);
@@ -62,10 +68,16 @@ export const crearLoteProduccion = mutation({
 
 export const getLotes = query({
   args: {
-    usuarioId: v.optional(v.any())
+    usuarioId: v.id("usuarios"),
   },
   handler: async (ctx, args) => {
-    const lotes = await ctx.db.query("lotesProduccion").collect();
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) return [];
+
+    const lotes = await ctx.db
+      .query("lotesProduccion")
+      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .collect();
     return lotes.sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
   }
 });
@@ -139,7 +151,6 @@ export async function actualizarEstadoLoteHelper(ctx: any, loteId: import("./_ge
 
   const total = placas.length;
   const disponibles = placas.filter((p: any) => p.estado === "Disponible").length;
-  const usadas = placas.filter((p: any) => p.estado === "Asignada" || p.estado === "Instalada").length;
 
   let nuevoEstado = "En Producción";
 
