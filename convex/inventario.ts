@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
 // 6.2 FUNCIÓN: createInventarioItems()
@@ -135,8 +136,9 @@ export const transferirInventario = mutation({
     cantidad: v.number()
   },
   handler: async (ctx, args) => {
-    // Debe tener permiso de editar inventario en la sucursal de origen
+    // Debe tener permiso de editar inventario en la sucursal de origen y destino
     await requirePermission(ctx, args.usuarioId, "editar_inventario", args.desde);
+    await requirePermission(ctx, args.usuarioId, "editar_inventario", args.hacia);
 
     if (args.cantidad <= 0) throw new Error("La cantidad debe ser mayor a 0");
 
@@ -259,7 +261,7 @@ export const getAlertasStockMinimo = query({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     
     // Obtener todo el stock de las sucursales a las que tiene acceso
-    let stocks: Array<{ _id: any; cantidad: number; cantidadMinima: number; itemId: any; sucursalId: any }> = [];
+    let stocks: Doc<"inventarioSucursal">[] = [];
     if (userContext.permisos.includes("ver_todas_sucursales")) {
       stocks = await ctx.db.query("inventarioSucursal").collect();
     } else if (userContext.sucursal) {

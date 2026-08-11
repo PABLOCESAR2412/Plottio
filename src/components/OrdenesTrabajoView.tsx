@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from "convex/react";
 import {
 	AlertCircle,
 	Car,
@@ -5,25 +6,18 @@ import {
 	CheckSquare,
 	ChevronRight,
 	ClipboardCheck,
-	Clock,
 	Copy,
 	FileText,
 	Image as ImageIcon,
-	MessageSquare,
-	Paperclip,
-	Phone,
 	Plus,
 	Search,
 	Square,
 	Trash2,
-	TrendingUp,
-	User,
-	Wrench,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useMemo, useState, useDeferredValue } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
@@ -95,28 +89,29 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	// ── QUERIES ──────────────────────────────────────────────────────────────
 	const rawOrdenes = useQuery(
 		api.ordenes.fetchOrdenes,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<OrdenTrabajo & { _id: string }> | undefined;
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCliente & { _id: string }> | undefined;
-	const rawEmpresas = useQuery(
-		api.organizacion.getEmpresas,
-		{},
-	) as Array<LocalEmpresa & { _id: string }> | undefined;
+	const rawEmpresas = useQuery(api.organizacion.getEmpresas, {}) as
+		| Array<LocalEmpresa & { _id: string }>
+		| undefined;
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalVehiculo & { _id: string }> | undefined;
 	const rawCategorias = useQuery(
 		api.plantillas.getCategorias,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<{ _id: string; nombre: string }> | undefined;
 	const rawCatalogo = useQuery(
 		api.catalogoServicios.getServicios,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
-	) as Array<{ _id: string; nombre: string; categoria: string; precio: number }> | undefined;
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
+	) as
+		| Array<{ _id: string; nombre: string; categoria: string; precio: number }>
+		| undefined;
 
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
@@ -269,7 +264,9 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 
 		const matchesSearch =
 			o.id.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
-			o.clienteNombre.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
+			o.clienteNombre
+				.toLowerCase()
+				.includes(deferredSearchTerm.toLowerCase()) ||
 			o.placa.toLowerCase().includes(deferredSearchTerm.toLowerCase());
 
 		const matchesStatus =
@@ -306,14 +303,19 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			setEditPrioridad(selectedOrder.prioridad);
 			setEditFechaFin(selectedOrder.fechaFin);
 		}
-	}, [selectedOrder?.id]);
+	}, [
+		selectedOrder?.id,
+		selectedOrder?.fechaFin,
+		selectedOrder?.placa,
+		selectedOrder,
+	]);
 
 	const handleSaveOrderChanges = async () => {
 		if (!selectedOrder || isLocked || !usuarioId) return;
 		try {
 			await updateOrdenMut({
-				usuarioId: usuarioId as unknown as any,
-				ordenId: selectedOrder.id as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
+				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
 				placa: editPlaca.trim().toUpperCase(),
 				prioridad: editPrioridad,
 				fechaFin: editFechaFin,
@@ -325,7 +327,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			setAlertConfig({
 				isOpen: true,
 				title: "Cambios Guardados",
-				message: "Los cambios a las especificaciones se guardaron correctamente.",
+				message:
+					"Los cambios a las especificaciones se guardaron correctamente.",
 				type: "success",
 			});
 		} catch (err) {
@@ -347,7 +350,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 				clearPreselectedOrder();
 			}
 		}
-	}, [preselectedOrderId]);
+	}, [preselectedOrderId, clearPreselectedOrder]);
 
 	// 1. Load prefilled sessionStorage from vehicle flow
 	useEffect(() => {
@@ -439,7 +442,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 
 		try {
 			const newOrd = (await createOrdenMut({
-				usuarioId: usuarioId as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
 				clienteNombre: clienteNombre.trim(),
 				clienteTelefono: clienteTelefono.trim(),
 				placa: placa.trim().toUpperCase() || "S/P",
@@ -452,7 +455,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 				notas: ["Orden de trabajo iniciada."],
 				fotos: [],
 				sucursalId: currentUser?.sucursalId
-					? (currentUser.sucursalId as unknown as any)
+					? (currentUser.sucursalId as Id<"sucursales">)
 					: undefined,
 				pvOrigen: currentUser?.pvId ?? undefined,
 			})) as unknown as { _id: string };
@@ -483,8 +486,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		if (!item) return;
 		try {
 			await toggleItemMut({
-				usuarioId: usuarioId as unknown as any,
-				ordenId: selectedOrder.id as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
+				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
 				itemIndex: itemIdx,
 				completado: !item.completado,
 			});
@@ -503,8 +506,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		if (!selectedOrder || !usuarioId) return;
 		try {
 			await updateOrdenMut({
-				usuarioId: usuarioId as unknown as any,
-				ordenId: selectedOrder.id as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
+				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
 				estado: newStatus,
 				notas: [
 					...(selectedOrder.notas || []),
@@ -531,8 +534,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 				if (!usuarioId) return;
 				try {
 					await deleteOrdenMut({
-						usuarioId: usuarioId as unknown as any,
-						ordenId: ord.id as unknown as any,
+						usuarioId: usuarioId as Id<"usuarios">,
+						ordenId: ord.id as Id<"ordenesTrabajo">,
 					});
 					const remaining = ordenesTrabajo.filter((o) => o.id !== ord.id);
 					setSelectedOrderId(remaining.length > 0 ? remaining[0].id : null);
@@ -560,8 +563,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		if (!selectedOrder || !newNote.trim() || !usuarioId) return;
 		try {
 			await updateOrdenMut({
-				usuarioId: usuarioId as unknown as any,
-				ordenId: selectedOrder.id as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
+				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
 				notas: [...(selectedOrder.notas || []), newNote.trim()],
 			});
 			setNewNote("");
@@ -588,8 +591,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			mockPhotos[Math.floor(Math.random() * mockPhotos.length)];
 		try {
 			await updateOrdenMut({
-				usuarioId: usuarioId as unknown as any,
-				ordenId: selectedOrder.id as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
+				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
 				fotos: [...(selectedOrder.fotos || []), randomPhoto],
 				notas: [
 					...(selectedOrder.notas || []),
@@ -622,10 +625,9 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 				c.nombre.toLowerCase().trim() ===
 				selectedOrder.clienteNombre.toLowerCase().trim(),
 		);
-		const matchedEmp =
-			matchedClient && matchedClient.empresaId
-				? empresas.find((e) => e.id === matchedClient.empresaId)
-				: null;
+		const matchedEmp = matchedClient?.empresaId
+			? empresas.find((e) => e.id === matchedClient.empresaId)
+			: null;
 
 		// Address resolution
 		const address =
@@ -670,6 +672,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 					</p>
 				</div>
 				<button
+					type="button"
 					onClick={handleOpenCreate}
 					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
@@ -691,6 +694,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 					] as const
 				).map((st) => (
 					<button
+						type="button"
 						key={st}
 						onClick={() => setSelectedStatusTab(st)}
 						className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
@@ -722,6 +726,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 					<div className="divide-y divide-border overflow-y-auto max-h-[500px] pr-1">
 						{filteredOrders.map((ord) => (
 							<button
+								type="button"
 								key={ord.id}
 								onClick={() => setSelectedOrderId(ord.id)}
 								className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
@@ -826,6 +831,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 								<div className="flex flex-wrap gap-2 items-center">
 									<button
+										type="button"
 										onClick={() => setIsInvoiceOpen(true)}
 										className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary transition-colors"
 									>
@@ -835,7 +841,11 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 									<select
 										value={selectedOrder.estado}
-										onChange={(e) => handleStatusChange(e.target.value as any)}
+										onChange={(e) =>
+											handleStatusChange(
+												e.target.value as OrdenTrabajo["estado"],
+											)
+										}
 										disabled={isLocked}
 										className="rounded-lg border border-border bg-card px-2.5 py-2 text-xs font-semibold text-foreground focus:outline-none disabled:opacity-60"
 									>
@@ -847,6 +857,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 									</select>
 
 									<button
+										type="button"
 										onClick={() => handleDeleteOrderClick(selectedOrder)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
 										title="Eliminar Orden"
@@ -865,7 +876,11 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 									</h3>
 									<div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
 										{selectedOrder.items.map((it, idx) => (
-											<div key={idx} className="flex items-center gap-2 group">
+											<div
+												// biome-ignore lint/suspicious/noArrayIndexKey: lista de tareas controlada por índice
+												key={idx}
+												className="flex items-center gap-2 group"
+											>
 												<button
 													type="button"
 													onClick={() => handleToggleTask(idx)}
@@ -903,8 +918,9 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 															);
 															try {
 																await updateOrdenMut({
-																	usuarioId: usuarioId as unknown as any,
-																	ordenId: selectedOrder.id as unknown as any,
+																	usuarioId: usuarioId as Id<"usuarios">,
+																	ordenId:
+																		selectedOrder.id as Id<"ordenesTrabajo">,
 																	items: updatedItems,
 																});
 															} catch (err) {
@@ -960,8 +976,8 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												if (usuarioId) {
 													try {
 														await updateOrdenMut({
-															usuarioId: usuarioId as unknown as any,
-															ordenId: selectedOrder.id as unknown as any,
+															usuarioId: usuarioId as Id<"usuarios">,
+															ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
 															items: updatedItems,
 														});
 													} catch (err) {
@@ -983,13 +999,19 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												list="orden-servicios-list"
 												onChange={(e) => {
 													const val = e.target.value;
-													const found = catalogoServicios.find((s) => s.nombre === val);
+													const found = catalogoServicios.find(
+														(s) => s.nombre === val,
+													);
 													if (found) {
-														const priceInput = e.target.form?.elements.namedItem("taskPrice") as HTMLInputElement;
+														const priceInput =
+															e.target.form?.elements.namedItem(
+																"taskPrice",
+															) as HTMLInputElement;
 														if (priceInput && Number(priceInput.value) === 0) {
-															const precio = (found as { precio?: number }).precio
-																?? (found as { precioBase?: number }).precioBase
-																?? 0;
+															const precio =
+																(found as { precio?: number }).precio ??
+																(found as { precioBase?: number }).precioBase ??
+																0;
 															priceInput.value = precio.toString();
 														}
 													}
@@ -999,9 +1021,10 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 											/>
 											<datalist id="orden-servicios-list">
 												{catalogoServicios.map((s) => {
-													const precio = (s as { precio?: number }).precio
-														?? (s as { precioBase?: number }).precioBase
-														?? 0;
+													const precio =
+														(s as { precio?: number }).precio ??
+														(s as { precioBase?: number }).precioBase ??
+														0;
 													return (
 														<option key={s._id} value={s.nombre}>
 															${precio} - {s.categoria}
@@ -1011,24 +1034,32 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 											</datalist>
 											<div className="grid grid-cols-2 gap-2">
 												<div>
-													<label className="block text-[9px] text-muted-foreground mb-0.5">
+													<label
+														htmlFor="taskCant"
+														className="block text-[9px] text-muted-foreground mb-0.5"
+													>
 														Cantidad
 													</label>
 													<input
 														type="number"
 														name="taskCant"
+														id="taskCant"
 														min="1"
 														defaultValue="1"
 														className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-ring"
 													/>
 												</div>
 												<div>
-													<label className="block text-[9px] text-muted-foreground mb-0.5">
+													<label
+														htmlFor="taskPrice"
+														className="block text-[9px] text-muted-foreground mb-0.5"
+													>
 														Precio Unit. ($)
 													</label>
 													<input
 														type="number"
 														name="taskPrice"
+														id="taskPrice"
 														min="0"
 														defaultValue="0"
 														className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-ring"
@@ -1123,25 +1154,35 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 											<div className="grid grid-cols-2 gap-3 text-xs">
 												<div>
-													<label className="block text-[10px] text-muted-foreground mb-0.5">
+													<label
+														htmlFor="editPlaca"
+														className="block text-[10px] text-muted-foreground mb-0.5"
+													>
 														Placa
 													</label>
 													<input
 														type="text"
 														value={editPlaca}
+														id="editPlaca"
 														onChange={(e) => setEditPlaca(e.target.value)}
 														disabled={isLocked}
 														className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none disabled:opacity-60"
 													/>
 												</div>
 												<div>
-													<label className="block text-[10px] text-muted-foreground mb-0.5">
+													<label
+														htmlFor="editPrioridad"
+														className="block text-[10px] text-muted-foreground mb-0.5"
+													>
 														Prioridad
 													</label>
 													<select
 														value={editPrioridad}
+														id="editPrioridad"
 														onChange={(e) =>
-															setEditPrioridad(e.target.value as any)
+															setEditPrioridad(
+																e.target.value as OrdenTrabajo["prioridad"],
+															)
 														}
 														disabled={isLocked}
 														className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none disabled:opacity-60"
@@ -1155,12 +1196,16 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 											<div className="grid grid-cols-2 gap-3 text-xs">
 												<div>
-													<label className="block text-[10px] text-muted-foreground mb-0.5">
+													<label
+														htmlFor="editFechaFin"
+														className="block text-[10px] text-muted-foreground mb-0.5"
+													>
 														Fecha Entrega
 													</label>
 													<input
 														type="date"
 														value={editFechaFin}
+														id="editFechaFin"
 														onChange={(e) => setEditFechaFin(e.target.value)}
 														disabled={isLocked}
 														className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none disabled:opacity-60"
@@ -1180,6 +1225,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 									{!isLocked && (
 										<button
+											type="button"
 											onClick={handleSaveOrderChanges}
 											className="w-full py-2 bg-primary text-primary-foreground text-xs font-semibold rounded hover:opacity-90 transition-colors shadow-sm cursor-pointer mt-3"
 										>
@@ -1200,6 +1246,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 									<div className="grid gap-3 grid-cols-3 sm:grid-cols-4 mb-4">
 										{selectedOrder.fotos.map((ph, idx) => (
 											<div
+												// biome-ignore lint/suspicious/noArrayIndexKey: galería de fotos estática
 												key={idx}
 												className="relative aspect-video rounded-lg overflow-hidden border border-border group bg-secondary"
 											>
@@ -1213,6 +1260,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 										{!isLocked && (
 											<button
+												type="button"
 												onClick={handleAddPhoto}
 												className="aspect-video rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all gap-1 text-[10px] font-bold"
 											>
@@ -1226,6 +1274,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 									<div className="space-y-3 bg-secondary/15 rounded-xl p-4 border border-border max-h-[160px] overflow-y-auto">
 										{selectedOrder.notas.map((nt, idx) => (
 											<div
+												// biome-ignore lint/suspicious/noArrayIndexKey: lista de notas, las notas pueden repetirse
 												key={idx}
 												className="text-xs text-foreground flex gap-2"
 											>
@@ -1279,7 +1328,9 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 			{/* CREATE ORDER MODAL */}
 			{isCreateOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
@@ -1292,10 +1343,14 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 							{/* Client and parameters */}
 							<div className="space-y-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="ot-clienteNombre"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Cliente *
 									</label>
 									<input
+										id="ot-clienteNombre"
 										type="text"
 										required
 										value={clienteNombre}
@@ -1320,10 +1375,14 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 								</div>
 
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="ot-clienteTelefono"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Teléfono
 									</label>
 									<input
+										id="ot-clienteTelefono"
 										type="text"
 										value={clienteTelefono}
 										onChange={(e) => setClienteTelefono(e.target.value)}
@@ -1333,10 +1392,14 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 								<div className="grid grid-cols-2 gap-3">
 									<div>
-										<label className="block text-xs font-semibold text-muted-foreground mb-1">
+										<label
+											htmlFor="ot-placa"
+											className="block text-xs font-semibold text-muted-foreground mb-1"
+										>
 											Placa *
 										</label>
 										<input
+											id="ot-placa"
 											type="text"
 											required
 											value={placa}
@@ -1346,11 +1409,15 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 										/>
 									</div>
 									<div>
-										<label className="block text-xs font-semibold text-muted-foreground mb-1">
+										<label
+											htmlFor="ot-categoria"
+											className="block text-xs font-semibold text-muted-foreground mb-1"
+										>
 											Categoría *
 										</label>
 										<select
 											value={vehiculoTipo}
+											id="ot-categoria"
 											onChange={(e) => setVehiculoTipo(e.target.value)}
 											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 										>
@@ -1365,12 +1432,20 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 								<div className="grid grid-cols-2 gap-3">
 									<div>
-										<label className="block text-xs font-semibold text-muted-foreground mb-1">
+										<label
+											htmlFor="ot-prioridad"
+											className="block text-xs font-semibold text-muted-foreground mb-1"
+										>
 											Prioridad
 										</label>
 										<select
 											value={prioridad}
-											onChange={(e) => setPrioridad(e.target.value as any)}
+											id="ot-prioridad"
+											onChange={(e) =>
+												setPrioridad(
+													e.target.value as OrdenTrabajo["prioridad"],
+												)
+											}
 											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 										>
 											<option value="Baja">Baja</option>
@@ -1379,10 +1454,14 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 										</select>
 									</div>
 									<div>
-										<label className="block text-xs font-semibold text-muted-foreground mb-1">
+										<label
+											htmlFor="ot-fechaFin"
+											className="block text-xs font-semibold text-muted-foreground mb-1"
+										>
 											Fecha Entrega *
 										</label>
 										<input
+											id="ot-fechaFin"
 											type="date"
 											required
 											value={fechaFin}
@@ -1438,6 +1517,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 								<div className="max-h-[140px] overflow-y-auto divide-y divide-border pr-1">
 									{orderItems.map((it, idx) => (
 										<div
+											// biome-ignore lint/suspicious/noArrayIndexKey: filas de formulario controladas por índice
 											key={idx}
 											className="flex justify-between items-center py-1.5 text-xs"
 										>
@@ -1491,7 +1571,9 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 			{/* BILLING DATA MODAL ("Datos para la Factura") */}
 			{isInvoiceOpen && selectedOrder && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsInvoiceOpen(false)}
 					/>
@@ -1502,6 +1584,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 								Datos de Facturación ({selectedOrder.id})
 							</h3>
 							<button
+								type="button"
 								onClick={() => setIsInvoiceOpen(false)}
 								className="text-muted-foreground hover:text-foreground text-sm font-bold"
 							>
@@ -1530,10 +1613,9 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												c.nombre.toLowerCase().trim() ===
 												selectedOrder.clienteNombre.toLowerCase().trim(),
 										);
-										const matchedEmp =
-											matchedClient && matchedClient.empresaId
-												? empresas.find((e) => e.id === matchedClient.empresaId)
-												: null;
+										const matchedEmp = matchedClient?.empresaId
+											? empresas.find((e) => e.id === matchedClient.empresaId)
+											: null;
 										return matchedEmp
 											? matchedEmp.ruc
 											: "1792345678001 (Consumidor Final)";
@@ -1559,10 +1641,9 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												c.nombre.toLowerCase().trim() ===
 												selectedOrder.clienteNombre.toLowerCase().trim(),
 										);
-										const matchedEmp =
-											matchedClient && matchedClient.empresaId
-												? empresas.find((e) => e.id === matchedClient.empresaId)
-												: null;
+										const matchedEmp = matchedClient?.empresaId
+											? empresas.find((e) => e.id === matchedClient.empresaId)
+											: null;
 										return (
 											matchedClient?.direccion ||
 											matchedEmp?.direccion ||
@@ -1578,6 +1659,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 								<div className="space-y-1 mt-1 text-foreground font-semibold">
 									{selectedOrder.items.map((it, i) => (
 										<div
+											// biome-ignore lint/suspicious/noArrayIndexKey: vista estática de ítems
 											key={i}
 											className="flex justify-between items-center bg-card/45 px-2 py-1 rounded border border-border/40"
 										>

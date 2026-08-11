@@ -1,7 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
-import type { Id } from "./_generated/dataModel";
 
 // 3.5 A) Función fetchClientes() DESPUÉS (con filtro Automático)
 export const fetchClientes = query({

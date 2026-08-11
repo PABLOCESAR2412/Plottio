@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from "convex/react";
 import {
 	AlertCircle,
 	Building2,
@@ -14,8 +15,8 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
@@ -45,6 +46,7 @@ type LocalEmpresa = {
 	email?: string;
 	telefono?: string;
 	sucursalId?: string;
+	logoUrl?: string;
 };
 
 type LocalVehiculo = {
@@ -62,25 +64,26 @@ type LocalVehiculo = {
 };
 
 export const EmpresasView: React.FC<EmpresasViewProps> = ({
-	onNavigate,
 	onSelectVehicle,
 }) => {
 	const currentUser = useSessionStore((s) => s.currentUser);
 
 	// ── QUERIES ──────────────────────────────────────────────────────────────
-	const rawEmpresas = useQuery(
-		api.organizacion.getEmpresas,
-		{},
-	) as Array<LocalEmpresa & { _id: string }> | undefined;
+	const rawEmpresas = useQuery(api.organizacion.getEmpresas, {}) as
+		| Array<LocalEmpresa & { _id: string }>
+		| undefined;
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
-		currentUser?.id ? { usuarioId: currentUser.id as unknown as any } : "skip",
+		currentUser?.id ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	) as Array<LocalVehiculo & { _id: string }> | undefined;
 
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const createEmpresaMut = useMutation(api.organizacion.createEmpresa);
 	const updateEmpresaMut = useMutation(api.organizacion.updateEmpresa);
 	const deleteEmpresaMut = useMutation(api.organizacion.deleteEmpresa);
+	const generateLogoUploadUrl = useMutation(
+		api.organizacion.generateLogoUploadUrl,
+	);
 
 	const empresas: LocalEmpresa[] = useMemo(
 		() =>
@@ -95,6 +98,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 				email: e.email,
 				telefono: e.telefono,
 				sucursalId: (e as { sucursalId?: string }).sucursalId,
+				logoUrl: (e as { logoUrl?: string }).logoUrl,
 			})),
 		[rawEmpresas],
 	);
@@ -104,7 +108,8 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			(rawVehiculos ?? []).map((v) => ({
 				id: v._id,
 				propietarioId: v.propietarioId ?? "",
-				propietarioTipo: (v.propietarioTipo as "cliente" | "empresa") ?? "cliente",
+				propietarioTipo:
+					(v.propietarioTipo as "cliente" | "empresa") ?? "cliente",
 				placa: v.placa ?? "",
 				marca: v.marca,
 				modelo: v.modelo,
@@ -146,9 +151,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	const [contactoNombre, setContactoNombre] = useState("");
 	const [contactoTelefono, setContactoTelefono] = useState("");
 	const [direccion, setDireccion] = useState("");
+	const [logoPreview, setLogoPreview] = useState<string>("");
+	const [logoFile, setLogoFile] = useState<File | null>(null);
+	const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
 	// Selected company for editing
-	const [editingEmpresa, setEditingEmpresa] = useState<LocalEmpresa | null>(null);
+	const [editingEmpresa, setEditingEmpresa] = useState<LocalEmpresa | null>(
+		null,
+	);
 
 	// Reset selectedEmpresaId si la empresa desaparece
 	useEffect(() => {
@@ -175,8 +185,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		return (
 			e.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			e.ruc.includes(searchTerm) ||
-			(e.contactoNombre &&
-				e.contactoNombre.toLowerCase().includes(searchTerm.toLowerCase()))
+			e.contactoNombre?.toLowerCase().includes(searchTerm.toLowerCase())
 		);
 	});
 
@@ -189,6 +198,11 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			: null;
 
 	const selectedEmpresa = empresas.find((e) => e.id === activeEmpresaId);
+
+	const branding = useQuery(
+		api.organizacion.getEmpresaBranding,
+		activeEmpresaId ? { empresaId: activeEmpresaId as Id<"empresas"> } : "skip",
+	);
 
 	// Calculate metrics for selected company
 	const empresaVehiculos = selectedEmpresa
@@ -263,7 +277,36 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		setContactoNombre(emp.contactoNombre || emp.razonSocial || "");
 		setContactoTelefono(emp.contactoTelefono || emp.telefono || "");
 		setDireccion(emp.direccion || "");
+		setLogoPreview(emp.logoUrl || "");
+		setLogoFile(null);
 		setIsEditOpen(true);
+	};
+
+	const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		setLogoFile(file);
+		const reader = new FileReader();
+		reader.onload = () => setLogoPreview(reader.result as string);
+		reader.readAsDataURL(file);
+	};
+
+	const uploadLogo = async (): Promise<string> => {
+		if (!logoFile) return logoPreview;
+		setIsUploadingLogo(true);
+		try {
+			const uploadUrl = await generateLogoUploadUrl();
+			const res = await fetch(uploadUrl, {
+				method: "POST",
+				headers: { "Content-Type": logoFile.type },
+				body: logoFile,
+			});
+			if (!res.ok) throw new Error("Error al subir el logo");
+			const { storageId } = (await res.json()) as { storageId: string };
+			return storageId;
+		} finally {
+			setIsUploadingLogo(false);
+		}
 	};
 
 	const handleEdit = async (e: React.FormEvent) => {
@@ -271,13 +314,15 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		if (!editingEmpresa || !nombre.trim() || !ruc.trim()) return;
 
 		try {
+			const logoUrl = await uploadLogo();
 			await updateEmpresaMut({
-				id: editingEmpresa.id as unknown as any,
+				id: editingEmpresa.id as Id<"empresas">,
 				nombre: nombre.trim(),
 				ruc: ruc.trim(),
 				razonSocial: contactoNombre.trim() || nombre.trim(),
 				telefono: contactoTelefono.trim() || "",
 				direccion: direccion.trim() || "",
+				logoUrl: logoUrl || undefined,
 			});
 			setIsEditOpen(false);
 			setAlertConfig({
@@ -304,7 +349,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			type: "delete",
 			onConfirm: async () => {
 				try {
-					await deleteEmpresaMut({ id: emp.id as unknown as any });
+					await deleteEmpresaMut({ id: emp.id as Id<"empresas"> });
 					if (selectedEmpresaId === emp.id) {
 						const remaining = empresas.filter((e) => e.id !== emp.id);
 						setSelectedEmpresaId(remaining.length > 0 ? remaining[0].id : null);
@@ -340,6 +385,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					</p>
 				</div>
 				<button
+					type="button"
 					onClick={handleOpenCreate}
 					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
@@ -366,6 +412,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					<div className="divide-y divide-border overflow-y-auto max-h-[500px] pr-1">
 						{filteredEmpresas.map((emp) => (
 							<button
+								type="button"
 								key={emp.id}
 								onClick={() => setSelectedEmpresaId(emp.id)}
 								className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
@@ -402,9 +449,17 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							{/* Header and actions */}
 							<div className="flex items-start justify-between border-b border-border pb-4">
 								<div className="flex items-center gap-3">
-									<div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-foreground font-semibold text-lg">
-										<Building2 className="h-6 w-6" />
-									</div>
+									{branding?.logoUrl ? (
+										<img
+											src={branding.logoUrl}
+											alt={`Logo de ${selectedEmpresa.nombre}`}
+											className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-secondary object-cover"
+										/>
+									) : (
+										<div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-foreground font-semibold text-lg">
+											<Building2 className="h-6 w-6" />
+										</div>
+									)}
 									<div>
 										<h2 className="text-xl font-bold text-foreground">
 											{selectedEmpresa.nombre}
@@ -417,6 +472,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 
 								<div className="flex gap-2">
 									<button
+										type="button"
 										onClick={() => handleOpenEdit(selectedEmpresa)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors"
 										title="Editar Empresa"
@@ -424,6 +480,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 										<Edit2 className="h-4 w-4" />
 									</button>
 									<button
+										type="button"
 										onClick={() => handleDeleteClick(selectedEmpresa)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
 										title="Eliminar Empresa"
@@ -520,6 +577,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 								<div className="divide-y divide-border">
 									{empresaVehiculos.map((veh) => (
 										<button
+											type="button"
 											key={veh.id}
 											onClick={() => onSelectVehicle(veh.id)}
 											className="w-full flex flex-col sm:flex-row sm:items-center justify-between py-3.5 hover:bg-secondary/40 px-2 rounded-lg transition-colors gap-2 text-left cursor-pointer border border-transparent hover:border-primary/80"
@@ -594,7 +652,9 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			{/* CREATE MODAL */}
 			{isCreateOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
@@ -604,10 +664,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 						</h3>
 						<form onSubmit={handleCreate} className="space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre Comercial de la Flota *
 								</label>
 								<input
+									id="empresa-nombre"
 									type="text"
 									required
 									value={nombre}
@@ -618,10 +682,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-ruc"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									RUC *
 								</label>
 								<input
+									id="empresa-ruc"
 									type="text"
 									required
 									value={ruc}
@@ -632,10 +700,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-contacto-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre del Contacto (Opcional)
 								</label>
 								<input
+									id="empresa-contacto-nombre"
 									type="text"
 									value={contactoNombre}
 									onChange={(e) => setContactoNombre(e.target.value)}
@@ -645,10 +717,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-contacto-telefono"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Teléfono del Contacto (Opcional)
 								</label>
 								<input
+									id="empresa-contacto-telefono"
 									type="text"
 									value={contactoTelefono}
 									onChange={(e) => setContactoTelefono(e.target.value)}
@@ -658,10 +734,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-direccion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Dirección (Opcional)
 								</label>
 								<input
+									id="empresa-direccion"
 									type="text"
 									value={direccion}
 									onChange={(e) => setDireccion(e.target.value)}
@@ -693,7 +773,9 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			{/* EDIT MODAL */}
 			{isEditOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditOpen(false)}
 					/>
@@ -702,11 +784,48 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							Editar Datos de la Empresa
 						</h3>
 						<form onSubmit={handleEdit} className="space-y-4">
+							<div className="flex items-center gap-4">
+								{logoPreview ? (
+									<img
+										src={logoPreview}
+										alt="Vista previa del logo"
+										className="h-16 w-16 rounded-lg border border-border object-cover bg-secondary"
+									/>
+								) : (
+									<div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border bg-secondary text-muted-foreground text-xs text-center px-1">
+										Sin logo
+									</div>
+								)}
+								<div className="flex-1">
+									<label
+										htmlFor="empresa-logo"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
+										Logo de la Empresa
+									</label>
+									<input
+										id="empresa-logo"
+										type="file"
+										accept="image/*"
+										onChange={handleLogoChange}
+										className="w-full text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground hover:file:bg-secondary/70"
+									/>
+									<p className="text-[10px] text-muted-foreground mt-1">
+										Se reemplazará en la barra lateral y en el favicon. Sube una
+										imagen cuadrada de preferencia.
+									</p>
+								</div>
+							</div>
+
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-edit-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre Comercial *
 								</label>
 								<input
+									id="empresa-edit-nombre"
 									type="text"
 									required
 									value={nombre}
@@ -716,10 +835,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-edit-ruc"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									RUC *
 								</label>
 								<input
+									id="empresa-edit-ruc"
 									type="text"
 									required
 									value={ruc}
@@ -729,10 +852,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-edit-contacto-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre del Contacto (Opcional)
 								</label>
 								<input
+									id="empresa-edit-contacto-nombre"
 									type="text"
 									value={contactoNombre}
 									onChange={(e) => setContactoNombre(e.target.value)}
@@ -741,10 +868,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-edit-contacto-telefono"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Teléfono del Contacto (Opcional)
 								</label>
 								<input
+									id="empresa-edit-contacto-telefono"
 									type="text"
 									value={contactoTelefono}
 									onChange={(e) => setContactoTelefono(e.target.value)}
@@ -753,10 +884,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="empresa-edit-direccion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Dirección (Opcional)
 								</label>
 								<input
+									id="empresa-edit-direccion"
 									type="text"
 									value={direccion}
 									onChange={(e) => setDireccion(e.target.value)}
@@ -775,9 +910,10 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 								</button>
 								<button
 									type="submit"
-									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+									disabled={isUploadingLogo}
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-60"
 								>
-									Guardar Cambios
+									{isUploadingLogo ? "Subiendo logo..." : "Guardar Cambios"}
 								</button>
 							</div>
 						</form>

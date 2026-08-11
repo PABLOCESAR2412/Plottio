@@ -71,10 +71,31 @@
 
 - [x] **Verificar build / tipos / lint** (resultado documentado)
   - `bun run build` (vite): ✅ pasa (`✓ built in 18.25s`).
-  - `bun run check` (biome): ❌ **382 errores + 181 warnings + 10 infos**.
-    - Causa raíz parcial: `biome.json` targeta `$schema 2.2.4` vs CLI 2.4.5 (`biome migrate` pendiente).
-  - `bunx tsc --noEmit`: ❌ **88 errores** (la mayoría *unused imports / implicit any*).
-  - **⚠️ Crítico detectado durante la verificación:** `login` y `aceptarInvitacion` usan `ctx.runAction`, pero `GenericMutationCtx` **no lo expone** en Convex 1.42.1 (`convex/usuarios.ts:122, 232`). El item `[x]` "Arreglar setTimeout en login" quedó marcado como hecho, pero su fix **no compila** actualmente. `convex dev --once` pasa porque su typecheck va en modo `try`.
+  - `bunx tsc --noEmit`: ✅ **0 errores** (tras la limpieza de biome/tsc de la sesión del 2026-08-09).
+  - `bun run check` (biome): actualizado — ver item de limpieza de lint abajo ("Reducir errores de lint").
+
+- [x] **Reducir errores de lint (Biome)** — 312 → **0 errores**
+  - Hecho (2026-08-09): `biome.json` migrado a `$schema 2.4.5` (via `biome migrate --write`).
+  - **Errores de Tipografía/Hooks (fixtures reales, resueltos):**
+    - `correctness/useHookAtTopLevel` (14): hooks `useState` después de early-return en `AgendaView.tsx` (líneas 39-68) e `InventarioView.tsx` (transfer). Movidos arriba del `return <TableSkeleton />`.
+  - **`suspicious/noArrayIndexKey` (14):** casos justificados (listas estáticas o formularios controlados por índice) documentados con `// biome-ignore` + razón:
+    - `Skeleton.tsx` (placeholders), `LoginView.tsx` (beneficios estáticos), `BugReporter.tsx` y `ConfiguracionView.tsx` (capturas), `AgendaView.tsx` (celdas vacías de calendario), `CotizacionesView.tsx` (ítems de cotización), `KitsFlotaView.tsx` (items y vehículos), `OrdenesTrabajoView.tsx` (tareas, fotos, notas, orderItems — controlados por índice).
+  - **Reglas a11y (270) bajadas de error → advertencia** en `biome.json` (no auto-fixables, deuda de accesibilidad legacy): `noLabelWithoutControl` (125), `useButtonType` (122), `noStaticElementInteractions` (19), `useKeyWithClickEvents` (18). Siguen visibles como warnings para no perder visibilidad.
+
+- [x] **Resolver los 137 `suspicious/noExplicitAny`** (delegado a subagentes, 2026-08-09)
+  - Reemplazados los `as any` / `as unknown as any` por `Id<"tabla">` de `convex/_generated/dataModel` (confirmando cada firma contra el módulo convex correspondiente).
+  - Archivos (17): AgendaView, AuditoriaView, BugReporter, CatalogoView, ConfiguracionView, CotizacionesView, DashboardView, EmpresasView, GestionUsuariosView, InventarioView, KitsFlotaView, LotesProduccionView, OrdenesTrabajoView, RolesView, Sidebar, SucursalesAdmin, VehiculosView.
+  - También: `catch (err: any)` → `catch (err)` + `err instanceof Error`; `useState<any>` → `Doc<...> | null`; tipos en callbacks y params.
+  - Resultado: **0 `noExplicitAny`**, tsc 0 errores, 11/11 tests, biome 0 errores.
+  - **Pendiente:** quedan **285 warnings de a11y** (misma deuda documentada arriba).
+
+- [x] **Feature: Branding de empresa (logo + nombre)**
+  - Hecho (2026-08-09):
+    - `convex/organizacion.ts`: `updateEmpresa` ahora acepta `logoUrl`; nuevas `generateLogoUploadUrl` (storage de Convex) y `getEmpresaBranding` (resuelve storageId a URL pública).
+    - `src/store/useSessionStore.ts` + `LoginView.tsx`: `SessionUser` guarda `empresaId` (ya venía en el Doc devuelto por login).
+    - `EmpresasView.tsx`: el modal de edición permite subir el logo (preview + upload a storage); el detalle de la empresa activa muestra el logo resuelto.
+    - `Sidebar.tsx`: muestra el logo + nombre de la empresa activa en el header; actualiza dinámicamente el `<link rel="icon">` (favicon).
+    - Deploy a Convex **pendiente** (`bunx convex dev --once`) para que los cambios de backend surtan efecto.
 
 - [x] **Tests** (vitest)
   - Hecho (2026-08-09): 4 archivos / **11 tests pasando** (`bun run test`).
@@ -84,13 +105,46 @@
   - `tests/login.test.ts`: flujo de login (3 casos de `verifyPasswordAction` replicados sobre helpers compartidos).
   - Nota: Convex no expone runner E2E a app en esta versión; el flujo de login se prueba a nivel de lógica de negocio.
 
+- [x] **Resolver los 285 warnings de a11y** (delegado a subagentes, 2026-08-11)
+  - `useButtonType` (122) → `type="button"`; `noLabelWithoutControl` (126) → `htmlFor`+`id` o `<span>` para texto estático; `noStaticElementInteractions` (19) → `<button>` o `role="button"`+`tabIndex`+`onKeyDown`; `useKeyWithClickEvents` (18) → `onKeyDown` Enter/espacio.
+  - Archivos (18): AgendaView, AuditoriaView, BugReporter, CatalogoView, ClientesView, ConfiguracionView, CotizacionesView, DashboardView, EmpresasView, GestionUsuariosView, InventarioView, KitsFlotaView, LoginView, OrdenesTrabajoView, RolesView, Sidebar, SucursalesAdmin, VehiculosView.
+  - Resultado: **biome lint 0**, tsc 0, tests 11/11. Queda solo deuda de formato CRLF → resuelta abajo.
+
+- [x] **Mantenimiento: alinear `convex/reportes.ts` + fix RBAC (clave de permisos)**
+  - Índices/campos de `reportes.ts` alineados con `schema.ts` (by_empresa_sucursal, by_empresa, campos de ordenesTrabajo/auditoria/clientes/inventarioSucursal).
+  - **Bug encontrado:** el seed de `convex/permisos.ts` creaba permisos con nombres en español ("Ver Cotizaciones"...), pero los guards usan claves `ver_*` / `crear_*` / `editar_*`. Salvo SuperAdmin (atajo en `auth.ts`), **ningún rol pasaba `requirePermission`**.
+  - Fix aplicado: campo `clave` en la tabla `permisos` (schema.ts + índice `by_clave`); `seedPermisos` ahora hace **upsert por `nombre` + backfill de `clave`** sobre filas existentes y crea el catálogo completo (19 permisos); `getCurrentUserContext` usa `perm.clave ?? perm.nombre`.
+  - `convex/reportes.ts` sigue **sin consumidor en `src/`** (queda para el backlog de Reporte PDF/Excel).
+
+- [x] **Mantenimiento: verificar `routeTree.gen.ts`**
+  - Solo `__root` + `index` (rutas existentes). Componentes huérfanos: ninguno (AuditoriaView/GestionUsuariosView/RolesView se consumen desde ConfiguracionView; Skeleton y SuccessDialog son UI compartida).
+
+- [x] **Mantenimiento: CI / pre-commit + CRLF**
+  - `bun run check` (biome) fallaba por CRLF: git con `core.autocrlf=true` escribe CRLF en el working tree (Windows) pero biome espera LF.
+  - Fix: nuevo `.gitattributes` con `* text=auto eol=lf`; 46 archivos normalizados a LF; 3 restantes formateados (`ClientesView`, `CotizacionesView`, `GestionUsuariosView`).
+  - Creados `.github/workflows/ci.yml` (check + typecheck + tests + build con bun) y `.githooks/pre-commit` (check + typecheck); `core.hooksPath=.githooks`.
+  - Resultado: **biome 0 errores, lint 0, tsc 0, tests 11/11, build OK**.
+
 ---
 
-## 🟢 Backlog (ideas a futuro, sin orden)
+## 🟢 Backlog (ideas a futuro, en orden de ejecución)
 
-- **Permisos por sucursal refinados.** Hoy `requirePermission` valida por nombre de permiso, no por sucursal. Una política de "este permiso aplica sólo en la sucursal X" requiere extender el modelo.
-- **Notificaciones reales** (push/email) — hoy sólo hay flags booleanos en `useSessionStore`. Sustituir por una integración (Resend, Twilio, etc.).
-- **Reporte PDF/Excel** ya mencionados en el README pero `convex/reportes.ts` no se ha tocado en la migración — confirmar si sigue alineado con la nueva estructura.
+- [x] **Permisos por sucursal refinados.** (2026-08-11)
+  - `UserContext` ahora expone `permisosPorSucursal: { sucursalId, permisos[] }` además de `permisos` global.
+  - `checkPermission` con `sucursalId` valida que el permiso esté concedido **en esa sucursal** (o `ver_todas_sucursales`). SuperAdmin sigue pasando todo.
+  - `transferirInventario` ahora exige `editar_inventario` en sucursal origen **y destino**.
+  - tsc 0, tests 11/11.
+- [x] **Notificaciones reales (in-app).** (2026-08-11, híbrido: in-app + plan de email documentado)
+  - Nueva tabla `notificaciones` (usuarioId, empresaId, tipo, titulo, mensaje, leida, enlace, fecha) con índices `by_usuario`, `by_empresa`, `by_usuario_leida`.
+  - Nuevo módulo `convex/notificaciones.ts`: `crearNotificacion` (internalMutation), `getMisNotificaciones`, `contarNoLeidas`, `marcarLeida`, `marcarTodasLeidas`.
+  - Triggers: `createOrdenTrabajo` notifica al técnico asignado; `updateCotizacion` notifica al creador cuando cambia a "Aprobada".
+  - `Sidebar.tsx`: campana con contador no leído + dropdown con lista (marcar leída / marcar todas).
+  - **Email (Resend) pendiente:** keys en env de Convex; triggers adicionales en crear cita / bug. Deploy a Convex pendiente (`bunx convex dev --once`) para la tabla nueva.
+- [x] **Reporte PDF/Excel conectado a queries server-side.** (2026-08-11)
+  - `getReporteIngresos` enriquecido: clienteTelefono, vehiculoTipo, progreso, fechaInicio/fechaFin, sucursalId (además de id/cliente/placa/total/estado/sucursal).
+  - Nuevo query `getPuedeVerReportes` (usa `checkPermission` con `ver_reportes`, sin lanzar 403) para gatear en cliente.
+  - `ConfiguracionView`: filtros Desde/Hasta/Estado/Sucursal (sucursal solo SuperAdmin), los exports PDF/CSV ahora usan `reporteData` server-side (respaldado en datos locales si no hay permiso o carga pendiente).
+  - codegen + biome 0 + tsc 0 + tests 11/11 + build OK.
 - **Búsqueda global** (clientes, vehículos, órdenes) con índice full-text de Convex.
 - **Optimistic UI** en mutaciones críticas (cambiar estado de orden, agregar item a cotización).
 - **Migrar `routeTree.gen.ts`** — hoy es generado por TanStack Router. Verificar que no hay rutas huérfanas después de los cambios.
@@ -107,6 +161,6 @@
 ## Notas de operación
 
 - **Stack:** React 19 + Vite 8 + TanStack Router + Convex + Zustand (sólo para sesión/UI) + Tailwind 4.
-- **Package manager:** `bun` (también hay `package-lock.json` legacy — conviene decidir cuál es la fuente de verdad y borrar el otro).
+- **Package manager:** `bun` (fuente de verdad, v1.2.19). `package-lock.json` legacy **eliminado** (2026-08-09); `bun.lock` sincronizado y congelado (`bun install --frozen-lockfile` OK).
 - **Variables de entorno:** `.env.local` con `VITE_CONVEX_URL`. No commitear.
 - **Convex schema actual:** 21 tablas (ver `convex/schema.ts`). Todas las entidades del store legacy tienen su contraparte.

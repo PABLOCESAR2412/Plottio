@@ -1,7 +1,7 @@
+import { useMutation, useQuery } from "convex/react";
 import {
 	Activity,
 	AlertCircle,
-	Calendar,
 	Car,
 	ChevronRight,
 	ClipboardCheck,
@@ -11,25 +11,23 @@ import {
 	Hash,
 	Plus,
 	Search,
-	Tag,
 	Trash2,
 	User,
 	Wrench,
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { useSessionStore } from "../store/useSessionStore";
 import type {
 	Cliente,
 	Empresa,
 	ServicioVehiculo,
 	Vehiculo,
 } from "../types/data";
-import { useSessionStore } from "../store/useSessionStore";
-import { SuccessDialog } from "./SuccessDialog";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 import { TableSkeleton } from "./Skeleton";
+import { SuccessDialog } from "./SuccessDialog";
 
 interface VehiculosViewProps {
 	onNavigate: (
@@ -58,16 +56,16 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip"
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip"
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
 	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
 	const rawCategorias = useQuery(
 		api.plantillas.getCategorias,
-		currentUser ? { usuarioId: currentUser.id as unknown as any } : "skip",
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	) as string[] | undefined;
 	const categoriasPrecios: string[] = rawCategorias ?? [];
 
@@ -75,15 +73,19 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	const updateVehiculoMut = useMutation(api.vehiculos.updateVehiculo);
 	const deleteVehiculoMut = useMutation(api.vehiculos.deleteVehiculo);
 	const addServicioVehiculoMut = useMutation(api.vehiculos.addServicioVehiculo);
-	const updateServicioVehiculoMut = useMutation(api.vehiculos.updateServicioVehiculo);
-	const deleteServicioVehiculoMut = useMutation(api.vehiculos.deleteServicioVehiculo);
+	const updateServicioVehiculoMut = useMutation(
+		api.vehiculos.updateServicioVehiculo,
+	);
+	const deleteServicioVehiculoMut = useMutation(
+		api.vehiculos.deleteServicioVehiculo,
+	);
 	const createOrdenTrabajoMut = useMutation(api.ordenes.createOrdenTrabajo);
 
 	const vehiculos = (rawVehiculos || []).map((v) => ({
 		...v,
 		id: v._id,
 		año: v.anio,
-		servicios: v.servicios || []
+		servicios: v.servicios || [],
 	})) as Vehiculo[];
 
 	const clientes = (rawClientes || []).map((c) => ({
@@ -99,7 +101,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
-	const [selectedVehiculoId, setSelectedVehiculoId] = useState<string | null>(null);
+	const [selectedVehiculoId, setSelectedVehiculoId] = useState<string | null>(
+		null,
+	);
 
 	// Modals
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -108,9 +112,8 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	const [isAddHistoryServiceOpen, setIsAddHistoryServiceOpen] = useState(false);
 	const [isEditHistoryServiceOpen, setIsEditHistoryServiceOpen] =
 		useState(false);
-	const [selectedDetailService, setSelectedDetailService] = useState<
-		any | null
-	>(null);
+	const [selectedDetailService, setSelectedDetailService] =
+		useState<ServicioVehiculo | null>(null);
 
 	// Notification configuration
 	const [alertConfig, setAlertConfig] = useState<{
@@ -236,7 +239,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 				clearPreselectedVehicle();
 			}
 		}
-	}, [preselectedVehicleId, vehiculos]);
+	}, [preselectedVehicleId, vehiculos, clearPreselectedVehicle]);
 
 	const handleOpenCreate = () => {
 		setPlaca("");
@@ -254,7 +257,8 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const handleCreate = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!placa.trim() || !marca.trim() || !modelo.trim() || !currentUser) return;
+		if (!placa.trim() || !marca.trim() || !modelo.trim() || !currentUser)
+			return;
 
 		const newVeh = await createVehiculoMut({
 			usuarioId: currentUser.id as Id<"usuarios">,
@@ -268,7 +272,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			propietarioId,
 			propietarioTipo,
 			estado,
-			sucursalId: currentUser?.sucursalId ? (currentUser.sucursalId as Id<"sucursales">) : undefined,
+			sucursalId: currentUser?.sucursalId
+				? (currentUser.sucursalId as Id<"sucursales">)
+				: undefined,
 		});
 
 		setIsCreateOpen(false);
@@ -299,7 +305,8 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const handleEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!selectedVehiculo || !placa.trim() || !marca.trim() || !currentUser) return;
+		if (!selectedVehiculo || !placa.trim() || !marca.trim() || !currentUser)
+			return;
 
 		await updateVehiculoMut({
 			usuarioId: currentUser.id as Id<"usuarios">,
@@ -354,7 +361,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		setIsNewServiceFlowOpen(true);
 	};
 
-	const handleSelectServiceFlow = (flowType: "cotizacion" | "orden") => {
+	const handleSelectServiceFlow = async (flowType: "cotizacion" | "orden") => {
 		if (!selectedVehiculo) return;
 		const owner = getOwnerDetails(selectedVehiculo);
 
@@ -372,13 +379,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			onNavigate("cotizaciones");
 		} else {
 			// Create work order automatically
-			const newOrd = addOrdenTrabajo({
+			if (!currentUser) return;
+			const newOrd = await createOrdenTrabajoMut({
+				usuarioId: currentUser.id as Id<"usuarios">,
 				clienteNombre: owner.nombre,
 				clienteTelefono: owner.telefono,
 				placa: selectedVehiculo.placa,
 				vehiculoTipo: selectedVehiculo.categoria,
 				items: [],
-				total: 0,
 				prioridad: "Media",
 				estado: "Pendiente",
 				fechaInicio: new Date().toISOString().split("T")[0],
@@ -392,7 +400,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			});
 
 			if (onSelectOrder) {
-				onSelectOrder(newOrd.id);
+				onSelectOrder(newOrd?._id as string);
 			} else {
 				onNavigate("ordenes");
 			}
@@ -400,13 +408,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	};
 
 	// SERVICES CRUD (HISTORIAL DE SERVICIOS)
-	const handleOpenAddHistoryService = () => {
-		setSrvDescripcion("");
-		setSrvCosto(0);
-		setSrvFecha(new Date().toISOString().split("T")[0]);
-		setSrvEstado("Entregado");
-		setIsAddHistoryServiceOpen(true);
-	};
 
 	const handleAddHistoryService = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -443,7 +444,12 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const handleEditHistoryService = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!selectedVehiculo || !selectedServiceId || !srvDescripcion.trim() || !currentUser)
+		if (
+			!selectedVehiculo ||
+			!selectedServiceId ||
+			!srvDescripcion.trim() ||
+			!currentUser
+		)
 			return;
 
 		await updateServicioVehiculoMut({
@@ -491,7 +497,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		});
 	};
 
-	if (rawVehiculos === undefined || rawClientes === undefined || rawEmpresas === undefined) {
+	if (
+		rawVehiculos === undefined ||
+		rawClientes === undefined ||
+		rawEmpresas === undefined
+	) {
 		return <TableSkeleton />;
 	}
 
@@ -509,6 +519,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 					</p>
 				</div>
 				<button
+					type="button"
 					onClick={handleOpenCreate}
 					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
@@ -521,6 +532,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			<div className="flex flex-wrap gap-2">
 				{["Todos", ...categoriasPrecios].map((cat) => (
 					<button
+						type="button"
 						key={cat}
 						onClick={() => setSelectedCategory(cat)}
 						className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors cursor-pointer ${
@@ -554,6 +566,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 							const owner = getOwnerDetails(veh);
 							return (
 								<button
+									type="button"
 									key={veh.id}
 									onClick={() => setSelectedVehiculoId(veh.id)}
 									className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
@@ -626,6 +639,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 								<div className="flex gap-2">
 									<button
+										type="button"
 										onClick={handleOpenNewServiceFlow}
 										className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-colors"
 									>
@@ -633,6 +647,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										Nuevo Servicio
 									</button>
 									<button
+										type="button"
 										onClick={() => handleOpenEdit(selectedVehiculo)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors"
 										title="Editar Vehículo"
@@ -640,6 +655,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										<Edit2 className="h-4 w-4" />
 									</button>
 									<button
+										type="button"
 										onClick={() => handleDeleteClick(selectedVehiculo)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
 										title="Eliminar Vehículo"
@@ -724,11 +740,12 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 												•
 											</span>
 
-											<div
-												onClick={() => setSelectedDetailService(srv)}
-												className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 p-3 rounded-lg border border-border/60 bg-secondary/5 hover:bg-secondary/20 transition-all cursor-pointer group"
-											>
-												<div className="flex-1 min-w-0">
+											<div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 p-3 rounded-lg border border-border/60 bg-secondary/5 hover:bg-secondary/20 transition-all cursor-pointer group">
+												<button
+													type="button"
+													onClick={() => setSelectedDetailService(srv)}
+													className="flex-1 min-w-0 text-left"
+												>
 													<div className="flex items-center gap-2">
 														<span className="text-xs font-semibold bg-secondary px-2 py-0.5 rounded text-foreground">
 															{srv.fecha}
@@ -743,13 +760,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 													<span className="text-[10px] text-green-500 font-semibold bg-green-500/10 px-1.5 py-0.5 rounded inline-block mt-1">
 														{srv.estado}
 													</span>
-												</div>
+												</button>
 
-												<div
-													className="flex items-center gap-2 justify-end"
-													onClick={(e) => e.stopPropagation()}
-												>
+												<div className="flex items-center gap-2 justify-end">
 													<button
+														type="button"
 														onClick={() => handleOpenEditHistoryService(srv)}
 														className="p-1.5 rounded text-muted-foreground hover:bg-card hover:text-foreground transition-colors"
 														title="Editar entrada"
@@ -757,6 +772,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 														<Edit2 className="h-3.5 w-3.5" />
 													</button>
 													<button
+														type="button"
 														onClick={() =>
 															handleDeleteHistoryServiceClick(srv.id)
 														}
@@ -792,7 +808,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			{/* CREATE VEHICLE MODAL */}
 			{isCreateOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
@@ -803,10 +821,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						<form onSubmit={handleCreate} className="space-y-4">
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="create-placa"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Placa *
 									</label>
 									<input
+										id="create-placa"
 										type="text"
 										required
 										value={placa}
@@ -816,10 +838,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="create-categoria"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Categoría *
 									</label>
 									<select
+										id="create-categoria"
 										value={categoria}
 										onChange={(e) => setCategoria(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -835,10 +861,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="create-marca"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Marca *
 									</label>
 									<input
+										id="create-marca"
 										type="text"
 										required
 										value={marca}
@@ -848,10 +878,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="create-modelo"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Modelo *
 									</label>
 									<input
+										id="create-modelo"
 										type="text"
 										required
 										value={modelo}
@@ -864,10 +898,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="create-anio"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Año
 									</label>
 									<input
+										id="create-anio"
 										type="text"
 										value={año}
 										onChange={(e) => setAño(e.target.value)}
@@ -876,10 +914,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="create-serie"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										N° de Serie / Chasis
 									</label>
 									<input
+										id="create-serie"
 										type="text"
 										value={numeroSerie}
 										onChange={(e) => setNumeroSerie(e.target.value)}
@@ -921,10 +963,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									</label>
 								</div>
 
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="create-propietario"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Asignar Propietario *
 								</label>
 								<select
+									id="create-propietario"
 									required
 									value={propietarioId}
 									onChange={(e) => setPropietarioId(e.target.value)}
@@ -948,12 +994,23 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="create-estado"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Estado de Operación
 								</label>
 								<select
+									id="create-estado"
 									value={estado}
-									onChange={(e) => setEstado(e.target.value as any)}
+									onChange={(e) =>
+										setEstado(
+											e.target.value as
+												| "Activo"
+												| "En Mantenimiento"
+												| "Inactivo",
+										)
+									}
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									<option value="Activo">Activo</option>
@@ -985,7 +1042,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			{/* EDIT VEHICLE MODAL */}
 			{isEditOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditOpen(false)}
 					/>
@@ -996,10 +1055,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						<form onSubmit={handleEdit} className="space-y-4">
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-placa"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Placa *
 									</label>
 									<input
+										id="edit-placa"
 										type="text"
 										required
 										value={placa}
@@ -1008,10 +1071,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-categoria"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Categoría *
 									</label>
 									<select
+										id="edit-categoria"
 										value={categoria}
 										onChange={(e) => setCategoria(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -1027,10 +1094,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-marca"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Marca *
 									</label>
 									<input
+										id="edit-marca"
 										type="text"
 										required
 										value={marca}
@@ -1039,10 +1110,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-modelo"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Modelo *
 									</label>
 									<input
+										id="edit-modelo"
 										type="text"
 										required
 										value={modelo}
@@ -1054,10 +1129,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-anio"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Año
 									</label>
 									<input
+										id="edit-anio"
 										type="text"
 										value={año}
 										onChange={(e) => setAño(e.target.value)}
@@ -1065,10 +1144,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-serie"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										N° de Serie / Chasis
 									</label>
 									<input
+										id="edit-serie"
 										type="text"
 										value={numeroSerie}
 										onChange={(e) => setNumeroSerie(e.target.value)}
@@ -1109,10 +1192,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									</label>
 								</div>
 
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="edit-propietario"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Cambiar Propietario *
 								</label>
 								<select
+									id="edit-propietario"
 									required
 									value={propietarioId}
 									onChange={(e) => setPropietarioId(e.target.value)}
@@ -1133,12 +1220,23 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="edit-estado"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Estado de Operación
 								</label>
 								<select
+									id="edit-estado"
 									value={estado}
-									onChange={(e) => setEstado(e.target.value as any)}
+									onChange={(e) =>
+										setEstado(
+											e.target.value as
+												| "Activo"
+												| "En Mantenimiento"
+												| "Inactivo",
+										)
+									}
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									<option value="Activo">Activo</option>
@@ -1170,7 +1268,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			{/* NEW SERVICE FLOW OVERLAY DIALOG */}
 			{isNewServiceFlowOpen && selectedVehiculo && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsNewServiceFlowOpen(false)}
 					/>
@@ -1185,6 +1285,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						</p>
 						<div className="grid gap-3 grid-cols-2">
 							<button
+								type="button"
 								onClick={() => handleSelectServiceFlow("cotizacion")}
 								className="flex flex-col items-center gap-3 p-4 rounded-xl border border-border hover:bg-secondary hover:border-ring/30 transition-all text-center group cursor-pointer"
 							>
@@ -1200,6 +1301,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 							</button>
 
 							<button
+								type="button"
 								onClick={() => handleSelectServiceFlow("orden")}
 								className="flex flex-col items-center gap-3 p-4 rounded-xl border border-border hover:bg-secondary hover:border-ring/30 transition-all text-center group cursor-pointer"
 							>
@@ -1216,6 +1318,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						</div>
 
 						<button
+							type="button"
 							onClick={() => setIsNewServiceFlowOpen(false)}
 							className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
 						>
@@ -1228,7 +1331,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			{/* HISTORIC SERVICE: ADD MODAL */}
 			{isAddHistoryServiceOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsAddHistoryServiceOpen(false)}
 					/>
@@ -1238,10 +1343,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						</h3>
 						<form onSubmit={handleAddHistoryService} className="space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="add-srv-descripcion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Descripción del Trabajo Realizado *
 								</label>
 								<input
+									id="add-srv-descripcion"
 									type="text"
 									required
 									value={srvDescripcion}
@@ -1253,10 +1362,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="add-srv-costo"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Costo Total ($ USD) *
 									</label>
 									<input
+										id="add-srv-costo"
 										type="number"
 										required
 										min="0"
@@ -1266,10 +1379,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="add-srv-fecha"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Fecha de Entrega *
 									</label>
 									<input
+										id="add-srv-fecha"
 										type="date"
 										required
 										value={srvFecha}
@@ -1280,10 +1397,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="add-srv-estado"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Estado de Entrega
 								</label>
 								<input
+									id="add-srv-estado"
 									type="text"
 									disabled
 									value={srvEstado}
@@ -1314,7 +1435,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			{/* HISTORIC SERVICE: EDIT MODAL */}
 			{isEditHistoryServiceOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditHistoryServiceOpen(false)}
 					/>
@@ -1324,10 +1447,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						</h3>
 						<form onSubmit={handleEditHistoryService} className="space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="edit-srv-descripcion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Descripción del Trabajo *
 								</label>
 								<input
+									id="edit-srv-descripcion"
 									type="text"
 									required
 									value={srvDescripcion}
@@ -1338,10 +1465,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-srv-costo"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Costo ($ USD) *
 									</label>
 									<input
+										id="edit-srv-costo"
 										type="number"
 										required
 										min="0"
@@ -1351,10 +1482,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="edit-srv-fecha"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Fecha *
 									</label>
 									<input
+										id="edit-srv-fecha"
 										type="date"
 										required
 										value={srvFecha}
@@ -1387,7 +1522,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			{/* DETALLE DE SERVICIO MODAL */}
 			{selectedDetailService && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setSelectedDetailService(null)}
 					/>
@@ -1398,6 +1535,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 								Detalle del Servicio
 							</h3>
 							<button
+								type="button"
 								onClick={() => setSelectedDetailService(null)}
 								className="text-muted-foreground hover:text-foreground text-sm font-bold"
 							>
@@ -1476,6 +1614,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						</div>
 
 						<button
+							type="button"
 							onClick={() => setSelectedDetailService(null)}
 							className="mt-6 w-full rounded-lg bg-secondary hover:bg-secondary/80 py-2.5 text-sm font-semibold text-foreground transition-colors"
 						>

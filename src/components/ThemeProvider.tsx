@@ -1,5 +1,5 @@
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { useSessionStore } from "../store/useSessionStore";
 
 const ThemeContext = createContext<{
@@ -12,10 +12,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
 	const theme = useSessionStore((s) => s.theme);
 	const toggleTheme = useSessionStore((s) => s.toggleTheme);
-	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
-		setMounted(true);
 		// Initialize theme on mount from localStorage or system preferences
 		const storedTheme = localStorage.getItem("theme") as
 			| "light"
@@ -39,7 +37,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 		if (activeTheme !== theme) {
 			toggleTheme();
 		}
-	}, []);
+	}, [theme, toggleTheme]);
 
 	// To prevent hydration flashes, we render children, but apply class in useEffect
 	return (

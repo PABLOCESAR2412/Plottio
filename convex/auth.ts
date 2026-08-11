@@ -10,6 +10,7 @@ export type UserContext = {
   pv: { id: Id<"puntosVenta">; nombre: string } | null;
   roles: Array<{ roleId: Id<"roles">; roleNombre: string; sucursalId: Id<"sucursales"> }>;
   permisos: string[];
+  permisosPorSucursal: Array<{ sucursalId: Id<"sucursales">; permisos: string[] }>;
 };
 
 // 3.1 CREAR FUNCIÓN: getCurrentUserContext()
@@ -28,6 +29,7 @@ export async function getCurrentUserContext(
 
   const roles: UserContext["roles"] = [];
   const permissionsSet = new Set<string>();
+  const permisosPorSucursalMap = new Map<Id<"sucursales">, Set<string>>();
 
   for (const ur of userRoles) {
     const role = await ctx.db.get(ur.roleId);
@@ -43,11 +45,22 @@ export async function getCurrentUserContext(
         .withIndex("by_role", (q) => q.eq("roleId", role._id))
         .collect();
 
+      const sucursalSet = permisosPorSucursalMap.get(ur.sucursalId) ?? new Set<string>();
       for (const rp of rolePerms) {
         const perm = await ctx.db.get(rp.permisoId);
-        if (perm) permissionsSet.add(perm.nombre);
+        if (perm) {
+          const clave = perm.clave ?? perm.nombre;
+          permissionsSet.add(clave);
+          sucursalSet.add(clave);
+        }
       }
+      permisosPorSucursalMap.set(ur.sucursalId, sucursalSet);
     }
+  }
+
+  const permisosPorSucursal: UserContext["permisosPorSucursal"] = [];
+  for (const [sucursalId, permisos] of permisosPorSucursalMap.entries()) {
+    permisosPorSucursal.push({ sucursalId, permisos: Array.from(permisos) });
   }
 
   let empresa: UserContext["empresa"] = null;
@@ -82,6 +95,7 @@ export async function getCurrentUserContext(
     pv,
     roles,
     permisos,
+    permisosPorSucursal,
   };
 }
 
@@ -96,15 +110,20 @@ export async function checkPermission(
   
   const isSuperAdmin = context.roles.some(r => r.roleNombre === "SuperAdmin");
 
-  if (!isSuperAdmin && !context.permisos.includes(permisoRequerido)) {
+  // SuperAdmin tiene todos los permisos en todas las sucursales
+  if (isSuperAdmin) return true;
+
+  if (!context.permisos.includes(permisoRequerido)) {
     return false;
   }
 
+  // Si se especifica sucursal, el permiso debe estar concedido EN esa sucursal
   if (sucursalId) {
-     const hasRoleInSucursal = context.roles.some(r => r.sucursalId === sucursalId);
-     if (!hasRoleInSucursal && !context.permisos.includes("ver_todas_sucursales")) {
-         return false;
-     }
+    const scoped = context.permisosPorSucursal.find(s => s.sucursalId === sucursalId);
+    if (scoped && scoped.permisos.includes(permisoRequerido)) return true;
+    // ver_todas_sucursales permite operar en cualquier sucursal
+    if (context.permisos.includes("ver_todas_sucursales")) return true;
+    return false;
   }
 
   return true;

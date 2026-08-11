@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from "convex/react";
 import {
 	Building,
 	Car,
@@ -9,17 +10,15 @@ import {
 	Plus,
 	Search,
 	Trash2,
-	User,
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import type { Cliente, Vehiculo, Empresa } from "../types/data";
-import { useSessionStore } from "../store/useSessionStore";
-import { SuccessDialog } from "./SuccessDialog";
-import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useSessionStore } from "../store/useSessionStore";
+import type { Cliente, Empresa, Vehiculo } from "../types/data";
 import { TableSkeleton } from "./Skeleton";
+import { SuccessDialog } from "./SuccessDialog";
 
 interface ClientesViewProps {
 	onNavigate: (
@@ -37,18 +36,17 @@ interface ClientesViewProps {
 }
 
 export const ClientesView: React.FC<ClientesViewProps> = ({
-	onNavigate,
 	onSelectVehicle,
 }) => {
 	const currentUser = useSessionStore((s) => s.currentUser);
 
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip"
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip"
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
 	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
 
@@ -169,7 +167,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 				`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
 			direccion: direccion.trim(),
 			identificacion: identificacion.trim(),
-			empresaId: empresaId ? (empresaId as Id<"empresas">) : undefined,
 		});
 
 		setIsCreateOpen(false);
@@ -247,7 +244,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		});
 	};
 
-	if (rawClientes === undefined || rawVehiculos === undefined || rawEmpresas === undefined) {
+	if (
+		rawClientes === undefined ||
+		rawVehiculos === undefined ||
+		rawEmpresas === undefined
+	) {
 		return <TableSkeleton />;
 	}
 
@@ -264,6 +265,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 					</p>
 				</div>
 				<button
+					type="button"
 					onClick={handleOpenCreate}
 					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
@@ -290,6 +292,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 					<div className="divide-y divide-border overflow-y-auto max-h-[500px] pr-1">
 						{filteredClientes.map((client) => (
 							<button
+								type="button"
 								key={client.id}
 								onClick={() => {
 									setSelectedClientId(client.id);
@@ -349,6 +352,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 								<div className="flex gap-2">
 									<button
+										type="button"
 										onClick={() => handleOpenEdit(selectedClient)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors"
 										title="Editar Cliente"
@@ -356,6 +360,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 										<Edit2 className="h-4 w-4" />
 									</button>
 									<button
+										type="button"
 										onClick={() => handleDeleteClick(selectedClient)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
 										title="Eliminar Cliente"
@@ -368,6 +373,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							{/* Sub-navigation tabs (Datos de Contacto / Historial de Vehículos) */}
 							<div className="flex border-b border-border">
 								<button
+									type="button"
 									onClick={() => setActiveSubTab("contacto")}
 									className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
 										activeSubTab === "contacto"
@@ -378,6 +384,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									Datos de Contacto
 								</button>
 								<button
+									type="button"
 									onClick={() => setActiveSubTab("vehiculos")}
 									className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
 										activeSubTab === "vehiculos"
@@ -469,6 +476,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								<div className="space-y-3">
 									{clientVehicles.map((veh) => (
 										<button
+											type="button"
 											key={veh.id}
 											onClick={() => onSelectVehicle(veh.id)}
 											className="w-full flex items-center justify-between rounded-lg border border-border p-4 hover:bg-secondary/30 transition-colors text-left cursor-pointer hover:border-primary/80"
@@ -533,7 +541,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			{/* CREATE MODAL */}
 			{isCreateOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
@@ -543,10 +553,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 						</h3>
 						<form onSubmit={handleCreate} className="space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="cliente-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre Completo *
 								</label>
 								<input
+									id="cliente-nombre"
 									type="text"
 									required
 									value={nombre}
@@ -557,10 +571,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="cliente-telefono"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Teléfono
 								</label>
 								<input
+									id="cliente-telefono"
 									type="text"
 									value={telefono}
 									onChange={(e) => setTelefono(e.target.value)}
@@ -570,10 +588,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="cliente-email"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Correo Electrónico
 								</label>
 								<input
+									id="cliente-email"
 									type="email"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
@@ -583,10 +605,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="cliente-identificacion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									C.I. / RUC
 								</label>
 								<input
+									id="cliente-identificacion"
 									type="text"
 									value={identificacion}
 									onChange={(e) => setIdentificacion(e.target.value)}
@@ -596,10 +622,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="cliente-direccion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Dirección (Opcional)
 								</label>
 								<input
+									id="cliente-direccion"
 									type="text"
 									value={direccion}
 									onChange={(e) => setDireccion(e.target.value)}
@@ -609,10 +639,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="cliente-empresa"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Vincular a Empresa/Flota
 								</label>
 								<select
+									id="cliente-empresa"
 									value={empresaId}
 									onChange={(e) => setEmpresaId(e.target.value)}
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -649,7 +683,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			{/* EDIT MODAL */}
 			{isEditOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditOpen(false)}
 					/>
@@ -659,10 +695,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 						</h3>
 						<form onSubmit={handleEdit} className="space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="editar-cliente-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre Completo *
 								</label>
 								<input
+									id="editar-cliente-nombre"
 									type="text"
 									required
 									value={nombre}
@@ -672,10 +712,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="editar-cliente-telefono"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Teléfono
 								</label>
 								<input
+									id="editar-cliente-telefono"
 									type="text"
 									value={telefono}
 									onChange={(e) => setTelefono(e.target.value)}
@@ -684,10 +728,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="editar-cliente-email"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Correo Electrónico
 								</label>
 								<input
+									id="editar-cliente-email"
 									type="email"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
@@ -696,10 +744,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="editar-cliente-direccion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Dirección (Opcional)
 								</label>
 								<input
+									id="editar-cliente-direccion"
 									type="text"
 									value={direccion}
 									onChange={(e) => setDireccion(e.target.value)}
@@ -708,10 +760,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="editar-cliente-empresa"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Vincular a Empresa/Flota
 								</label>
 								<select
+									id="editar-cliente-empresa"
 									value={empresaId}
 									onChange={(e) => setEmpresaId(e.target.value)}
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"

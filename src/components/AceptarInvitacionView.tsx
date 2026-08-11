@@ -1,7 +1,7 @@
+import { useAction, useQuery } from "convex/react";
 import { AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import { useAction, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 
@@ -47,9 +47,7 @@ export const AceptarInvitacionView: React.FC<{
 				onNavigateToLogin();
 			}, 3000);
 		} catch (error) {
-			toast.error(
-				(error as Error).message || "Error al aceptar invitación",
-			);
+			toast.error((error as Error).message || "Error al aceptar invitación");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -76,6 +74,7 @@ export const AceptarInvitacionView: React.FC<{
 						anteriormente.
 					</p>
 					<button
+						type="button"
 						onClick={onNavigateToLogin}
 						className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-lg hover:opacity-90"
 					>
@@ -119,10 +118,14 @@ export const AceptarInvitacionView: React.FC<{
 
 				<form onSubmit={handleSubmit} className="p-6 space-y-4">
 					<div>
-						<label className="block text-sm font-semibold text-foreground mb-1.5">
+						<label
+							htmlFor="correo-electronico"
+							className="block text-sm font-semibold text-foreground mb-1.5"
+						>
 							Correo Electrónico
 						</label>
 						<input
+							id="correo-electronico"
 							type="email"
 							disabled
 							value={user.email}
@@ -131,10 +134,14 @@ export const AceptarInvitacionView: React.FC<{
 					</div>
 
 					<div>
-						<label className="block text-sm font-semibold text-foreground mb-1.5">
+						<label
+							htmlFor="nueva-contrasena"
+							className="block text-sm font-semibold text-foreground mb-1.5"
+						>
 							Nueva Contraseña
 						</label>
 						<input
+							id="nueva-contrasena"
 							type="password"
 							required
 							value={password}
@@ -145,10 +152,14 @@ export const AceptarInvitacionView: React.FC<{
 					</div>
 
 					<div>
-						<label className="block text-sm font-semibold text-foreground mb-1.5">
+						<label
+							htmlFor="confirmar-contrasena"
+							className="block text-sm font-semibold text-foreground mb-1.5"
+						>
 							Confirmar Contraseña
 						</label>
 						<input
+							id="confirmar-contrasena"
 							type="password"
 							required
 							value={confirmPassword}

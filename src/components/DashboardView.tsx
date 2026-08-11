@@ -1,3 +1,4 @@
+import { useQuery } from "convex/react";
 import {
 	CalendarDays,
 	CheckCircle,
@@ -10,8 +11,8 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useMemo } from "react";
-import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 
 interface DashboardViewProps {
@@ -60,12 +61,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
 	const rawOrdenes = useQuery(
 		api.ordenes.fetchOrdenes,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalOrden & { _id: string }> | undefined;
 
 	const rawCitas = useQuery(
 		api.citas.fetchCitas,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCita & { _id: string }> | undefined;
 
 	const ordenesTrabajo: LocalOrden[] = useMemo(
@@ -105,7 +106,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 				);
 
 	// Statistics calculations
-	const totalOrders = visibleOrders.length;
 	const pendingOrdersCount = visibleOrders.filter(
 		(o) => o.estado === "Pendiente" || o.estado === "En Proceso",
 	).length;
@@ -173,6 +173,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 				</div>
 				<div className="flex flex-wrap gap-3">
 					<button
+						type="button"
 						onClick={onAgendarCitaClick}
 						className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
 					>
@@ -180,6 +181,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						Agendar una Cita
 					</button>
 					<button
+						type="button"
 						onClick={onCreateCotizacionClick}
 						className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors"
 					>
@@ -280,6 +282,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 								</p>
 							</div>
 							<button
+								type="button"
 								onClick={() => onNavigate("ordenes")}
 								className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
 							>
@@ -362,6 +365,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 								</p>
 							</div>
 							<button
+								type="button"
 								onClick={() => onNavigate("agenda")}
 								className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
 							>
@@ -430,6 +434,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 				</h3>
 				<div className="grid gap-4 grid-cols-2 md:grid-cols-4">
 					<button
+						type="button"
 						onClick={() => onNavigate("clientes")}
 						className="flex flex-col items-center justify-center p-4 rounded-lg border border-border bg-secondary/20 hover:bg-secondary hover:border-ring/30 transition-all text-center gap-2 cursor-pointer"
 					>
@@ -441,6 +446,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						</span>
 					</button>
 					<button
+						type="button"
 						onClick={() => onNavigate("vehiculos")}
 						className="flex flex-col items-center justify-center p-4 rounded-lg border border-border bg-secondary/20 hover:bg-secondary hover:border-ring/30 transition-all text-center gap-2 cursor-pointer"
 					>
@@ -452,6 +458,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						</span>
 					</button>
 					<button
+						type="button"
 						onClick={() => onNavigate("empresas")}
 						className="flex flex-col items-center justify-center p-4 rounded-lg border border-border bg-secondary/20 hover:bg-secondary hover:border-ring/30 transition-all text-center gap-2 cursor-pointer"
 					>
@@ -463,6 +470,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						</span>
 					</button>
 					<button
+						type="button"
 						onClick={() => onNavigate("configuracion")}
 						className="flex flex-col items-center justify-center p-4 rounded-lg border border-border bg-secondary/20 hover:bg-secondary hover:border-ring/30 transition-all text-center gap-2 cursor-pointer"
 					>

@@ -175,11 +175,12 @@ export default defineSchema({
 
   permisos: defineTable({
     nombre: v.string(),
+    clave: v.optional(v.string()),
     modulo: v.string(),
     accion: v.string(),
     descripcion: v.optional(v.string()),
     fechaCreacion: v.string(),
-  }).index("by_nombre", ["nombre"]).index("by_modulo", ["modulo"]),
+  }).index("by_nombre", ["nombre"]).index("by_modulo", ["modulo"]).index("by_clave", ["clave"]),
 
   rolePermisos: defineTable({
     roleId: v.id("roles"),
@@ -320,5 +321,17 @@ export default defineSchema({
     empresaId: v.id("empresas"),
     nombre: v.string(),
   }).index("by_empresa", ["empresaId"]),
+
+  // --- NOTIFICACIONES IN-APP ---
+  notificaciones: defineTable({
+    usuarioId: v.id("usuarios"),
+    empresaId: v.id("empresas"),
+    tipo: v.string(), // 'cita' | 'orden' | 'cotizacion' | 'sistema'
+    titulo: v.string(),
+    mensaje: v.string(),
+    leida: v.boolean(),
+    enlace: v.optional(v.string()),
+    fecha: v.string(),
+  }).index("by_usuario", ["usuarioId"]).index("by_empresa", ["empresaId"]).index("by_usuario_leida", ["usuarioId", "leida"]),
 
 });

@@ -20,6 +20,7 @@ import type * as kitsFlota from "../kitsFlota.js";
 import type * as lib_auditoria from "../lib/auditoria.js";
 import type * as lib_crypto from "../lib/crypto.js";
 import type * as lotesProduccion from "../lotesProduccion.js";
+import type * as notificaciones from "../notificaciones.js";
 import type * as ordenes from "../ordenes.js";
 import type * as organizacion from "../organizacion.js";
 import type * as permisos from "../permisos.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auditoria": typeof lib_auditoria;
   "lib/crypto": typeof lib_crypto;
   lotesProduccion: typeof lotesProduccion;
+  notificaciones: typeof notificaciones;
   ordenes: typeof ordenes;
   organizacion: typeof organizacion;
   permisos: typeof permisos;

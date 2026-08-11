@@ -1,10 +1,13 @@
+import { useMutation, useQuery } from "convex/react";
 import { jsPDF } from "jspdf";
 import {
 	Bell,
 	Bug as BugIcon,
+	Building,
 	Car,
 	Check,
 	CheckSquare,
+	ClipboardList,
 	DollarSign,
 	Download,
 	Edit2,
@@ -21,24 +24,22 @@ import {
 	TrendingUp,
 	Users,
 	X,
-	Building,
-	ClipboardList,
 } from "lucide-react";
 import type React from "react";
-import { useState, startTransition, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { startTransition, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import type {
-	PlantillaPrecio,
-	ComentarioBug,
-	Bug as BugType,
-} from "../types/data";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
+import type {
+	Bug as BugType,
+	ComentarioBug,
+	PlantillaPrecio,
+} from "../types/data";
+import { AuditoriaView } from "./AuditoriaView";
 import { GestionUsuariosView } from "./GestionUsuariosView";
 import { RolesView } from "./RolesView";
 import { SuccessDialog } from "./SuccessDialog";
 import { SucursalesAdminView } from "./SucursalesAdmin";
-import { AuditoriaView } from "./AuditoriaView";
 
 type LocalCategoria = {
 	id: string;
@@ -65,6 +66,23 @@ type LocalOrden = {
 	fechaFin?: string;
 };
 
+type ReportRow = {
+	id: string;
+	numero_orden: string;
+	cliente: string;
+	clienteTelefono?: string;
+	placa: string;
+	vehiculoTipo?: string;
+	total: number;
+	estado: string;
+	progreso?: number;
+	fecha_creacion: string;
+	fechaInicio?: string;
+	fechaFin?: string;
+	sucursal?: string;
+	sucursalId?: string | null;
+};
+
 export const ConfiguracionView: React.FC = () => {
 	const currentUser = useSessionStore((s) => s.currentUser);
 	const theme = useSessionStore((s) => s.theme);
@@ -81,23 +99,35 @@ export const ConfiguracionView: React.FC = () => {
 	// ── QUERIES ──────────────────────────────────────────────────────────────
 	const rawPlantillas = useQuery(
 		api.plantillas.getPlantillas,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalPlantilla & { _id: string }> | undefined;
 
 	const rawCategorias = useQuery(
 		api.plantillas.getCategoriasFull,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCategoria & { _id: string }> | undefined;
 
 	const rawOrdenes = useQuery(
 		api.ordenes.fetchOrdenes,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalOrden & { _id: string }> | undefined;
 
 	const rawBugs = useQuery(
 		api.bugs.fetchBugs,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<BugType & { _id: string }> | undefined;
+
+	const puedeVerReportes = useQuery(
+		api.reportes.getPuedeVerReportes,
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
+	) as boolean | undefined;
+
+	const rawSucursales = useQuery(
+		api.organizacion.getSucursales,
+		currentUser?.empresaId
+			? { empresaId: currentUser.empresaId as Id<"empresas"> }
+			: {},
+	) as Array<{ _id: string; nombre: string }> | undefined;
 
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const createPlantillaMut = useMutation(api.plantillas.createPlantillaPrecio);
@@ -173,12 +203,54 @@ export const ConfiguracionView: React.FC = () => {
 	);
 
 	// Top level config tabs
-	const [configTab, setConfigTab] = useState<"general" | "usuarios" | "roles" | "bugs" | "sucursales" | "auditoria">(
-		"general",
-	);
+	const [configTab, setConfigTab] = useState<
+		"general" | "usuarios" | "roles" | "bugs" | "sucursales" | "auditoria"
+	>("general");
 	const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 	const [newComment, setNewComment] = useState("");
 	const [showArchivedBugs, setShowArchivedBugs] = useState(false);
+
+	// Report filters (server-side)
+	const [reporteDesde, setReporteDesde] = useState("");
+	const [reporteHasta, setReporteHasta] = useState("");
+	const [reporteEstado, setReporteEstado] = useState("");
+	const [reporteSucursalId, setReporteSucursalId] = useState("");
+
+	const reporteFiltros = useMemo(
+		() => ({
+			desde: reporteDesde || undefined,
+			hasta: reporteHasta || undefined,
+			estado: reporteEstado || undefined,
+			sucursalId: reporteSucursalId
+				? (reporteSucursalId as Id<"sucursales">)
+				: undefined,
+		}),
+		[reporteDesde, reporteHasta, reporteEstado, reporteSucursalId],
+	);
+
+	const rawReporteIngresos = useQuery(
+		api.reportes.getReporteIngresos,
+		usuarioId && puedeVerReportes
+			? { usuarioId: usuarioId as Id<"usuarios">, filtros: reporteFiltros }
+			: "skip",
+	) as ReportRow[] | undefined;
+
+	// Fuente para reportes: datos server-side (con permisos y filtros) o respaldo local
+	const reporteData: LocalOrden[] = useMemo(() => {
+		if (!puedeVerReportes || !rawReporteIngresos) return ordenesTrabajo;
+		return rawReporteIngresos.map((r) => ({
+			id: r.id,
+			clienteNombre: r.cliente,
+			clienteTelefono: r.clienteTelefono,
+			vehiculoTipo: r.vehiculoTipo ?? "",
+			placa: r.placa,
+			estado: r.estado,
+			total: r.total,
+			progreso: r.progreso ?? 0,
+			fechaInicio: r.fechaInicio ?? r.fecha_creacion,
+			fechaFin: r.fechaFin,
+		}));
+	}, [puedeVerReportes, rawReporteIngresos, ordenesTrabajo]);
 
 	// Price category tab selector
 	const [activeCategoryTab, setActiveCategoryTab] = useState<string>(
@@ -243,7 +315,7 @@ export const ConfiguracionView: React.FC = () => {
 		}
 		try {
 			await addCategoriaMut({
-				usuarioId: currentUser!.id as unknown as any,
+				usuarioId: currentUser?.id as Id<"usuarios">,
 				nombre: name,
 			});
 			setActiveCategoryTab(name);
@@ -291,8 +363,8 @@ export const ConfiguracionView: React.FC = () => {
 			const catId = categoriasMap.get(currentCategory);
 			if (!catId) throw new Error("Categoría sin id");
 			await updateCategoriaMut({
-				usuarioId: currentUser!.id as unknown as any,
-				categoriaId: catId as unknown as any,
+				usuarioId: currentUser?.id as Id<"usuarios">,
+				categoriaId: catId as Id<"categoriasPrecios">,
 				nuevoNombre: newName,
 			});
 			setActiveCategoryTab(newName);
@@ -328,8 +400,8 @@ export const ConfiguracionView: React.FC = () => {
 						(c) => c !== currentCategory,
 					);
 					await deleteCategoriaMut({
-						usuarioId: currentUser!.id as unknown as any,
-						categoriaId: catId as unknown as any,
+						usuarioId: currentUser?.id as Id<"usuarios">,
+						categoriaId: catId as Id<"categoriasPrecios">,
 						fallback: remaining[0],
 					});
 					setActiveCategoryTab(remaining[0] || "");
@@ -375,7 +447,7 @@ export const ConfiguracionView: React.FC = () => {
 
 		try {
 			await createPlantillaMut({
-				usuarioId: currentUser!.id as unknown as any,
+				usuarioId: currentUser?.id as Id<"usuarios">,
 				categoriaVehiculo: currentCategory,
 				concepto: concept,
 				precioSugerido: newPrecioSugerido,
@@ -414,8 +486,8 @@ export const ConfiguracionView: React.FC = () => {
 
 		try {
 			await updatePlantillaMut({
-				usuarioId: currentUser!.id as unknown as any,
-				plantillaId: id as unknown as any,
+				usuarioId: currentUser?.id as Id<"usuarios">,
+				plantillaId: id as Id<"plantillasPrecios">,
 				concepto: concept,
 				precioSugerido: editingPrice,
 			});
@@ -447,8 +519,8 @@ export const ConfiguracionView: React.FC = () => {
 			onConfirm: async () => {
 				try {
 					await deletePlantillaMut({
-						usuarioId: currentUser!.id as unknown as any,
-						plantillaId: id as unknown as any,
+						usuarioId: currentUser?.id as Id<"usuarios">,
+						plantillaId: id as Id<"plantillasPrecios">,
 					});
 					setAlertConfig({
 						isOpen: true,
@@ -474,15 +546,15 @@ export const ConfiguracionView: React.FC = () => {
 		const today = new Date().toISOString().split("T")[0];
 
 		// Filter orders
-		const validOrders = ordenesTrabajo.filter((o) => o.estado !== "Cancelado");
-		const completedOrders = ordenesTrabajo.filter(
+		const validOrders = reporteData.filter((o) => o.estado !== "Cancelado");
+		const completedOrders = reporteData.filter(
 			(o) => o.estado === "Listo" || o.estado === "Entregado",
 		);
 		const totalEarnings = validOrders.reduce((sum, o) => sum + o.total, 0);
 
 		// Group earnings by client
 		const clientEarnings: Record<string, number> = {};
-		ordenesTrabajo.forEach((o) => {
+		reporteData.forEach((o) => {
 			if (o.estado !== "Cancelado") {
 				clientEarnings[o.clienteNombre] =
 					(clientEarnings[o.clienteNombre] || 0) + o.total;
@@ -546,7 +618,7 @@ export const ConfiguracionView: React.FC = () => {
 		doc.setTextColor(50, 50, 50);
 
 		doc.text(
-			`Total de órdenes de trabajo registradas: ${ordenesTrabajo.length}`,
+			`Total de órdenes de trabajo registradas: ${reporteData.length}`,
 			20,
 			56,
 		);
@@ -556,12 +628,12 @@ export const ConfiguracionView: React.FC = () => {
 			62,
 		);
 		doc.text(
-			`Órdenes de trabajo activas (Pendientes/En Proceso): ${ordenesTrabajo.filter((o) => o.estado === "Pendiente" || o.estado === "En Proceso").length}`,
+			`Órdenes de trabajo activas (Pendientes/En Proceso): ${reporteData.filter((o) => o.estado === "Pendiente" || o.estado === "En Proceso").length}`,
 			20,
 			68,
 		);
 		doc.text(
-			`Órdenes de trabajo canceladas: ${ordenesTrabajo.filter((o) => o.estado === "Cancelado").length}`,
+			`Órdenes de trabajo canceladas: ${reporteData.filter((o) => o.estado === "Cancelado").length}`,
 			20,
 			74,
 		);
@@ -690,11 +762,11 @@ export const ConfiguracionView: React.FC = () => {
 		doc.setTextColor(50, 50, 50);
 		doc.setFont("Helvetica", "normal");
 
-		if (ordenesTrabajo.length === 0) {
+		if (reporteData.length === 0) {
 			rowY += 9;
 			doc.text("No hay órdenes de trabajo registradas.", 22, rowY + 5);
 		} else {
-			ordenesTrabajo.forEach((o, index) => {
+			reporteData.forEach((o, index) => {
 				rowY += 9;
 
 				// Handle page break
@@ -757,7 +829,7 @@ export const ConfiguracionView: React.FC = () => {
 		csvContent +=
 			"ID de Orden,Fecha de Inicio,Fecha Fin,Nombre Cliente,Telefono Cliente,Categoria Vehiculo,Placa,Progreso %,Estado,Total Facturado (USD)\n";
 
-		ordenesTrabajo.forEach((o) => {
+		reporteData.forEach((o) => {
 			const row = [
 				o.id,
 				o.fechaInicio,
@@ -770,7 +842,7 @@ export const ConfiguracionView: React.FC = () => {
 				o.estado,
 				o.total,
 			].join(",");
-			csvContent += row + "\n";
+			csvContent += `${row}\n`;
 		});
 
 		const encodedUri = encodeURI(csvContent);
@@ -811,6 +883,7 @@ export const ConfiguracionView: React.FC = () => {
 
 				<div className="flex items-center gap-2 border-b border-border pb-px">
 					<button
+						type="button"
 						onClick={() => startTransition(() => setConfigTab("general"))}
 						className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
 							configTab === "general"
@@ -825,6 +898,7 @@ export const ConfiguracionView: React.FC = () => {
 					{(currentUser?.rol === "SuperAdmin" ||
 						currentUser?.rol === "AdminSucursal") && (
 						<button
+							type="button"
 							onClick={() => startTransition(() => setConfigTab("usuarios"))}
 							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
 								configTab === "usuarios"
@@ -840,6 +914,7 @@ export const ConfiguracionView: React.FC = () => {
 					{(currentUser?.rol === "SuperAdmin" ||
 						currentUser?.rol === "AdminSucursal") && (
 						<button
+							type="button"
 							onClick={() => startTransition(() => setConfigTab("roles"))}
 							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
 								configTab === "roles"
@@ -855,6 +930,7 @@ export const ConfiguracionView: React.FC = () => {
 					{(currentUser?.rol === "SuperAdmin" ||
 						currentUser?.rol === "AdminSucursal") && (
 						<button
+							type="button"
 							onClick={() => startTransition(() => setConfigTab("bugs"))}
 							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
 								configTab === "bugs"
@@ -873,8 +949,9 @@ export const ConfiguracionView: React.FC = () => {
 						</button>
 					)}
 
-					{(currentUser?.rol === "SuperAdmin") && (
+					{currentUser?.rol === "SuperAdmin" && (
 						<button
+							type="button"
 							onClick={() => startTransition(() => setConfigTab("sucursales"))}
 							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
 								configTab === "sucursales"
@@ -890,6 +967,7 @@ export const ConfiguracionView: React.FC = () => {
 					{(currentUser?.rol === "SuperAdmin" ||
 						currentUser?.rol === "AdminSucursal") && (
 						<button
+							type="button"
 							onClick={() => startTransition(() => setConfigTab("auditoria"))}
 							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
 								configTab === "auditoria"
@@ -929,6 +1007,7 @@ export const ConfiguracionView: React.FC = () => {
 						</div>
 						{currentUser?.rol === "SuperAdmin" && (
 							<button
+								type="button"
 								onClick={() => setShowArchivedBugs(!showArchivedBugs)}
 								className="text-sm font-semibold bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground px-4 py-2 rounded-lg transition-colors border border-border"
 							>
@@ -954,6 +1033,7 @@ export const ConfiguracionView: React.FC = () => {
 								) : (
 									visibleBugs.map((bug) => (
 										<button
+											type="button"
 											key={bug.id}
 											onClick={() => setSelectedBugId(bug.id)}
 											className={`w-full text-left p-3 rounded-lg border transition-all ${
@@ -1026,9 +1106,12 @@ export const ConfiguracionView: React.FC = () => {
 														onChange={async (e) => {
 															try {
 																await updateBugMut({
-																	usuarioId: currentUser.id as unknown as any,
-																	bugId: bug.id as unknown as any,
-																	estado: e.target.value as "Abierto" | "En Progreso" | "Resuelto",
+																	usuarioId: currentUser.id as Id<"usuarios">,
+																	bugId: bug.id as Id<"bugs">,
+																	estado: e.target.value as
+																		| "Abierto"
+																		| "En Progreso"
+																		| "Resuelto",
 																});
 															} catch (err) {
 																console.error("Error updating bug:", err);
@@ -1068,6 +1151,7 @@ export const ConfiguracionView: React.FC = () => {
 														<div className="flex gap-3 overflow-x-auto pb-2">
 															{bug.imagenes.map((img, i) => (
 																<a
+																	// biome-ignore lint/suspicious/noArrayIndexKey: galería de capturas estática
 																	key={i}
 																	href={img}
 																	target="_blank"
@@ -1121,8 +1205,8 @@ export const ConfiguracionView: React.FC = () => {
 														if (!newComment.trim() || !currentUser) return;
 														try {
 															await addBugCommentMut({
-																usuarioId: currentUser.id as unknown as any,
-																bugId: bug.id as unknown as any,
+																usuarioId: currentUser.id as Id<"usuarios">,
+																bugId: bug.id as Id<"bugs">,
 																texto: newComment.trim(),
 															});
 															setNewComment("");
@@ -1181,6 +1265,7 @@ export const ConfiguracionView: React.FC = () => {
 									Activar Notificaciones
 								</span>
 								<button
+									type="button"
 									onClick={() => setNotificationsEnabled(!notificationsEnabled)}
 									className="focus:outline-none transition-transform active:scale-95 cursor-pointer"
 									title={notificationsEnabled ? "Desactivar" : "Activar"}
@@ -1270,6 +1355,7 @@ export const ConfiguracionView: React.FC = () => {
 
 							<div className="grid grid-cols-2 gap-2">
 								<button
+									type="button"
 									onClick={() => {
 										if (theme !== "light") toggleTheme();
 									}}
@@ -1283,6 +1369,7 @@ export const ConfiguracionView: React.FC = () => {
 									Claro
 								</button>
 								<button
+									type="button"
 									onClick={() => {
 										if (theme !== "dark") toggleTheme();
 									}}
@@ -1331,11 +1418,83 @@ export const ConfiguracionView: React.FC = () => {
 							</h3>
 							<p className="text-xs text-muted-foreground">
 								Exporta un resumen de los trabajos realizados, facturación
-								total, y el listado de vehículos/clientes atendidos.
+								total, y el listado de vehículos/clientes atendidos. Los datos
+								se filtran de forma segura según tu rol y sucursal.
 							</p>
+
+							<div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/20 p-2.5">
+								<label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
+									Desde
+									<input
+										type="date"
+										value={reporteDesde}
+										onChange={(e) => setReporteDesde(e.target.value)}
+										className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+									/>
+								</label>
+								<label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
+									Hasta
+									<input
+										type="date"
+										value={reporteHasta}
+										onChange={(e) => setReporteHasta(e.target.value)}
+										className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+									/>
+								</label>
+								<label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
+									Estado
+									<select
+										value={reporteEstado}
+										onChange={(e) => setReporteEstado(e.target.value)}
+										className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+									>
+										<option value="">Todos</option>
+										<option value="Pendiente">Pendiente</option>
+										<option value="En Proceso">En Proceso</option>
+										<option value="Listo">Listo</option>
+										<option value="Entregado">Entregado</option>
+										<option value="Cancelado">Cancelado</option>
+									</select>
+								</label>
+								{currentUser?.rol === "SuperAdmin" && (
+									<label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
+										Sucursal
+										<select
+											value={reporteSucursalId}
+											onChange={(e) => setReporteSucursalId(e.target.value)}
+											className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+										>
+											<option value="">Todas</option>
+											{(rawSucursales ?? []).map((s) => (
+												<option key={s._id} value={s._id}>
+													{s.nombre}
+												</option>
+											))}
+										</select>
+									</label>
+								)}
+								{(reporteDesde ||
+									reporteHasta ||
+									reporteEstado ||
+									reporteSucursalId) && (
+									<button
+										type="button"
+										onClick={() => {
+											setReporteDesde("");
+											setReporteHasta("");
+											setReporteEstado("");
+											setReporteSucursalId("");
+										}}
+										className="col-span-2 rounded border border-border bg-background py-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+									>
+										Limpiar filtros
+									</button>
+								)}
+							</div>
 
 							<div className="space-y-2">
 								<button
+									type="button"
 									onClick={handleDownloadReportPDF}
 									className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 shadow-sm transition-all cursor-pointer"
 								>
@@ -1344,6 +1503,7 @@ export const ConfiguracionView: React.FC = () => {
 								</button>
 
 								<button
+									type="button"
 									onClick={handleDownloadReportExcel}
 									className="w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-card py-2.5 text-xs font-semibold text-foreground hover:bg-secondary transition-all cursor-pointer"
 								>
@@ -1396,6 +1556,7 @@ export const ConfiguracionView: React.FC = () => {
 							<div className="flex flex-wrap gap-1.5 border-b border-border/60 pb-2">
 								{categoriasPrecios.map((cat) => (
 									<button
+										type="button"
 										key={cat}
 										onClick={() => {
 											setActiveCategoryTab(cat);
@@ -1426,6 +1587,7 @@ export const ConfiguracionView: React.FC = () => {
 												className="flex-1 rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none"
 											/>
 											<button
+												type="button"
 												onClick={handleSaveCategoryName}
 												className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
 												title="Guardar nombre"
@@ -1433,6 +1595,7 @@ export const ConfiguracionView: React.FC = () => {
 												<Check className="h-4 w-4" />
 											</button>
 											<button
+												type="button"
 												onClick={() => setIsEditingCategory(false)}
 												className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
 												title="Cancelar"
@@ -1450,6 +1613,7 @@ export const ConfiguracionView: React.FC = () => {
 											</div>
 											<div className="flex items-center gap-2">
 												<button
+													type="button"
 													onClick={handleStartEditCategory}
 													className="flex items-center gap-1 text-[11px] font-semibold text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
 												>
@@ -1457,6 +1621,7 @@ export const ConfiguracionView: React.FC = () => {
 													Renombrar
 												</button>
 												<button
+													type="button"
 													onClick={handleDeleteCategoryClick}
 													className="flex items-center gap-1 text-[11px] font-semibold text-destructive border border-destructive/20 px-2 py-1 rounded hover:bg-destructive/10 transition-colors cursor-pointer"
 												>
@@ -1510,6 +1675,7 @@ export const ConfiguracionView: React.FC = () => {
 															className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-foreground font-bold focus:outline-none focus:border-ring"
 														/>
 														<button
+															type="button"
 															onClick={() => handleSavePrice(tpl.id)}
 															className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
 															title="Guardar tarifa"
@@ -1517,6 +1683,7 @@ export const ConfiguracionView: React.FC = () => {
 															<Check className="h-4 w-4" />
 														</button>
 														<button
+															type="button"
 															onClick={handleCancelEdit}
 															className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
 															title="Cancelar"
@@ -1530,6 +1697,7 @@ export const ConfiguracionView: React.FC = () => {
 															${tpl.precioSugerido}
 														</span>
 														<button
+															type="button"
 															onClick={() => handleStartEdit(tpl)}
 															className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
 														>
@@ -1537,6 +1705,7 @@ export const ConfiguracionView: React.FC = () => {
 															Editar
 														</button>
 														<button
+															type="button"
 															onClick={() =>
 																handleDeleteJob(tpl.id, tpl.concepto)
 															}

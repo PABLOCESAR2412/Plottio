@@ -1,6 +1,15 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUserContext, requirePermission } from "./auth";
+import type { Id } from "./_generated/dataModel";
+import { checkPermission, getCurrentUserContext, requirePermission } from "./auth";
+
+// 7.0 Permite gatear en cliente si el usuario puede ver reportes sin lanzar 403
+export const getPuedeVerReportes = query({
+  args: { usuarioId: v.id("usuarios") },
+  handler: async (ctx, args) => {
+    return await checkPermission(ctx, args.usuarioId, "ver_reportes");
+  }
+});
 
 // Helper para saber si una fecha es del mes actual
 const isCurrentMonth = (dateString: string) => {
@@ -29,7 +38,7 @@ export const getDashboardMatriz = query({
 
     // 1. Total ingresos del mes y ranking de sucursales
     let ingresos_mes = { total_mes: 0, ordenes_completadas: 0 };
-    const sucursalesMap = new Map();
+    const sucursalesMap = new Map<Id<"sucursales">, { ingresos_total: number; ordenes_completadas: number }>();
 
     for (const o of ordenes) {
       if (o.estado === 'Entregado' && isCurrentMonth(o.fechaFin || o._creationTime.toString())) {
@@ -62,7 +71,7 @@ export const getDashboardMatriz = query({
 
     // 2. Órdenes activas por sucursal
     const ordenes_activas = [];
-    const activasMap = new Map();
+    const activasMap = new Map<Id<"sucursales">, number>();
     for (const o of ordenes) {
       if (['Pendiente', 'En Proceso'].includes(o.estado) && o.sucursalId) {
         activasMap.set(o.sucursalId, (activasMap.get(o.sucursalId) || 0) + 1);
@@ -201,11 +210,17 @@ export const getReporteIngresos = query({
         id: o._id,
         numero_orden: o._id.substring(0, 8),
         cliente: o.clienteNombre,
+        clienteTelefono: o.clienteTelefono,
         placa: o.placa,
+        vehiculoTipo: o.vehiculoTipo,
         total: o.total,
         estado: o.estado,
+        progreso: o.progreso,
         fecha_creacion: o.fechaInicio,
-        sucursal: s?.nombre || "N/A"
+        fechaInicio: o.fechaInicio,
+        fechaFin: o.fechaFin,
+        sucursal: s?.nombre || "N/A",
+        sucursalId: o.sucursalId || null
       };
     }));
   }

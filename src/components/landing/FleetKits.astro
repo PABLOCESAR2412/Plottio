@@ -1,8 +1,20 @@
 ---
-const features = [
-	{ icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>', title: "Kits Pre-configurados", desc: "Ej: Combo Logístico (2 placas + Logo + 15m Cinta)." },
-	{ icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>', title: "Transferencias Seguras", desc: "Mueve insumos físicos entre sucursales." },
-	{ icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 8 22 14 16 14"/><polyline points="2 10 2 4 8 4"/><path d="M2 14c4 4 10.5 4.5 15.5.5L22 10"/><path d="M22 10c-4-4-10.5-4.5-15.5-.5L2 14"/></svg>', title: "Alertas de Stock", desc: "Alertas automáticas de stock mínimo." }
+const _features = [
+	{
+		icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
+		title: "Kits Pre-configurados",
+		desc: "Ej: Combo Logístico (2 placas + Logo + 15m Cinta).",
+	},
+	{
+		icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>',
+		title: "Transferencias Seguras",
+		desc: "Mueve insumos físicos entre sucursales.",
+	},
+	{
+		icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 8 22 14 16 14"/><polyline points="2 10 2 4 8 4"/><path d="M2 14c4 4 10.5 4.5 15.5.5L22 10"/><path d="M22 10c-4-4-10.5-4.5-15.5-.5L2 14"/></svg>',
+		title: "Alertas de Stock",
+		desc: "Alertas automáticas de stock mínimo.",
+	},
 ];
 ---
 <section class="py-24 px-6 bg-primary text-primary-foreground relative overflow-hidden">

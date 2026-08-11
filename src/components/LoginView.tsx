@@ -1,9 +1,19 @@
-import { ShieldCheck, Loader2, Mail, Lock, ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
-import React, { useState } from "react";
-import { useSessionStore } from "../store/useSessionStore";
 import { useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import {
+	ArrowRight,
+	CheckCircle2,
+	Eye,
+	EyeOff,
+	Loader2,
+	Lock,
+	Mail,
+	ShieldCheck,
+} from "lucide-react";
+import type React from "react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
+import { useSessionStore } from "../store/useSessionStore";
 
 export const LoginView: React.FC = () => {
 	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
@@ -27,15 +37,15 @@ export const LoginView: React.FC = () => {
 				nombre: (usuario as { nombre?: string }).nombre ?? "",
 				email: (usuario as { email?: string }).email ?? email,
 				rol: (usuario as { rol?: string }).rol ?? "Cotizador",
-				sucursalId: (usuario as { sucursalId?: string | null }).sucursalId ?? null,
+				sucursalId:
+					(usuario as { sucursalId?: string | null }).sucursalId ?? null,
 				pvId: (usuario as { pvId?: string | null }).pvId ?? null,
+				empresaId: (usuario as { empresaId?: string | null }).empresaId ?? null,
 				activo: (usuario as { activo?: boolean }).activo ?? true,
 			});
 			toast.success("¡Bienvenido a Plottio!");
 		} catch (error) {
-			toast.error(
-				(error as Error).message || "Error al iniciar sesión",
-			);
+			toast.error((error as Error).message || "Error al iniciar sesión");
 		} finally {
 			setIsLoading(false);
 		}
@@ -70,10 +80,14 @@ export const LoginView: React.FC = () => {
 						<h2 className="text-4xl font-semibold tracking-tight text-foreground leading-tight">
 							El sistema definitivo para tu taller de rotulación.
 						</h2>
-						
+
 						<ul className="space-y-5 mt-8">
 							{beneficios.map((beneficio, index) => (
-								<li key={index} className="flex items-center gap-4 text-muted-foreground font-medium">
+								<li
+									// biome-ignore lint/suspicious/noArrayIndexKey: lista estática
+									key={index}
+									className="flex items-center gap-4 text-muted-foreground font-medium"
+								>
 									<div className="flex-shrink-0 w-8 h-8 rounded-full bg-background border border-border flex items-center justify-center">
 										<CheckCircle2 className="h-4 w-4 text-primary" />
 									</div>
@@ -85,7 +99,8 @@ export const LoginView: React.FC = () => {
 				</div>
 
 				<div className="relative z-10 mt-12 text-sm text-muted-foreground/80 font-medium">
-					&copy; {new Date().getFullYear()} Plottio. Todos los derechos reservados.
+					&copy; {new Date().getFullYear()} Plottio. Todos los derechos
+					reservados.
 				</div>
 			</div>
 
@@ -114,7 +129,10 @@ export const LoginView: React.FC = () => {
 
 						<form onSubmit={handleSubmit} className="space-y-6 mt-8">
 							<div className="space-y-2">
-								<label className="text-xs font-bold text-foreground uppercase tracking-wider">
+								<label
+									htmlFor="login-email"
+									className="text-xs font-bold text-foreground uppercase tracking-wider"
+								>
 									Correo Electrónico
 								</label>
 								<div className="relative">
@@ -122,6 +140,7 @@ export const LoginView: React.FC = () => {
 										<Mail className="h-5 w-5" />
 									</div>
 									<input
+										id="login-email"
 										type="email"
 										name="email"
 										autoComplete="username"
@@ -136,10 +155,16 @@ export const LoginView: React.FC = () => {
 
 							<div className="space-y-2">
 								<div className="flex items-center justify-between">
-									<label className="text-xs font-bold text-foreground uppercase tracking-wider">
+									<label
+										htmlFor="login-password"
+										className="text-xs font-bold text-foreground uppercase tracking-wider"
+									>
 										Contraseña
 									</label>
-									<button type="button" className="text-xs text-primary hover:underline font-medium">
+									<button
+										type="button"
+										className="text-xs text-primary hover:underline font-medium"
+									>
 										¿Olvidaste tu contraseña?
 									</button>
 								</div>
@@ -148,6 +173,7 @@ export const LoginView: React.FC = () => {
 										<Lock className="h-5 w-5" />
 									</div>
 									<input
+										id="login-password"
 										type={showPassword ? "text" : "password"}
 										name="password"
 										autoComplete="current-password"
@@ -162,7 +188,11 @@ export const LoginView: React.FC = () => {
 										onClick={() => setShowPassword(!showPassword)}
 										className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
 									>
-										{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+										{showPassword ? (
+											<EyeOff className="h-5 w-5" />
+										) : (
+											<Eye className="h-5 w-5" />
+										)}
 									</button>
 								</div>
 							</div>

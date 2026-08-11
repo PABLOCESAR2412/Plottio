@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from "convex/react";
 import {
 	AlertTriangle,
 	Archive,
@@ -12,11 +13,11 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
-import type { RolUsuario, Usuario } from "../types/auth";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
+import type { RolUsuario, Usuario } from "../types/auth";
 import { SuccessDialog } from "./SuccessDialog";
 
 type LocalSucursal = {
@@ -47,18 +48,16 @@ export const GestionUsuariosView: React.FC = () => {
 	// ── QUERIES ──────────────────────────────────────────────────────────────
 	const rawUsuarios = useQuery(
 		api.usuarios.getUsuarios,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalUsuario & { _id: string }> | undefined;
 
-	const rawSucursales = useQuery(
-		api.organizacion.getSucursales,
-		{},
-	) as Array<LocalSucursal & { _id: string }> | undefined;
+	const rawSucursales = useQuery(api.organizacion.getSucursales, {}) as
+		| Array<LocalSucursal & { _id: string }>
+		| undefined;
 
-	const rawPuntosVenta = useQuery(
-		api.organizacion.getPuntosVenta,
-		{},
-	) as Array<LocalPuntoVenta & { _id: string }> | undefined;
+	const rawPuntosVenta = useQuery(api.organizacion.getPuntosVenta, {}) as
+		| Array<LocalPuntoVenta & { _id: string }>
+		| undefined;
 
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const updateUsuarioMut = useMutation(api.usuarios.updateUsuario);
@@ -169,11 +168,11 @@ export const GestionUsuariosView: React.FC = () => {
 
 		try {
 			await updateUsuarioMut({
-				adminId: currentUser.id as unknown as any,
-				usuarioId: editingUser.id as unknown as any,
+				adminId: currentUser.id as Id<"usuarios">,
+				usuarioId: editingUser.id as Id<"usuarios">,
 				rol: editRol as string,
-				sucursalId: (editSucursalId || undefined) as unknown as any,
-				pvId: (editPvId || undefined) as unknown as any,
+				sucursalId: (editSucursalId || undefined) as Id<"sucursales">,
+				pvId: (editPvId || undefined) as Id<"puntosVenta">,
 			});
 			setIsEditModalOpen(false);
 			setAlertConfig({
@@ -201,8 +200,8 @@ export const GestionUsuariosView: React.FC = () => {
 			onConfirm: async () => {
 				try {
 					await archiveUsuarioMut({
-						adminId: currentUser.id as unknown as any,
-						usuarioId: u.id as unknown as any,
+						adminId: currentUser.id as Id<"usuarios">,
+						usuarioId: u.id as Id<"usuarios">,
 					});
 					setAlertConfig({
 						isOpen: true,
@@ -240,13 +239,13 @@ export const GestionUsuariosView: React.FC = () => {
 
 		try {
 			const result = await invitarUsuarioMut({
-				adminId: currentUser.id as unknown as any,
+				adminId: currentUser.id as Id<"usuarios">,
 				nombre: inviteNombre,
 				email: inviteEmail,
 				rol: inviteRol as string,
 				sucursalId: (currentUser?.rol === "AdminSucursal"
 					? currentUser.sucursalId
-					: inviteSucursalId || undefined) as unknown as any,
+					: inviteSucursalId || undefined) as Id<"sucursales">,
 			});
 
 			setIsInviteModalOpen(false);
@@ -299,6 +298,7 @@ export const GestionUsuariosView: React.FC = () => {
 					</p>
 				</div>
 				<button
+					type="button"
 					onClick={() => setIsInviteModalOpen(true)}
 					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
 				>
@@ -396,6 +396,7 @@ export const GestionUsuariosView: React.FC = () => {
 									<td className="px-4 py-3 text-right">
 										<div className="flex items-center justify-end gap-2">
 											<button
+												type="button"
 												onClick={() => handleEditClick(u)}
 												className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded transition-colors"
 												title="Editar Permisos"
@@ -403,6 +404,7 @@ export const GestionUsuariosView: React.FC = () => {
 												<Edit2 className="h-4 w-4" />
 											</button>
 											<button
+												type="button"
 												onClick={() => handleArchiveClick(u)}
 												disabled={!u.activo || u.id === currentUser.id}
 												className="p-1.5 text-red-500 hover:bg-red-500/10 rounded transition-colors disabled:opacity-30"
@@ -443,6 +445,7 @@ export const GestionUsuariosView: React.FC = () => {
 								Editar Permisos
 							</h3>
 							<button
+								type="button"
 								onClick={() => setIsEditModalOpen(false)}
 								className="text-muted-foreground hover:text-foreground"
 							>
@@ -459,10 +462,14 @@ export const GestionUsuariosView: React.FC = () => {
 
 						<form onSubmit={handleSaveEdit} className="p-5 pt-2 space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="usuario-editar-rol"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Rol de Sistema
 								</label>
 								<select
+									id="usuario-editar-rol"
 									value={editRol}
 									onChange={(e) => setEditRol(e.target.value as RolUsuario)}
 									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
@@ -481,10 +488,14 @@ export const GestionUsuariosView: React.FC = () => {
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="usuario-editar-sucursal"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Sucursal Asignada
 								</label>
 								<select
+									id="usuario-editar-sucursal"
 									value={editSucursalId}
 									onChange={(e) => {
 										setEditSucursalId(e.target.value);
@@ -506,10 +517,14 @@ export const GestionUsuariosView: React.FC = () => {
 
 							{editSucursalId && (
 								<div>
-									<label className="block text-xs font-semibold text-foreground mb-1.5">
+									<label
+										htmlFor="usuario-editar-pv"
+										className="block text-xs font-semibold text-foreground mb-1.5"
+									>
 										Punto de Venta Específico (Opcional)
 									</label>
 									<select
+										id="usuario-editar-pv"
 										value={editPvId}
 										onChange={(e) => setEditPvId(e.target.value)}
 										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
@@ -558,6 +573,7 @@ export const GestionUsuariosView: React.FC = () => {
 								Invitar Nuevo Usuario
 							</h3>
 							<button
+								type="button"
 								onClick={() => setIsInviteModalOpen(false)}
 								className="text-muted-foreground hover:text-foreground"
 							>
@@ -567,10 +583,14 @@ export const GestionUsuariosView: React.FC = () => {
 
 						<form onSubmit={handleInviteUser} className="p-5 space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="invitacion-nombre"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Nombre Completo
 								</label>
 								<input
+									id="invitacion-nombre"
 									type="text"
 									required
 									value={inviteNombre}
@@ -581,10 +601,14 @@ export const GestionUsuariosView: React.FC = () => {
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="invitacion-email"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Correo Electrónico
 								</label>
 								<input
+									id="invitacion-email"
 									type="email"
 									required
 									value={inviteEmail}
@@ -595,10 +619,14 @@ export const GestionUsuariosView: React.FC = () => {
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="invitacion-rol"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Rol de Sistema
 								</label>
 								<select
+									id="invitacion-rol"
 									value={inviteRol}
 									onChange={(e) => setInviteRol(e.target.value as RolUsuario)}
 									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
@@ -619,10 +647,14 @@ export const GestionUsuariosView: React.FC = () => {
 							{currentUser.rol === "SuperAdmin" &&
 								inviteRol !== "SuperAdmin" && (
 									<div>
-										<label className="block text-xs font-semibold text-foreground mb-1.5">
+										<label
+											htmlFor="invitacion-sucursal"
+											className="block text-xs font-semibold text-foreground mb-1.5"
+										>
 											Sucursal Asignada
 										</label>
 										<select
+											id="invitacion-sucursal"
 											value={inviteSucursalId}
 											onChange={(e) => setInviteSucursalId(e.target.value)}
 											className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"

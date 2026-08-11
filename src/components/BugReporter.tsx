@@ -1,16 +1,16 @@
+import { useMutation } from "convex/react";
 import {
 	Bug as BugIcon,
 	ImagePlus,
 	MessageSquareWarning,
-	Upload,
 	X,
 } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { useSessionStore } from "../store/useSessionStore";
 import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { useSessionStore } from "../store/useSessionStore";
 
 export const BugReporter: React.FC<{ currentSection?: string }> = ({
 	currentSection = "Desconocida",
@@ -36,7 +36,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 
 		try {
 			await createBugMut({
-				usuarioId: currentUser.id as unknown as any,
+				usuarioId: currentUser.id as Id<"usuarios">,
 				titulo,
 				descripcion,
 				tipo,
@@ -69,7 +69,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 			const reader = new FileReader();
 			reader.onload = (event) => {
 				if (event.target?.result) {
-					setImagenes((prev) => [...prev, event.target!.result as string]);
+					setImagenes((prev) => [...prev, event.target?.result as string]);
 				}
 			};
 			reader.readAsDataURL(file);
@@ -89,7 +89,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 			const reader = new FileReader();
 			reader.onload = (event) => {
 				if (event.target?.result) {
-					setImagenes((prev) => [...prev, event.target!.result as string]);
+					setImagenes((prev) => [...prev, event.target?.result as string]);
 				}
 			};
 			reader.readAsDataURL(file);
@@ -99,6 +99,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 	return (
 		<>
 			<button
+				type="button"
 				onClick={() => setIsOpen(true)}
 				className="fixed bottom-6 right-6 z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-90 hover:scale-105 transition-all cursor-pointer"
 				title="Reportar Bug"
@@ -115,6 +116,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 								Reportar un Problema (Bug)
 							</h3>
 							<button
+								type="button"
 								onClick={() => setIsOpen(false)}
 								className="text-muted-foreground hover:text-foreground"
 							>
@@ -123,10 +125,14 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 						</div>
 						<form onSubmit={handleSubmit} className="p-5 space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="bug-titulo"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Título del Problema
 								</label>
 								<input
+									id="bug-titulo"
 									type="text"
 									required
 									value={titulo}
@@ -137,10 +143,14 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="bug-descripcion"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Descripción Detallada
 								</label>
 								<textarea
+									id="bug-descripcion"
 									required
 									rows={3}
 									value={descripcion}
@@ -152,12 +162,18 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-foreground mb-1.5">
+									<label
+										htmlFor="bug-tipo"
+										className="block text-xs font-semibold text-foreground mb-1.5"
+									>
 										Tipo de Bug
 									</label>
 									<select
+										id="bug-tipo"
 										value={tipo}
-										onChange={(e) => setTipo(e.target.value as any)}
+										onChange={(e) =>
+											setTipo(e.target.value as "Visual" | "Logica" | "Otro")
+										}
 										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									>
 										<option value="Visual">Visual (Interfaz)</option>
@@ -166,12 +182,20 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 									</select>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-foreground mb-1.5">
+									<label
+										htmlFor="bug-importancia"
+										className="block text-xs font-semibold text-foreground mb-1.5"
+									>
 										Importancia
 									</label>
 									<select
+										id="bug-importancia"
 										value={importancia}
-										onChange={(e) => setImportancia(e.target.value as any)}
+										onChange={(e) =>
+											setImportancia(
+												e.target.value as "Baja" | "Media" | "Alta" | "Critica",
+											)
+										}
 										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									>
 										<option value="Baja">Baja</option>
@@ -183,16 +207,21 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
+								<label
+									htmlFor="bug-imagenes"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
 									Capturas de Pantalla (Opcional)
 								</label>
-								<div
+								<section
+									aria-label="Zona de capturas de pantalla"
 									className="flex flex-wrap gap-2 mb-2 p-3 border-2 border-dashed border-border rounded-lg bg-secondary/10 hover:bg-secondary/30 transition-colors min-h-[5rem]"
 									onDragOver={(e) => e.preventDefault()}
 									onDrop={handleDrop}
 								>
 									{imagenes.map((img, idx) => (
 										<div
+											// biome-ignore lint/suspicious/noArrayIndexKey: previsualización de capturas, lista estática
 											key={idx}
 											className="relative h-16 w-16 rounded overflow-hidden border border-border shadow-sm"
 										>
@@ -213,6 +242,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 										</div>
 									))}
 									<input
+										id="bug-imagenes"
 										type="file"
 										ref={fileInputRef}
 										onChange={handleFileUpload}
@@ -237,7 +267,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 											Arrastra imágenes aquí o haz clic en el botón.
 										</div>
 									)}
-								</div>
+								</section>
 							</div>
 
 							<div className="text-[10px] text-muted-foreground bg-secondary/50 p-2.5 rounded-lg border border-border flex flex-col gap-1.5">

@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from "convex/react";
 import { jsPDF } from "jspdf";
 import {
 	AlertCircle,
@@ -6,14 +7,11 @@ import {
 	Check,
 	CheckSquare,
 	ChevronRight,
-	CornerDownRight,
 	Download,
-	Eye,
 	FileText,
 	MessageSquare,
 	Phone,
 	Plus,
-	PlusCircle,
 	Search,
 	Square,
 	Trash2,
@@ -21,8 +19,8 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
 
@@ -94,40 +92,40 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	onNavigate,
 }) => {
 	const currentUser = useSessionStore((s) => s.currentUser);
-	const usuarioId = currentUser?.id as
-		| (string & { _id?: string })
-		| undefined;
+	const usuarioId = currentUser?.id;
 
 	// ── QUERIES (sustituyen a los arrays del store) ─────────────────────────
 	const rawCotizaciones = useQuery(
 		api.cotizaciones.fetchCotizaciones,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<Cotizacion & { _id: string }> | undefined;
 
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCliente & { _id: string }> | undefined;
 
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalVehiculo & { _id: string }> | undefined;
 
 	const rawPlantillas = useQuery(
 		api.plantillas.getPlantillas,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalPlantilla & { _id: string }> | undefined;
 
 	const rawCategorias = useQuery(
 		api.plantillas.getCategorias,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<{ _id: string; nombre: string }> | undefined;
 
 	const rawCatalogoServicios = useQuery(
 		api.catalogoServicios.getServicios,
-		usuarioId ? { usuarioId: usuarioId as unknown as any } : "skip",
-	) as Array<{ _id: string; nombre: string; categoria: string; precio: number }> | undefined;
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
+	) as
+		| Array<{ _id: string; nombre: string; categoria: string; precio: number }>
+		| undefined;
 
 	// ── MUTATIONS (sustituyen a los setters de Zustand) ─────────────────────
 	const createCotizacionMut = useMutation(api.cotizaciones.createCotizacion);
@@ -174,7 +172,8 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 			(rawVehiculos ?? []).map((v) => ({
 				id: v._id,
 				propietarioId: v.propietarioId ?? "",
-				propietarioTipo: (v.propietarioTipo as "cliente" | "empresa") ?? "cliente",
+				propietarioTipo:
+					(v.propietarioTipo as "cliente" | "empresa") ?? "cliente",
 				placa: v.placa ?? "",
 				categoria: v.categoria ?? "",
 				marca: v.marca ?? "",
@@ -222,7 +221,9 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	const [placa, setPlaca] = useState("");
 
 	// Client matching & Vehicle Dual-Lookup states
-	const [matchedCliente, setMatchedCliente] = useState<LocalCliente | null>(null);
+	const [matchedCliente, setMatchedCliente] = useState<LocalCliente | null>(
+		null,
+	);
 	const [selectedVehiculoId, setSelectedVehiculoId] = useState<string>("nuevo");
 	const [showNewVehicleForm, setShowNewVehicleForm] = useState(false);
 
@@ -392,13 +393,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 		try {
 			const regVeh = (await createVehiculoMut({
-				usuarioId: usuarioId as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
 				placa: newPlaca.trim().toUpperCase(),
 				marca: newMarca.trim(),
 				modelo: newModelo.trim(),
 				anio: newAño.trim() || "2025",
 				categoria: vehiculoTipo,
-				numeroSerie: newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
+				numeroSerie:
+					newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
 				propietarioId: matchedCliente.id,
 				propietarioTipo: "cliente",
 				estado: "Activo",
@@ -470,7 +472,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	useEffect(() => {
 		setCheckedTemplates({});
 		setItems([]);
-	}, [vehiculoTipo]);
+	}, []);
 
 	// Manually add custom item
 	const handleAddCustomItem = (e: React.FormEvent) => {
@@ -535,7 +537,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 				// Si no hay cliente matcheado, crearlo primero (reemplaza getOrCreateClienteByName)
 				if (!clienteIdParaVehiculo) {
 					const nuevoCliente = (await createClienteMut({
-						usuarioId: usuarioId as unknown as any,
+						usuarioId: usuarioId as Id<"usuarios">,
 						nombre: clienteNombre.trim(),
 						telefono: clienteTelefono.trim() || "+593 ",
 						email: `${clienteNombre
@@ -546,7 +548,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					clienteIdParaVehiculo = nuevoCliente._id;
 				}
 				const inlineVeh = (await createVehiculoMut({
-					usuarioId: usuarioId as unknown as any,
+					usuarioId: usuarioId as Id<"usuarios">,
 					placa: newPlaca.trim().toUpperCase(),
 					marca: newMarca.trim(),
 					modelo: newModelo.trim(),
@@ -558,14 +560,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					propietarioTipo: "cliente",
 					estado: "Activo",
 					sucursalId: currentUser?.sucursalId
-						? (currentUser.sucursalId as unknown as any)
+						? (currentUser.sucursalId as Id<"sucursales">)
 						: undefined,
 				})) as unknown as { placa: string };
 				setPlaca(inlineVeh.placa);
 			}
 
 			const savedCot = (await createCotizacionMut({
-				usuarioId: usuarioId as unknown as any,
+				usuarioId: usuarioId as Id<"usuarios">,
 				clienteNombre: clienteNombre.trim(),
 				clienteTelefono: clienteTelefono.trim(),
 				vehiculoTipo,
@@ -577,10 +579,10 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 				estado: "Pendiente",
 				fecha: new Date().toISOString().split("T")[0],
 				sucursalId: currentUser?.sucursalId
-					? (currentUser.sucursalId as unknown as any)
+					? (currentUser.sucursalId as Id<"sucursales">)
 					: undefined,
 				pvId: currentUser?.pvId
-					? (currentUser.pvId as unknown as any)
+					? (currentUser.pvId as Id<"puntosVenta">)
 					: undefined,
 			})) as unknown as Cotizacion & { _id: string };
 
@@ -776,7 +778,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					}));
 
 					const newOrder = (await createOrdenMut({
-						usuarioId: usuarioId as unknown as any,
+						usuarioId: usuarioId as Id<"usuarios">,
 						clienteNombre: cot.clienteNombre,
 						clienteTelefono: cot.clienteTelefono,
 						placa: placa.toUpperCase() || "S/P",
@@ -790,7 +792,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 							.split("T")[0], // 3 days
 						notas: [`Generado desde la cotización ${cot.id}.`],
 						fotos: [],
-						cotizacionId: cot.id as unknown as any,
+						cotizacionId: cot.id as Id<"cotizaciones">,
 					})) as { _id: string };
 
 					// Trigger Success feedback
@@ -825,11 +827,13 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 				if (!usuarioId) return;
 				try {
 					await deleteCotizacionMut({
-						usuarioId: usuarioId as unknown as any,
-						id: id as unknown as any,
+						usuarioId: usuarioId as Id<"usuarios">,
+						id: id as Id<"cotizaciones">,
 					});
 					const remaining = cotizaciones.filter((c) => c.id !== id);
-					setSelectedCotizacionId(remaining.length > 0 ? remaining[0].id : null);
+					setSelectedCotizacionId(
+						remaining.length > 0 ? remaining[0].id : null,
+					);
 					setAlertConfig({
 						isOpen: true,
 						title: "Cotización Eliminada",
@@ -882,6 +886,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					</p>
 				</div>
 				<button
+					type="button"
 					onClick={() => setSelectedCotizacionId(null)}
 					className={`flex items-center gap-2 rounded-lg py-2.5 px-4 text-sm font-semibold transition-colors cursor-pointer justify-center w-full sm:w-auto shadow-sm ${
 						selectedCotizacionId === null
@@ -913,6 +918,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 							{filteredCotizaciones.map((cot) => (
 								<button
 									key={cot.id}
+									type="button"
 									onClick={() => setSelectedCotizacionId(cot.id)}
 									className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
 										selectedCotizacionId === cot.id
@@ -1044,7 +1050,11 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											</thead>
 											<tbody className="divide-y divide-border text-foreground">
 												{activeCotizacion.items.map((item, idx) => (
-													<tr key={idx} className="hover:bg-secondary/20">
+													<tr
+														// biome-ignore lint/suspicious/noArrayIndexKey: vista estática de ítems de cotización
+														key={idx}
+														className="hover:bg-secondary/20"
+													>
 														<td className="py-2.5 px-3 font-medium">
 															{item.descripcion}
 														</td>
@@ -1086,6 +1096,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 								{/* Form Action Controls */}
 								<div className="grid gap-2 sm:grid-cols-4 pt-4 border-t border-border">
 									<button
+										type="button"
 										onClick={() => handleSendWhatsApp(activeCotizacion)}
 										className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-2.5 text-xs font-semibold text-foreground hover:bg-secondary transition-colors cursor-pointer"
 									>
@@ -1093,6 +1104,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										Enviar WhatsApp
 									</button>
 									<button
+										type="button"
 										onClick={() => handleDownloadPDF(activeCotizacion)}
 										className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-2.5 text-xs font-semibold text-foreground hover:bg-secondary transition-colors cursor-pointer"
 									>
@@ -1100,6 +1112,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										Descargar PDF
 									</button>
 									<button
+										type="button"
 										onClick={() => handleConvertToWorkOrder(activeCotizacion)}
 										className="flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-all cursor-pointer shadow-sm"
 									>
@@ -1107,6 +1120,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										Iniciar Trabajo
 									</button>
 									<button
+										type="button"
 										onClick={() => handleDeleteCotizacion(activeCotizacion.id)}
 										className="flex items-center justify-center gap-1.5 rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 py-2.5 text-xs font-semibold transition-all cursor-pointer"
 									>
@@ -1137,10 +1151,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										</h2>
 
 										<div>
-											<label className="block text-xs font-semibold text-muted-foreground mb-1">
+											<label
+												htmlFor="cot-cliente-nombre"
+												className="block text-xs font-semibold text-muted-foreground mb-1"
+											>
 												Nombre del Cliente *
 											</label>
 											<input
+												id="cot-cliente-nombre"
 												type="text"
 												required
 												value={clienteNombre}
@@ -1170,10 +1188,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 										{matchedCliente && (
 											<div>
-												<label className="block text-xs font-semibold text-muted-foreground mb-1">
+												<label
+													htmlFor="cot-vehiculos-cliente"
+													className="block text-xs font-semibold text-muted-foreground mb-1"
+												>
 													Vehículos del Cliente
 												</label>
 												<select
+													id="cot-vehiculos-cliente"
 													value={selectedVehiculoId}
 													onChange={(e) => handleVehicleSelect(e.target.value)}
 													className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -1203,10 +1225,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 												<div className="grid grid-cols-2 gap-2">
 													<div>
-														<label className="block text-[10px] text-muted-foreground">
+														<label
+															htmlFor="cot-placa"
+															className="block text-[10px] text-muted-foreground"
+														>
 															Placa *
 														</label>
 														<input
+															id="cot-placa"
 															type="text"
 															required
 															placeholder="Ej. PBA-1234"
@@ -1216,10 +1242,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 														/>
 													</div>
 													<div>
-														<label className="block text-[10px] text-muted-foreground">
+														<label
+															htmlFor="cot-categoria"
+															className="block text-[10px] text-muted-foreground"
+														>
 															Categoría
 														</label>
 														<select
+															id="cot-categoria"
 															value={vehiculoTipo}
 															onChange={(e) => setVehiculoTipo(e.target.value)}
 															className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
@@ -1235,10 +1265,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 												<div className="grid grid-cols-2 gap-2">
 													<div>
-														<label className="block text-[10px] text-muted-foreground">
+														<label
+															htmlFor="cot-marca"
+															className="block text-[10px] text-muted-foreground"
+														>
 															Marca *
 														</label>
 														<input
+															id="cot-marca"
 															type="text"
 															required
 															placeholder="Ej. Chevrolet"
@@ -1248,10 +1282,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 														/>
 													</div>
 													<div>
-														<label className="block text-[10px] text-muted-foreground">
+														<label
+															htmlFor="cot-modelo"
+															className="block text-[10px] text-muted-foreground"
+														>
 															Modelo *
 														</label>
 														<input
+															id="cot-modelo"
 															type="text"
 															required
 															placeholder="Ej. Sail"
@@ -1264,10 +1302,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 												<div className="grid grid-cols-2 gap-2">
 													<div>
-														<label className="block text-[10px] text-muted-foreground">
+														<label
+															htmlFor="cot-anio"
+															className="block text-[10px] text-muted-foreground"
+														>
 															Año
 														</label>
 														<input
+															id="cot-anio"
 															type="text"
 															value={newAño}
 															onChange={(e) => setNewAño(e.target.value)}
@@ -1275,10 +1317,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 														/>
 													</div>
 													<div>
-														<label className="block text-[10px] text-muted-foreground">
+														<label
+															htmlFor="cot-serie"
+															className="block text-[10px] text-muted-foreground"
+														>
 															N° Chasis / Serie
 														</label>
 														<input
+															id="cot-serie"
 															type="text"
 															placeholder="Ej. CHS-123"
 															value={newSerie}
@@ -1316,10 +1362,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											)}
 
 										<div>
-											<label className="block text-xs font-semibold text-muted-foreground mb-1">
+											<label
+												htmlFor="cot-telefono"
+												className="block text-xs font-semibold text-muted-foreground mb-1"
+											>
 												Teléfono del Cliente
 											</label>
 											<input
+												id="cot-telefono"
 												type="text"
 												value={clienteTelefono}
 												onChange={(e) => setClienteTelefono(e.target.value)}
@@ -1352,9 +1402,9 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 									{/* SUGGESTIONS CHECKBOXES */}
 									<div className="space-y-2">
-										<label className="block text-xs font-semibold text-muted-foreground">
+										<span className="block text-xs font-semibold text-muted-foreground">
 											Precios Recomendados ({vehiculoTipo}):
-										</label>
+										</span>
 										<div className="grid gap-2 max-h-[160px] overflow-y-auto pr-1">
 											{relevantTemplates.map((tpl) => (
 												<button
@@ -1384,11 +1434,15 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 									</div>
 
 									<div className="border-t border-border pt-3">
-										<label className="block text-xs font-semibold text-muted-foreground mb-2">
+										<label
+											htmlFor="cot-custom-desc"
+											className="block text-xs font-semibold text-muted-foreground mb-2"
+										>
 											Añadir concepto personalizado:
 										</label>
 										<form onSubmit={handleAddCustomItem} className="space-y-3">
 											<input
+												id="cot-custom-desc"
 												type="text"
 												required
 												placeholder="Seleccione o escriba el servicio"
@@ -1397,11 +1451,24 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 												onChange={(e) => {
 													const val = e.target.value;
 													setCustomDesc(val);
-													const found = catalogoServicios.find((s) => s.nombre === val);
+													const found = catalogoServicios.find(
+														(s) => s.nombre === val,
+													);
 													if (found && customPrecio === 0) {
-														const precio = (found as { precio?: number; precioBase?: number }).precio
-															?? (found as { precio?: number; precioBase?: number }).precioBase
-															?? 0;
+														const precio =
+															(
+																found as {
+																	precio?: number;
+																	precioBase?: number;
+																}
+															).precio ??
+															(
+																found as {
+																	precio?: number;
+																	precioBase?: number;
+																}
+															).precioBase ??
+															0;
 														setCustomPrecio(precio);
 													}
 												}}
@@ -1410,18 +1477,26 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											<datalist id="cotizacion-servicios-list">
 												{catalogoServicios.map((s) => (
 													<option key={s._id} value={s.nombre}>
-														${(s as { precio?: number; precioBase?: number }).precio
-															?? (s as { precio?: number; precioBase?: number }).precioBase
-															?? 0} - {s.categoria}
+														$
+														{(s as { precio?: number; precioBase?: number })
+															.precio ??
+															(s as { precio?: number; precioBase?: number })
+																.precioBase ??
+															0}{" "}
+														- {s.categoria}
 													</option>
 												))}
 											</datalist>
 											<div className="grid grid-cols-2 gap-3">
 												<div>
-													<label className="block text-[10px] text-muted-foreground mb-0.5">
+													<label
+														htmlFor="cot-cantidad"
+														className="block text-[10px] text-muted-foreground mb-0.5"
+													>
 														Cantidad
 													</label>
 													<input
+														id="cot-cantidad"
 														type="number"
 														min="1"
 														value={customCant}
@@ -1432,10 +1507,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 													/>
 												</div>
 												<div>
-													<label className="block text-[10px] text-muted-foreground mb-0.5">
+													<label
+														htmlFor="cot-precio-unit"
+														className="block text-[10px] text-muted-foreground mb-0.5"
+													>
 														Precio Unitario ($)
 													</label>
 													<input
+														id="cot-precio-unit"
 														type="number"
 														min="0"
 														value={customPrecio}
@@ -1487,7 +1566,11 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										</thead>
 										<tbody className="divide-y divide-border text-foreground">
 											{items.map((item, idx) => (
-												<tr key={idx} className="hover:bg-secondary/10">
+												<tr
+													// biome-ignore lint/suspicious/noArrayIndexKey: formulario de ítems controlado por índice
+													key={idx}
+													className="hover:bg-secondary/10"
+												>
 													<td className="py-2.5 px-3 font-medium">
 														{item.descripcion}
 													</td>

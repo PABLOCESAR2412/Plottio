@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 
 // --- EMPRESAS ---
 export const getEmpresas = query({
@@ -35,10 +36,32 @@ export const updateEmpresa = mutation({
     telefono: v.optional(v.string()),
     direccion: v.optional(v.string()),
     activa: v.optional(v.boolean()),
+    logoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     return await ctx.db.patch(id, updates);
+  }
+});
+
+// --- LOGO / BRANDING ---
+
+export const generateLogoUploadUrl = mutation({
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  }
+});
+
+export const getEmpresaBranding = query({
+  args: { empresaId: v.id("empresas") },
+  handler: async (ctx, args) => {
+    const emp = await ctx.db.get(args.empresaId);
+    if (!emp) return { nombre: null, logoUrl: null };
+    let logoUrl: string | null = null;
+    if (emp.logoUrl) {
+      logoUrl = (await ctx.storage.getUrl(emp.logoUrl as Id<"_storage">)) ?? emp.logoUrl;
+    }
+    return { nombre: emp.nombre, logoUrl };
   }
 });
 

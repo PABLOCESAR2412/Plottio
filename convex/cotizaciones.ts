@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
 
@@ -303,6 +304,23 @@ export const updateCotizacion = mutation({
         accion: "UPDATE",
         registroId: cotizacionId,
         cambios: updates,
+      });
+    }
+
+    // Notificar al creador cuando la cotización cambia a aprobada
+    if (
+      args.estado === "Aprobada" &&
+      userContext.empresa &&
+      actual.creadoPorUsuarioId &&
+      actual.creadoPorUsuarioId !== args.usuarioId
+    ) {
+      await ctx.runMutation(internal.notificaciones.crearNotificacion, {
+        usuarioId: actual.creadoPorUsuarioId,
+        empresaId: userContext.empresa.id,
+        tipo: "cotizacion",
+        titulo: "Cotización aprobada",
+        mensaje: `La cotización de ${actual.clienteNombre} fue aprobada (total ${actual.total}).`,
+        enlace: "/cotizaciones",
       });
     }
 

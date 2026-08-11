@@ -22,6 +22,7 @@ export interface SessionUser {
 	rol: RolUsuario | string;
 	sucursalId: string | null;
 	pvId: string | null;
+	empresaId?: string | null;
 	activo: boolean;
 }
 
@@ -74,6 +75,7 @@ export const useSessionStore = create<SessionStore>()(
 						rol: userOrId.rol ?? "Cotizador",
 						sucursalId: userOrId.sucursalId ?? null,
 						pvId: userOrId.pvId ?? null,
+						empresaId: userOrId.empresaId ?? null,
 						activo: userOrId.activo ?? true,
 					},
 				});
@@ -96,7 +98,8 @@ export const useSessionStore = create<SessionStore>()(
 
 			notificationsEnabled: true,
 			notificationTypes: { citas: true, ordenes: true, cotizaciones: true },
-			setNotificationsEnabled: (enabled) => set({ notificationsEnabled: enabled }),
+			setNotificationsEnabled: (enabled) =>
+				set({ notificationsEnabled: enabled }),
 			setNotificationTypes: (types) =>
 				set((state) => ({
 					notificationTypes: { ...state.notificationTypes, ...types },

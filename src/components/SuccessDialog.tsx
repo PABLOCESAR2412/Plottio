@@ -61,7 +61,6 @@ export const SuccessDialog: React.FC<SuccessDialogProps> = ({
 						<Info className="h-7 w-7" />
 					</div>
 				);
-			case "success":
 			default:
 				return (
 					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-green-500">
@@ -74,7 +73,8 @@ export const SuccessDialog: React.FC<SuccessDialogProps> = ({
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
 			{/* Overlay background glass */}
-			<div
+			<button
+				type="button"
 				className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
 				onClick={onClose}
 			/>
@@ -83,6 +83,7 @@ export const SuccessDialog: React.FC<SuccessDialogProps> = ({
 			<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 text-center shadow-xl transition-all animate-slide-in">
 				{/* Close Button */}
 				<button
+					type="button"
 					onClick={onClose}
 					className="absolute top-4 right-4 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus:outline-none"
 				>
@@ -100,6 +101,7 @@ export const SuccessDialog: React.FC<SuccessDialogProps> = ({
 				<div className="flex gap-3 justify-center">
 					{onConfirm && (
 						<button
+							type="button"
 							onClick={onClose}
 							className="w-full rounded-lg border border-border px-4 py-3 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
 						>
@@ -107,6 +109,7 @@ export const SuccessDialog: React.FC<SuccessDialogProps> = ({
 						</button>
 					)}
 					<button
+						type="button"
 						onClick={handleConfirm}
 						className={`w-full rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
 							type === "delete"

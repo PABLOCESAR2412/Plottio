@@ -1,15 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AceptarInvitacionView } from "../components/AceptarInvitacionView";
 import { AgendaView } from "../components/AgendaView";
 import { BugReporter } from "../components/BugReporter";
+import { CatalogoView } from "../components/CatalogoView";
 import { ClientesView } from "../components/ClientesView";
 import { ConfiguracionView } from "../components/ConfiguracionView";
 import { CotizacionesView } from "../components/CotizacionesView";
 import { DashboardView } from "../components/DashboardView";
 import { EmpresasView } from "../components/EmpresasView";
+import { InventarioView } from "../components/InventarioView";
+import { KitsFlotaView } from "../components/KitsFlotaView";
+import { Loader } from "../components/Loader";
 import { LoginView } from "../components/LoginView";
+import { LotesProduccionView } from "../components/LotesProduccionView";
 import { OrdenesTrabajoView } from "../components/OrdenesTrabajoView";
 import { Sidebar } from "../components/Sidebar";
 import {
@@ -18,11 +23,6 @@ import {
 	SucursalSelector,
 } from "../components/SucursalesAdmin";
 import { VehiculosView } from "../components/VehiculosView";
-import { InventarioView } from "../components/InventarioView";
-import { CatalogoView } from "../components/CatalogoView";
-import { LotesProduccionView } from "../components/LotesProduccionView";
-import { KitsFlotaView } from "../components/KitsFlotaView";
-import { Loader } from "../components/Loader";
 import { useSessionStore } from "../store/useSessionStore";
 
 export const Route = createFileRoute("/")({
@@ -118,7 +118,6 @@ function AppLayout() {
 				return <LotesProduccionView />;
 			case "kits":
 				return <KitsFlotaView />;
-			case "dashboard":
 			default:
 				return (
 					<DashboardView
@@ -148,7 +147,6 @@ function AppLayout() {
 				return "Configuración";
 			case "inventario":
 				return "Inventario Distribuido";
-			case "dashboard":
 			default:
 				return "Panel de Control";
 		}
@@ -227,6 +225,7 @@ function AppLayout() {
 					<div className="h-14 px-4 sm:px-6 flex items-center justify-between">
 						<div className="flex items-center gap-3">
 							<button
+								type="button"
 								onClick={() => setIsOpenMobile(true)}
 								className="lg:hidden p-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-secondary transition-colors cursor-pointer"
 							>

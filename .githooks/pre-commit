@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+echo "→ Biome check..."
+bun run check
+
+echo "→ Typecheck..."
+bunx tsc --noEmit
+
+echo "✓ Pre-commit checks passed"

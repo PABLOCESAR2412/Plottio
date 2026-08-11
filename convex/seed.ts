@@ -1,5 +1,4 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
 
 export const populate = mutation({
   args: {},
@@ -29,7 +28,7 @@ export const populate = mutation({
       activa: true,
     });
 
-    const suc2 = await ctx.db.insert("sucursales", {
+    await ctx.db.insert("sucursales", {
       empresaId: emp1,
       nombre: "Guayaquil",
       direccion: "Av. Las Américas",
@@ -39,7 +38,7 @@ export const populate = mutation({
     });
 
     // Insertar Punto Venta
-    const pv1 = await ctx.db.insert("puntosVenta", {
+    await ctx.db.insert("puntosVenta", {
       sucursalId: suc1,
       nombre: "PV-01 Mariscal",
       codigo: "PV01",
@@ -94,7 +93,7 @@ export const populate = mutation({
     // --- FASE 9: CATÁLOGO DE SERVICIOS (Placas) ---
     const servicios = await ctx.db.query("catalogoServicios").collect();
     if (servicios.length === 0) {
-      const placa1 = await ctx.db.insert("catalogoServicios", {
+      await ctx.db.insert("catalogoServicios", {
         empresaId: emp1,
         nombre: "Placa Acrílico - Ruta",
         categoria: "placa",
@@ -102,7 +101,7 @@ export const populate = mutation({
         activo: true,
         fechaCreacion: new Date().toISOString()
       });
-      const placa2 = await ctx.db.insert("catalogoServicios", {
+      await ctx.db.insert("catalogoServicios", {
         empresaId: emp1,
         nombre: "Placa Lona - Parabrisas",
         categoria: "placa",
@@ -110,7 +109,7 @@ export const populate = mutation({
         activo: true,
         fechaCreacion: new Date().toISOString()
       });
-      const placa3 = await ctx.db.insert("catalogoServicios", {
+      await ctx.db.insert("catalogoServicios", {
         empresaId: emp1,
         nombre: "Placa Acrílico - Número Unidad",
         categoria: "placa",

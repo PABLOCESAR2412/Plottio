@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
 
@@ -169,6 +170,17 @@ export const createOrdenTrabajo = mutation({
       registroId: ordenId,
       cambios: { clienteNombre: args.clienteNombre, total },
     });
+
+    if (args.asignadoAUsuarioId && args.asignadoAUsuarioId !== args.usuarioId) {
+      await ctx.runMutation(internal.notificaciones.crearNotificacion, {
+        usuarioId: args.asignadoAUsuarioId,
+        empresaId: userContext.empresa.id,
+        tipo: "orden",
+        titulo: "Nueva orden asignada",
+        mensaje: `Orden para ${args.clienteNombre} (placa ${args.placa}) - total ${total}`,
+        enlace: "/ordenes",
+      });
+    }
 
     return await ctx.db.get(ordenId);
   }

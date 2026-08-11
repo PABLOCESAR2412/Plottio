@@ -1,5 +1,5 @@
+import { useMutation, useQuery } from "convex/react";
 import {
-	AlertCircle,
 	CalendarDays,
 	Car,
 	Check,
@@ -10,30 +10,25 @@ import {
 	Info,
 	Plus,
 	Trash2,
-	User,
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import { useSessionStore } from "../store/useSessionStore";
-import { SuccessDialog } from "./SuccessDialog";
-
-import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
+import { SuccessDialog } from "./SuccessDialog";
 
 export const AgendaView: React.FC = () => {
 	const currentUser = useSessionStore((s) => s.currentUser);
-	
-	const citasData = useQuery(api.citas.fetchCitas, currentUser ? { usuarioId: currentUser.id as any } : "skip");
+
+	const citasData = useQuery(
+		api.citas.fetchCitas,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
 	const createCitaMutation = useMutation(api.citas.createCita);
 	const updateCitaMutation = useMutation(api.citas.updateCita);
 	const deleteCitaMutation = useMutation(api.citas.deleteCita);
-
-	if (citasData === undefined) {
-		return <TableSkeleton />;
-	}
-
-	const citas = citasData;
 
 	// Selected date on calendar. Today is June 3, 2026 according to system local time
 	const [currentYear, setCurrentYear] = useState(2026);
@@ -66,6 +61,12 @@ export const AgendaView: React.FC = () => {
 		message: "",
 		type: "success",
 	});
+
+	if (citasData === undefined) {
+		return <TableSkeleton />;
+	}
+
+	const citas = citasData;
 
 	const monthNames = [
 		"Enero",
@@ -137,9 +138,12 @@ export const AgendaView: React.FC = () => {
 	);
 
 	// Confirm appointment (confirmar)
-	const handleConfirmAppointment = async (cita: any) => {
+	const handleConfirmAppointment = async (cita: Doc<"citas">) => {
 		if (!currentUser) return;
-		await updateCitaMutation({ citaId: cita._id || cita.id, estado: "Confirmada" });
+		await updateCitaMutation({
+			citaId: cita._id,
+			estado: "Confirmada",
+		});
 		setAlertConfig({
 			isOpen: true,
 			title: "Cita Confirmada",
@@ -149,7 +153,7 @@ export const AgendaView: React.FC = () => {
 	};
 
 	// Delete appointment
-	const handleDeleteAppointmentClick = (cita: any) => {
+	const handleDeleteAppointmentClick = (cita: Doc<"citas">) => {
 		setAlertConfig({
 			isOpen: true,
 			title: "¿Eliminar Cita?",
@@ -157,7 +161,7 @@ export const AgendaView: React.FC = () => {
 			type: "delete",
 			onConfirm: async () => {
 				if (currentUser) {
-					await deleteCitaMutation({ citaId: cita._id || cita.id });
+					await deleteCitaMutation({ citaId: cita._id });
 				}
 				setAlertConfig({
 					isOpen: true,
@@ -214,11 +218,11 @@ export const AgendaView: React.FC = () => {
 			});
 			return;
 		}
-		
+
 		if (!currentUser) return;
 
 		await createCitaMutation({
-			usuarioId: currentUser.id as any,
+			usuarioId: currentUser.id as Id<"usuarios">,
 			clienteNombre: clienteNombre.trim(),
 			clienteTelefono: clienteTelefono.trim() || "+593 ",
 			vehiculoPlaca: vehiculoPlaca.trim().toUpperCase() || "S/P",
@@ -240,8 +244,8 @@ export const AgendaView: React.FC = () => {
 	};
 
 	// Open Edit Appointment Form
-	const handleOpenEdit = (cita: any) => {
-		setSelectedCitaId(cita._id || cita.id);
+	const handleOpenEdit = (cita: Doc<"citas">) => {
+		setSelectedCitaId(cita._id);
 		setClienteNombre(cita.clienteNombre);
 		setClienteTelefono(cita.clienteTelefono);
 		setVehiculoPlaca(cita.vehiculoPlaca);
@@ -268,7 +272,7 @@ export const AgendaView: React.FC = () => {
 		}
 
 		await updateCitaMutation({
-			citaId: selectedCitaId as any,
+			citaId: selectedCitaId as Id<"citas">,
 			clienteNombre: clienteNombre.trim(),
 			clienteTelefono: clienteTelefono.trim(),
 			vehiculoPlaca: vehiculoPlaca.trim().toUpperCase(),
@@ -302,6 +306,7 @@ export const AgendaView: React.FC = () => {
 					</p>
 				</div>
 				<button
+					type="button"
 					onClick={() => handleOpenCreate()}
 					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
@@ -321,12 +326,14 @@ export const AgendaView: React.FC = () => {
 						</h2>
 						<div className="flex items-center gap-1">
 							<button
+								type="button"
 								onClick={handlePrevMonth}
 								className="p-2 text-muted-foreground hover:bg-secondary rounded-lg transition-colors"
 							>
 								<ChevronLeft className="h-5 w-5" />
 							</button>
 							<button
+								type="button"
 								onClick={handleNextMonth}
 								className="p-2 text-muted-foreground hover:bg-secondary rounded-lg transition-colors"
 							>
@@ -350,7 +357,13 @@ export const AgendaView: React.FC = () => {
 					<div className="grid grid-cols-7 gap-1.5 text-center text-sm font-medium">
 						{calendarCells.map((day, idx) => {
 							if (day === null) {
-								return <div key={`empty-${idx}`} className="p-3" />;
+								return (
+									<div
+										// biome-ignore lint/suspicious/noArrayIndexKey: celda vacía del calendario, lista estática
+										key={`empty-${idx}`}
+										className="p-3"
+									/>
+								);
 							}
 
 							const cellDateStr = formatDateString(
@@ -369,6 +382,7 @@ export const AgendaView: React.FC = () => {
 
 							return (
 								<button
+									type="button"
 									key={`day-${day}`}
 									onClick={() => setSelectedDate(cellDateStr)}
 									onDoubleClick={() => handleOpenCreate(day)}
@@ -385,7 +399,7 @@ export const AgendaView: React.FC = () => {
 									{/* Indicator for appointments */}
 									{hasAppointments && (
 										<div className="flex gap-0.5 mt-1 justify-center max-w-full overflow-hidden">
-											{dayAppts.slice(0, 3).map((appt: any) => (
+											{dayAppts.slice(0, 3).map((appt) => (
 												<span
 													key={appt._id}
 													className={`h-1.5 w-1.5 rounded-full shrink-0 ${
@@ -433,7 +447,7 @@ export const AgendaView: React.FC = () => {
 						</div>
 
 						<div className="space-y-3 overflow-y-auto max-h-[360px] pr-1">
-							{appointmentsForSelectedDate.map((cita: any) => (
+							{appointmentsForSelectedDate.map((cita) => (
 								<div
 									key={cita._id}
 									className="rounded-lg border border-border p-3.5 bg-secondary/5 hover:bg-secondary/20 transition-all flex flex-col gap-2"
@@ -470,6 +484,7 @@ export const AgendaView: React.FC = () => {
 									<div className="flex justify-end gap-1.5 pt-2 border-t border-border/55 mt-1">
 										{cita.estado === "Pendiente" && (
 											<button
+												type="button"
 												onClick={() => handleConfirmAppointment(cita)}
 												className="flex items-center gap-1 rounded bg-primary text-primary-foreground px-2.5 py-1 text-[10px] font-bold hover:opacity-90 transition-colors"
 												title="Confirmar Cita"
@@ -478,6 +493,7 @@ export const AgendaView: React.FC = () => {
 											</button>
 										)}
 										<button
+											type="button"
 											onClick={() => handleOpenEdit(cita)}
 											className="p-1 text-muted-foreground hover:bg-card hover:text-foreground rounded transition-colors"
 											title="Editar cita"
@@ -485,6 +501,7 @@ export const AgendaView: React.FC = () => {
 											<Edit2 className="h-3 w-3" />
 										</button>
 										<button
+											type="button"
 											onClick={() => handleDeleteAppointmentClick(cita)}
 											className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors"
 											title="Eliminar cita"
@@ -499,6 +516,7 @@ export const AgendaView: React.FC = () => {
 									<Info className="h-8 w-8 opacity-35" />
 									<span>No hay citas programadas para este día.</span>
 									<button
+										type="button"
 										onClick={() => handleOpenCreate()}
 										className="mt-2 text-xs font-bold text-foreground hover:underline"
 									>
@@ -518,7 +536,9 @@ export const AgendaView: React.FC = () => {
 			{/* CREATE APPOINTMENT MODAL */}
 			{isCreateOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
@@ -528,10 +548,14 @@ export const AgendaView: React.FC = () => {
 						</h3>
 						<form onSubmit={handleCreateAppointment} className="space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="clienteNombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre del Cliente *
 								</label>
 								<input
+									id="clienteNombre"
 									type="text"
 									required
 									value={clienteNombre}
@@ -542,10 +566,14 @@ export const AgendaView: React.FC = () => {
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="clienteTelefono"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Teléfono
 								</label>
 								<input
+									id="clienteTelefono"
 									type="text"
 									value={clienteTelefono}
 									onChange={(e) => setClienteTelefono(e.target.value)}
@@ -556,10 +584,14 @@ export const AgendaView: React.FC = () => {
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="vehiculoPlaca"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Placa del Vehículo
 									</label>
 									<input
+										id="vehiculoPlaca"
 										type="text"
 										value={vehiculoPlaca}
 										onChange={(e) => setVehiculoPlaca(e.target.value)}
@@ -568,10 +600,14 @@ export const AgendaView: React.FC = () => {
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="servicio"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Servicio / Rotulado *
 									</label>
 									<input
+										id="servicio"
 										type="text"
 										required
 										value={servicio}
@@ -584,10 +620,14 @@ export const AgendaView: React.FC = () => {
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="fechaTurno"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Fecha de Turno *
 									</label>
 									<input
+										id="fechaTurno"
 										type="date"
 										required
 										value={fecha}
@@ -596,10 +636,14 @@ export const AgendaView: React.FC = () => {
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="horaTurno"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Hora de Turno *
 									</label>
 									<input
+										id="horaTurno"
 										type="time"
 										required
 										value={hora}
@@ -632,7 +676,9 @@ export const AgendaView: React.FC = () => {
 			{/* EDIT APPOINTMENT MODAL */}
 			{isEditOpen && (
 				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<div
+					<button
+						type="button"
+						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditOpen(false)}
 					/>
@@ -642,10 +688,14 @@ export const AgendaView: React.FC = () => {
 						</h3>
 						<form onSubmit={handleEditAppointment} className="space-y-4">
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="editClienteNombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Nombre del Cliente *
 								</label>
 								<input
+									id="editClienteNombre"
 									type="text"
 									required
 									value={clienteNombre}
@@ -655,10 +705,14 @@ export const AgendaView: React.FC = () => {
 							</div>
 
 							<div>
-								<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								<label
+									htmlFor="editClienteTelefono"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
 									Teléfono
 								</label>
 								<input
+									id="editClienteTelefono"
 									type="text"
 									value={clienteTelefono}
 									onChange={(e) => setClienteTelefono(e.target.value)}
@@ -668,10 +722,14 @@ export const AgendaView: React.FC = () => {
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="editVehiculoPlaca"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Placa del Vehículo
 									</label>
 									<input
+										id="editVehiculoPlaca"
 										type="text"
 										value={vehiculoPlaca}
 										onChange={(e) => setVehiculoPlaca(e.target.value)}
@@ -679,10 +737,14 @@ export const AgendaView: React.FC = () => {
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="editServicio"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Servicio *
 									</label>
 									<input
+										id="editServicio"
 										type="text"
 										required
 										value={servicio}
@@ -694,10 +756,14 @@ export const AgendaView: React.FC = () => {
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="editFechaTurno"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Fecha de Turno *
 									</label>
 									<input
+										id="editFechaTurno"
 										type="date"
 										required
 										value={fecha}
@@ -706,10 +772,14 @@ export const AgendaView: React.FC = () => {
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-semibold text-muted-foreground mb-1">
+									<label
+										htmlFor="editHoraTurno"
+										className="block text-xs font-semibold text-muted-foreground mb-1"
+									>
 										Hora de Turno *
 									</label>
 									<input
+										id="editHoraTurno"
 										type="time"
 										required
 										value={hora}
