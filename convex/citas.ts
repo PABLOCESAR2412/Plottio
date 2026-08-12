@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getCurrentUserContext } from "./auth";
 
 export const fetchCitas = query({
@@ -51,7 +52,19 @@ export const createCita = mutation({
       empresaId: userContext.empresa.id,
       sucursalId: userContext.sucursal.id,
     });
-    
+
+    // Trigger de notificación por email (Resend), no bloqueante.
+    // Se omite si RESEND_API_KEY / RESEND_CITA_TO no están configuradas.
+    await ctx.scheduler.runAfter(0, internal.emails.enviarEmailCita, {
+      clienteNombre: args.clienteNombre,
+      clienteTelefono: args.clienteTelefono,
+      vehiculoPlaca: args.vehiculoPlaca,
+      servicio: args.servicio,
+      fecha: args.fecha,
+      hora: args.hora,
+      empresaNombre: userContext.empresa.nombre,
+    });
+
     return await ctx.db.get(citaId);
   }
 });

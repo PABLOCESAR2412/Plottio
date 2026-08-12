@@ -1,0 +1,45 @@
+{
+	"nav": {
+		"dashboard": "Dashboard",
+		"clientes": "Customers",
+		"empresas": "Companies",
+		"vehiculos": "Vehicles",
+		"cotizaciones": "Quotes",
+		"ordenes": "Work Orders",
+		"agenda": "Schedule",
+		"configuracion": "Settings",
+		"buscar": "Search customers, plates, orders...",
+		"cerrarSesion": "Sign out",
+		"sinResultados": "No results"
+	},
+	"dashboard": {
+		"hola": "Hello",
+		"panelSubtitulo": "Management and control panel for vehicle wrapping.",
+		"personalizar": "Customize",
+		"widgetsVisibles": "Visible widgets",
+		"agendarCita": "Book an Appointment",
+		"crearCotizacion": "Create New Quote",
+		"ordenesPendientes": "Pending Orders",
+		"ordenesCompletadas": "Completed Orders",
+		"citasParaHoy": "Appointments Today",
+		"inversionEstimada": "Estimated Investment",
+		"ordenesRecientes": "Recent Work Orders",
+		"verTodas": "View all",
+		"verAgenda": "View schedule",
+		"accionesRapidas": "Quick Actions",
+		"registrarCliente": "Register Customer",
+		"anadirVehiculo": "Add Vehicle",
+		"agregarEmpresa": "Add Company",
+		"preciosStickers": "Sticker Prices"
+	},
+	"common": {
+		"guardar": "Save",
+		"cancelar": "Cancel",
+		"editar": "Edit",
+		"eliminar": "Delete",
+		"buscar": "Search",
+		"fecha": "Date",
+		"estado": "Status",
+		"descargar": "Download"
+	}
+}

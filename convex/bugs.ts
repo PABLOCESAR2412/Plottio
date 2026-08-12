@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
 
@@ -61,6 +62,18 @@ export const createBug = mutation({
       accion: "CREATE",
       registroId: bugId,
       cambios: { titulo: args.titulo, importancia: args.importancia },
+    });
+
+    // Trigger de notificación por email (Resend), no bloqueante.
+    // Se omite si RESEND_API_KEY / RESEND_BUG_TO no están configuradas.
+    await ctx.scheduler.runAfter(0, internal.emails.enviarEmailBug, {
+      titulo: args.titulo,
+      descripcion: args.descripcion,
+      tipo: args.tipo,
+      importancia: args.importancia,
+      ruta: args.ruta,
+      usuarioNombre: userContext.nombre,
+      empresaNombre: userContext.empresa.nombre,
     });
 
     return await ctx.db.get(bugId);

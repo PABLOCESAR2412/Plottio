@@ -40,6 +40,37 @@
    bun run dev
    ```
 
+## Notificaciones Email (Resend)
+
+Plottio envía emails transaccionales (citas agendadas y reportes de bugs) mediante
+[Resend](https://resend.com) ejecutado desde Convex como *internal action* con
+`scheduler`. El envío es no bloqueante: si las variables no existen, se omite.
+
+Activar (variables de entorno de Convex):
+
+```bash
+npx convex env set RESEND_API_KEY   re_xxxxxxxxxxxx
+npx convex env set RESEND_CITA_TO  correo@tu-empresa.com
+npx convex env set RESEND_BUG_TO   soporte@plottio.com
+# Opcional: remitente verificado en Resend
+npx convex env set RESEND_FROM      "Plottio <no-reply@tu-dominio>"
+```
+
+> Nota: el remitente por defecto `onboarding@resend.dev` solo funciona en modo
+> prueba de Resend; para producción verifica un dominio.
+
+## Migraciones de Esquema
+
+Las migraciones acumulativas viven en `convex/migrations/` y se registran en la
+tabla `migrations`. Para aplicar las pendientes:
+
+```bash
+npx convex run migrations/index:runMigrations --deployment dev
+npx convex run migrations/index:listMigrations --deployment dev
+```
+
+Ver `convex/migrations/index.ts` para añadir una nueva.
+
 ## Roles del Sistema
 
 *   **SuperAdmin**: Acceso global a todas las sucursales, configuración del sistema, gestión de roles y tarifas.

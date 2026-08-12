@@ -14,6 +14,7 @@ import {
 	LogOut,
 	Moon,
 	PackageSearch,
+	Search,
 	Settings,
 	Sun,
 	Users,
@@ -21,8 +22,10 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { startTransition, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { setLanguage } from "../i18n";
 import { useSessionStore } from "../store/useSessionStore";
 
 interface SidebarProps {
@@ -77,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 	const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 	const theme = useSessionStore((s) => s.theme);
 	const toggleTheme = useSessionStore((s) => s.toggleTheme);
+	const { t, i18n } = useTranslation();
 	const currentUser = useSessionStore((s) => s.currentUser);
 	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
 
@@ -116,6 +120,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	);
 
+	const misEmpresas = useQuery(
+		api.organizacion.getMisEmpresas,
+		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
+	);
+	const switchEmpresaMut = useMutation(api.organizacion.setEmpresaContexto);
+	const [showEmpresaPicker, setShowEmpresaPicker] = useState(false);
+
 	const notificaciones = useQuery(
 		api.notificaciones.getMisNotificaciones,
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
@@ -133,6 +144,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 	const marcarTodasLeidas = useMutation(api.notificaciones.marcarTodasLeidas);
 	const marcarLeida = useMutation(api.notificaciones.marcarLeida);
+
+	const [searchTerm, setSearchTerm] = useState("");
+	const [showSearch, setShowSearch] = useState(false);
+
+	const busqueda = useQuery(
+		api.busqueda.busquedaGlobal,
+		usuarioId && searchTerm.trim().length >= 2
+			? { usuarioId: usuarioId as Id<"usuarios">, termino: searchTerm }
+			: "skip",
+	) as
+		| {
+				clientes: Array<{ id: string; nombre: string; telefono: string }>;
+				vehiculos: Array<{
+					id: string;
+					placa: string;
+					marca: string;
+					modelo: string;
+				}>;
+				ordenes: Array<{ id: string; cliente: string; placa: string }>;
+		  }
+		| undefined;
 
 	const ordenesTrabajo: LocalOrden[] = useMemo(
 		() =>
@@ -181,20 +213,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 	};
 
 	const menuItems: readonly MenuItem[] = [
-		{ id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-		{ id: "clientes", label: "Clientes", icon: Users },
-		{ id: "empresas", label: "Empresas / Flotas", icon: Building2 },
-		{ id: "vehiculos", label: "Vehículos", icon: Car },
-		{ id: "cotizaciones", label: "Cotizaciones", icon: FileText },
+		{ id: "dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
+		{ id: "clientes", label: t("nav.clientes"), icon: Users },
+		{ id: "empresas", label: t("nav.empresas"), icon: Building2 },
+		{ id: "vehiculos", label: t("nav.vehiculos"), icon: Car },
+		{ id: "cotizaciones", label: t("nav.cotizaciones"), icon: FileText },
 		{
 			id: "ordenes",
-			label: "Órdenes Trabajo",
+			label: t("nav.ordenes"),
 			icon: ClipboardCheck,
 			badge: activeOrdersCount > 0 ? activeOrdersCount : undefined,
 		},
 		{
 			id: "agenda",
-			label: "Agenda Citas",
+			label: t("nav.agenda"),
 			icon: CalendarDays,
 			badge: pendingCitasCount > 0 ? pendingCitasCount : undefined,
 		},
@@ -221,7 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 		},
 		{
 			id: "configuracion",
-			label: "Configuración",
+			label: t("nav.configuracion"),
 			icon: Settings,
 			roles: ["SuperAdmin"],
 		},
@@ -261,6 +293,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
 					<span className="text-lg font-black tracking-wider text-foreground">
 						PLOTTIO
 					</span>
+				)}
+				{/* Selector multi-empresa */}
+				{(misEmpresas ?? []).length > 1 && (
+					<div className="relative shrink-0">
+						<button
+							type="button"
+							onClick={() => setShowEmpresaPicker((v) => !v)}
+							className="px-2 py-1 rounded-md text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors border border-border flex items-center gap-1"
+							title="Cambiar empresa"
+						>
+							<Building2 className="h-4 w-4" />
+							<span className="hidden xl:inline max-w-[7rem] truncate">
+								{branding?.nombre ??
+									(currentUser?.empresaId ? "Empresa" : "Empresa")}
+							</span>
+						</button>
+						{showEmpresaPicker && (
+							<>
+								<button
+									type="button"
+									aria-label="Cerrar selector de empresa"
+									className="fixed inset-0 z-10"
+									onClick={() => setShowEmpresaPicker(false)}
+								/>
+								<div className="absolute right-0 mt-2 z-20 w-56 rounded-xl border border-border bg-card shadow-2xl p-2 text-foreground">
+									{(misEmpresas ?? []).map((emp) => (
+										<button
+											type="button"
+											key={emp.id}
+											disabled={emp.id === currentUser?.empresaId}
+											onClick={() => {
+												if (usuarioId) {
+													void switchEmpresaMut({
+														usuarioId: usuarioId as Id<"usuarios">,
+														empresaId: emp.id as Id<"empresas">,
+													}).then((user) => {
+														if (user) {
+															setCurrentUser({
+																id: user._id,
+																nombre: user.nombre,
+																email: user.email,
+																rol: user.rol,
+																sucursalId: user.sucursalId ?? null,
+																pvId: user.pvId ?? null,
+																empresaId: user.empresaId ?? null,
+																activo: user.activo ?? true,
+															});
+														}
+														setShowEmpresaPicker(false);
+														onCloseMobile();
+													});
+												}
+											}}
+											className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors ${
+												emp.id === currentUser?.empresaId
+													? "bg-primary/10 text-primary"
+													: "hover:bg-secondary"
+											}`}
+										>
+											<Building2 className="h-3.5 w-3.5 shrink-0" />
+											<span className="truncate">{emp.nombre}</span>
+											{emp.id === currentUser?.empresaId && (
+												<Check className="ml-auto h-3.5 w-3.5" />
+											)}
+										</button>
+									))}
+								</div>
+							</>
+						)}
+					</div>
 				)}
 				{/* Campana de notificaciones */}
 				<div className="relative shrink-0">
@@ -378,6 +480,122 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 			{/* 2. Navigation List in the middle */}
 			<nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
+				{/* Búsqueda global */}
+				<div className="relative mb-2">
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<input
+						type="search"
+						value={searchTerm}
+						onChange={(e) => {
+							setSearchTerm(e.target.value);
+							setShowSearch(true);
+						}}
+						onFocus={() => setShowSearch(true)}
+						onBlur={() => {
+							setTimeout(() => setShowSearch(false), 150);
+						}}
+						placeholder={t("nav.buscar")}
+						className="w-full rounded-lg border border-border bg-secondary/40 pl-9 pr-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+						aria-label="Búsqueda global"
+					/>
+
+					{showSearch && searchTerm.trim().length >= 2 && usuarioId && (
+						<div className="absolute left-0 right-0 top-full mt-1 z-30 max-h-80 overflow-y-auto rounded-xl border border-border bg-card shadow-2xl p-2 space-y-3">
+							{busqueda === undefined && (
+								<p className="px-2 py-3 text-center text-xs text-muted-foreground">
+									Buscando...
+								</p>
+							)}
+							{busqueda &&
+								busqueda.clientes.length === 0 &&
+								busqueda.vehiculos.length === 0 &&
+								busqueda.ordenes.length === 0 && (
+									<p className="px-2 py-3 text-center text-xs text-muted-foreground">
+										Sin resultados para "{searchTerm}".
+									</p>
+								)}
+
+							{busqueda && busqueda.clientes.length > 0 && (
+								<div>
+									<p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+										Clientes
+									</p>
+									{busqueda.clientes.map((c) => (
+										<button
+											type="button"
+											key={c.id}
+											onClick={() => {
+												handleLinkClick("clientes");
+												setSearchTerm("");
+											}}
+											className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary transition-colors cursor-pointer"
+										>
+											<span className="font-semibold text-foreground truncate">
+												{c.nombre}
+											</span>
+											<span className="text-muted-foreground shrink-0">
+												{c.telefono}
+											</span>
+										</button>
+									))}
+								</div>
+							)}
+
+							{busqueda && busqueda.vehiculos.length > 0 && (
+								<div>
+									<p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+										Vehículos
+									</p>
+									{busqueda.vehiculos.map((v) => (
+										<button
+											type="button"
+											key={v.id}
+											onClick={() => {
+												handleLinkClick("vehiculos");
+												setSearchTerm("");
+											}}
+											className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary transition-colors cursor-pointer"
+										>
+											<span className="font-semibold text-foreground truncate">
+												{v.placa}
+											</span>
+											<span className="text-muted-foreground shrink-0">
+												{v.marca} {v.modelo}
+											</span>
+										</button>
+									))}
+								</div>
+							)}
+
+							{busqueda && busqueda.ordenes.length > 0 && (
+								<div>
+									<p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+										Órdenes
+									</p>
+									{busqueda.ordenes.map((o) => (
+										<button
+											type="button"
+											key={o.id}
+											onClick={() => {
+												handleLinkClick("ordenes");
+												setSearchTerm("");
+											}}
+											className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary transition-colors cursor-pointer"
+										>
+											<span className="font-semibold text-foreground truncate">
+												{o.cliente}
+											</span>
+											<span className="text-muted-foreground shrink-0">
+												{o.placa}
+											</span>
+										</button>
+									))}
+								</div>
+							)}
+						</div>
+					)}
+				</div>
+
 				{filteredMenuItems.map((item) => {
 					const Icon = item.icon;
 					const isActive = activeTab === item.id;
@@ -418,6 +636,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 			{/* 3. Footer Actions */}
 			<div className="border-t border-border p-4 shrink-0 space-y-2">
+				<button
+					type="button"
+					onClick={() => setLanguage(i18n.language === "es" ? "en" : "es")}
+					className="flex w-full items-center justify-between rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary transition-colors cursor-pointer"
+				>
+					<div className="flex items-center gap-2">
+						<span className="text-xs font-bold uppercase tracking-wider">
+							🌐
+						</span>
+						<span>{i18n.language === "es" ? "Español" : "English"}</span>
+					</div>
+					<span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+						{i18n.language === "es" ? "EN" : "ES"}
+					</span>
+				</button>
+
 				<button
 					type="button"
 					onClick={toggleTheme}

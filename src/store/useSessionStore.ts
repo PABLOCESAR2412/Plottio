@@ -48,6 +48,9 @@ interface SessionStore {
 			cotizaciones: boolean;
 		}>,
 	) => void;
+
+	dashboardWidgets: string[];
+	setDashboardWidgets: (widgets: string[]) => void;
 }
 
 export const useSessionStore = create<SessionStore>()(
@@ -104,10 +107,16 @@ export const useSessionStore = create<SessionStore>()(
 				set((state) => ({
 					notificationTypes: { ...state.notificationTypes, ...types },
 				})),
+
+			dashboardWidgets: [],
+			setDashboardWidgets: (widgets) => set({ dashboardWidgets: widgets }),
 		}),
 		{
 			name: "plottio-auth-storage",
-			partialize: (state) => ({ currentUser: state.currentUser }),
+			partialize: (state) => ({
+				currentUser: state.currentUser,
+				dashboardWidgets: state.dashboardWidgets,
+			}),
 		},
 	),
 );

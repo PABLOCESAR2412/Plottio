@@ -117,7 +117,38 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
 	const updateOrdenMut = useMutation(api.ordenes.updateOrdenTrabajo);
 	const deleteOrdenMut = useMutation(api.ordenes.deleteOrdenTrabajo);
-	const toggleItemMut = useMutation(api.ordenes.toggleItemCompletado);
+	const toggleItemMut = useMutation(
+		api.ordenes.toggleItemCompletado,
+	).withOptimisticUpdate((localStore, args) => {
+		const current = localStore.getQuery(api.ordenes.fetchOrdenes, {
+			usuarioId: args.usuarioId,
+		});
+		if (current === undefined) return;
+		const updated = current.map((orden) => {
+			if (orden._id !== args.ordenId) return orden;
+			const items = orden.items.map((item, idx) =>
+				idx === args.itemIndex
+					? { ...item, completado: args.completado }
+					: item,
+			);
+			const total = items.reduce(
+				(acc, item) => acc + item.cantidad * item.precioUnitario,
+				0,
+			);
+			const progreso =
+				items.length > 0
+					? Math.round(
+							(items.filter((i) => i.completado).length / items.length) * 100,
+						)
+					: 0;
+			return { ...orden, items, total, progreso };
+		});
+		localStore.setQuery(
+			api.ordenes.fetchOrdenes,
+			{ usuarioId: args.usuarioId },
+			updated,
+		);
+	});
 
 	// ── ADAPTACIÓN: _id → id ────────────────────────────────────────────────
 	const ordenesTrabajo: OrdenTrabajo[] = useMemo(

@@ -145,16 +145,36 @@
   - Nuevo query `getPuedeVerReportes` (usa `checkPermission` con `ver_reportes`, sin lanzar 403) para gatear en cliente.
   - `ConfiguracionView`: filtros Desde/Hasta/Estado/Sucursal (sucursal solo SuperAdmin), los exports PDF/CSV ahora usan `reporteData` server-side (respaldado en datos locales si no hay permiso o carga pendiente).
   - codegen + biome 0 + tsc 0 + tests 11/11 + build OK.
-- **Búsqueda global** (clientes, vehículos, órdenes) con índice full-text de Convex.
-- **Optimistic UI** en mutaciones críticas (cambiar estado de orden, agregar item a cotización).
-- **Migrar `routeTree.gen.ts`** — hoy es generado por TanStack Router. Verificar que no hay rutas huérfanas después de los cambios.
-- **Internacionalización.** Toda la UI está en español; si se va a escalar fuera de Latam conviene abstraer strings.
-- **Dashboard widgets configurables.** El usuario puede elegir qué KPIs mostrar.
-- **Modo offline** con service worker (Convex soporta, pero requiere estrategia explícita para mutaciones en cola).
-- **Versionado de esquemas.** Hoy `schema.ts` cambia libremente; a medida que se acerque a producción, conviene snapshots por release.
-- **CI / pre-commit.** Agregar `bun run check` + `bun run build` al pipeline antes del deploy (GitHub Actions ya integrado con Vercel).
-- **Auditoría visual** (pantalla para revisar `AuditoriaView` con filtros por fecha/usuario/tabla — ya existe el archivo, confirmar UX).
-- **Multi-empresa en el mismo login.** Hoy `getCurrentUserContext` asume una empresa por usuario. Si un usuario es admin de varias empresas, hay que decidir cómo se elige el contexto activo.
+- [x] **Búsqueda global.** (2026-08-12)
+  - `searchIndex` full-text en schema: clientes (`search_nombre`/nombre), vehiculos (`search_placa`/placa), ordenesTrabajo (`search_cliente`/clienteNombre); filtros `empresaId`+`sucursalId`.
+  - Nuevo `convex/busqueda.ts` (`busquedaGlobal`), scoped por empresa y sucursales visibles.
+  - `Sidebar.tsx`: buscador en nav con dropdown de resultados (Clientes/Vehículos/Órdenes) que navega.
+  - Nota API: en Convex 1.41+ el método es `withSearchIndex`, no `withSearch`.
+- [x] **Optimistic UI.** (2026-08-12)
+  - `OrdenesTrabajoView`: `useMutation(...).withOptimisticUpdate` en `toggleItemCompletado` (recalcula items/total/progreso en localStore con `getQuery`/`setQuery`).
+  - Descartado en creates (`createCotizacion`): el `_id` lo genera el servidor y la query devuelve doc completo enriquecido → placeholder frágil.
+- [x] **Migrar `routeTree.gen.ts`.** (2026-08-12) Verificado: solo `__root` + `index`, sin rutas huérfanas. Nota: hay 3 actionRutas generadas sin uso (ver investigación 2026-08-09).
+- [x] **Internacionalización.** (2026-08-12, fase inicial)
+  - `i18next` + `react-i18next`; `src/i18n/` con diccionarios `es.json`/`en.json` y `setLanguage` (persiste en localStorage).
+  - Strings traducidos en `Sidebar` (nav + buscar + selector de idioma en footer) y `DashboardView` (KPIs, secciones, acciones). Resto de la UI queda en español por ahora.
+- [x] **Dashboard widgets configurables.** (2026-08-12)
+  - `useSessionStore`: `dashboardWidgets` persistido; `DashboardView`: botón "Personalizar" con checkboxes para Tarjetas de métricas / Órdenes recientes / Citas de hoy / Acciones rápidas.
+- [x] **Modo offline (PWA).** (2026-08-12)
+  - `vite-plugin-pwa` (registerType autoUpdate, Workbox `generateSW`, navigateFallback `/index.html`); `public/manifest.json` con marca Plottio; SW registrado en `main.tsx`.
+  - Precarga 14 entradas (1.6 MiB). Nota: mutaciones requieren red; la shell carga offline pero Convex necesita conexión.
+- [x] **Versionado de esquemas.** (2026-08-12)
+  - Tabla `migrations` en schema; `convex/migrations/index.ts` con `runMigrations` (internalMutation, ejecución acumulativa idempotente) y `listMigrations`.
+  - Plantilla `0001_normalizar_usuarios`; ejecutada en dev (`1 aplicada`). Para añadir: crear `00XX_nombre.ts` exportando `{name, run}` y registrarlo en `MIGRACIONES`.
+- [x] **Auditoría visual** (2026-08-12 + fix de seguridad)
+  - `getAuditoria` ahora **fuerza tenant** desde `getCurrentUserContext` (eliminada la ruta con `empresaId: undefined` que devolvía todo sin filtrar) y acepta filtros `{desde,hasta,usuario,tabla}`.
+  - `AuditoriaView.tsx` reescrito: filtros de búsqueda por usuario, módulo, fechas desde/hasta + limpiar; fila de detalle expandible con JSON de cambios.
+- [x] **Multi-empresa en el mismo login.** (2026-08-12)
+  - `organizacion.getMisEmpresas` (empresas vía roles/sucursales + SuperAdmin ve todas activas) y `setEmpresaContexto` (cambia empresaId/sucursalId por defecto).
+  - `Sidebar.tsx`: selector de empresa en la cabecera cuando hay más de una accesible.
+- [x] **Email (Resend).** (2026-08-12, triggers implementados, keys pendientes)
+  - `convex/emails.ts`: `enviarEmailCita` y `enviarEmailBug` (internalActions vía fetch a Resend, no bloqueantes si no hay `RESEND_API_KEY`).
+  - Triggers: `createCita` y `createBug` programan vía `ctx.scheduler.runAfter`.
+  - Pendiente: `npx convex env set RESEND_API_KEY`, `RESEND_CITA_TO`, `RESEND_BUG_TO` (y `RESEND_FROM` para prod).
 
 ---
 
