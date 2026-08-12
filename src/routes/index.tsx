@@ -16,6 +16,7 @@ import { Loader } from "../components/Loader";
 import { LoginView } from "../components/LoginView";
 import { LotesProduccionView } from "../components/LotesProduccionView";
 import { OrdenesTrabajoView } from "../components/OrdenesTrabajoView";
+import PlottioLogo from "../components/PlottioLogo";
 import { Sidebar } from "../components/Sidebar";
 import {
 	BreadcrumbNavegacion,
@@ -156,9 +157,7 @@ function AppLayout() {
 		return (
 			<div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background text-foreground animate-fade-in">
 				<div className="flex flex-col items-center gap-4 text-center">
-					<h1 className="text-5xl font-black tracking-widest text-foreground animate-pulse">
-						PLOTTIO
-					</h1>
+					<PlottioLogo size="lg" className="animate-pulse" />
 					<p className="text-xs text-muted-foreground tracking-wider uppercase font-semibold">
 						Cargando taller de rotulación...
 					</p>
@@ -231,8 +230,8 @@ function AppLayout() {
 							>
 								<Menu className="h-5 w-5" />
 							</button>
-							<span className="lg:hidden text-sm font-black tracking-wider text-foreground">
-								PLOTTIO
+							<span className="lg:hidden flex items-center min-w-0">
+								<PlottioLogo size="sm" />
 							</span>
 						</div>
 

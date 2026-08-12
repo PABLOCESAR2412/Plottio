@@ -145,18 +145,15 @@
   - Nuevo query `getPuedeVerReportes` (usa `checkPermission` con `ver_reportes`, sin lanzar 403) para gatear en cliente.
   - `ConfiguracionView`: filtros Desde/Hasta/Estado/Sucursal (sucursal solo SuperAdmin), los exports PDF/CSV ahora usan `reporteData` server-side (respaldado en datos locales si no hay permiso o carga pendiente).
   - codegen + biome 0 + tsc 0 + tests 11/11 + build OK.
-- [x] **Búsqueda global.** (2026-08-12)
-  - `searchIndex` full-text en schema: clientes (`search_nombre`/nombre), vehiculos (`search_placa`/placa), ordenesTrabajo (`search_cliente`/clienteNombre); filtros `empresaId`+`sucursalId`.
-  - Nuevo `convex/busqueda.ts` (`busquedaGlobal`), scoped por empresa y sucursales visibles.
-  - `Sidebar.tsx`: buscador en nav con dropdown de resultados (Clientes/Vehículos/Órdenes) que navega.
-  - Nota API: en Convex 1.41+ el método es `withSearchIndex`, no `withSearch`.
+- [~] **Búsqueda global.** (2026-08-12, **revertida** — se quitó del Sidebar)
+  - Se eliminó en 2026-08-12: `convex/busqueda.ts`, `searchIndex` del schema (clientes/vehiculos/ordenesTrabajo) y el input de búsqueda del nav del Sidebar.
+  - Nota API (referencia): en Convex 1.41+ el método era `withSearchIndex`, no `withSearch`.
 - [x] **Optimistic UI.** (2026-08-12)
   - `OrdenesTrabajoView`: `useMutation(...).withOptimisticUpdate` en `toggleItemCompletado` (recalcula items/total/progreso en localStore con `getQuery`/`setQuery`).
   - Descartado en creates (`createCotizacion`): el `_id` lo genera el servidor y la query devuelve doc completo enriquecido → placeholder frágil.
 - [x] **Migrar `routeTree.gen.ts`.** (2026-08-12) Verificado: solo `__root` + `index`, sin rutas huérfanas. Nota: hay 3 actionRutas generadas sin uso (ver investigación 2026-08-09).
-- [x] **Internacionalización.** (2026-08-12, fase inicial)
-  - `i18next` + `react-i18next`; `src/i18n/` con diccionarios `es.json`/`en.json` y `setLanguage` (persiste en localStorage).
-  - Strings traducidos en `Sidebar` (nav + buscar + selector de idioma en footer) y `DashboardView` (KPIs, secciones, acciones). Resto de la UI queda en español por ahora.
+- [~] **Internacionalización.** (2026-08-12, **revertida** — solo español nativo de nuevo)
+  - Se eliminó en 2026-08-12: `src/i18n/` (diccionarios es/en + `setLanguage`), deps `i18next`/`react-i18next`; Sidebar y DashboardView con strings originales en español.
 - [x] **Dashboard widgets configurables.** (2026-08-12)
   - `useSessionStore`: `dashboardWidgets` persistido; `DashboardView`: botón "Personalizar" con checkboxes para Tarjetas de métricas / Órdenes recientes / Citas de hoy / Acciones rápidas.
 - [x] **Modo offline (PWA).** (2026-08-12)
@@ -168,9 +165,8 @@
 - [x] **Auditoría visual** (2026-08-12 + fix de seguridad)
   - `getAuditoria` ahora **fuerza tenant** desde `getCurrentUserContext` (eliminada la ruta con `empresaId: undefined` que devolvía todo sin filtrar) y acepta filtros `{desde,hasta,usuario,tabla}`.
   - `AuditoriaView.tsx` reescrito: filtros de búsqueda por usuario, módulo, fechas desde/hasta + limpiar; fila de detalle expandible con JSON de cambios.
-- [x] **Multi-empresa en el mismo login.** (2026-08-12)
-  - `organizacion.getMisEmpresas` (empresas vía roles/sucursales + SuperAdmin ve todas activas) y `setEmpresaContexto` (cambia empresaId/sucursalId por defecto).
-  - `Sidebar.tsx`: selector de empresa en la cabecera cuando hay más de una accesible.
+- [~] **Multi-empresa en el mismo login.** (2026-08-12, **revertida** — se quitó el selector)
+  - Se eliminó en 2026-08-12: `organizacion.getMisEmpresas` y `setEmpresaContexto` (backend) y el selector de empresa de la cabecera del Sidebar.
 - [x] **Email (Resend).** (2026-08-12, triggers implementados, keys pendientes)
   - `convex/emails.ts`: `enviarEmailCita` y `enviarEmailBug` (internalActions vía fetch a Resend, no bloqueantes si no hay `RESEND_API_KEY`).
   - Triggers: `createCita` y `createBug` programan vía `ctx.scheduler.runAfter`.

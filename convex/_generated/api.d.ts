@@ -11,7 +11,6 @@
 import type * as auditoria from "../auditoria.js";
 import type * as auth from "../auth.js";
 import type * as bugs from "../bugs.js";
-import type * as busqueda from "../busqueda.js";
 import type * as catalogoServicios from "../catalogoServicios.js";
 import type * as citas from "../citas.js";
 import type * as clientes from "../clientes.js";
@@ -46,7 +45,6 @@ declare const fullApi: ApiFromModules<{
   auditoria: typeof auditoria;
   auth: typeof auth;
   bugs: typeof bugs;
-  busqueda: typeof busqueda;
   catalogoServicios: typeof catalogoServicios;
   citas: typeof citas;
   clientes: typeof clientes;

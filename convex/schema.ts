@@ -63,7 +63,7 @@ export default defineSchema({
     esClienteGlobal: v.boolean(),
     direccion: v.optional(v.string()),
     identificacion: v.optional(v.string()),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).searchIndex("search_nombre", { searchField: "nombre", filterFields: ["empresaId", "sucursalId"] }),
+  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
 
   vehiculos: defineTable({
     placa: v.string(),
@@ -84,7 +84,7 @@ export default defineSchema({
     }))),
     empresaId: v.optional(v.id("empresas")),
     sucursalId: v.optional(v.id("sucursales")),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).searchIndex("search_placa", { searchField: "placa", filterFields: ["empresaId", "sucursalId"] }),
+  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
 
   cotizaciones: defineTable({
     clienteNombre: v.string(),
@@ -137,7 +137,7 @@ export default defineSchema({
     sucursalId: v.optional(v.id("sucursales")),
     pvOrigen: v.optional(v.string()),
     asignadoAUsuarioId: v.optional(v.id("usuarios")),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).searchIndex("search_cliente", { searchField: "clienteNombre", filterFields: ["empresaId", "sucursalId"] }),
+  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
 
   auditoria: defineTable({
     empresaId: v.id("empresas"),

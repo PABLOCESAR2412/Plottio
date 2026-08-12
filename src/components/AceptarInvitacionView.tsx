@@ -1,9 +1,10 @@
 import { useAction, useQuery } from "convex/react";
-import { AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
+import PlottioLogo from "./PlottioLogo";
 
 type InvitedUser = {
 	id: string;
@@ -105,8 +106,8 @@ export const AceptarInvitacionView: React.FC<{
 		<div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
 			<div className="w-full max-w-md bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-fade-in">
 				<div className="p-6 border-b border-border text-center bg-secondary/30">
-					<div className="mx-auto w-12 h-12 bg-primary text-primary-foreground flex items-center justify-center rounded-xl shadow-lg mb-4">
-						<ShieldCheck className="h-6 w-6" />
+					<div className="mb-4 flex justify-center">
+						<PlottioLogo size="sm" showName={false} />
 					</div>
 					<h1 className="text-2xl font-bold tracking-tight text-foreground">
 						Bienvenido a Plottio

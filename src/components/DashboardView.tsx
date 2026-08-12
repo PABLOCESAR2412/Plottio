@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
@@ -68,7 +67,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 	onAgendarCitaClick,
 }) => {
 	const currentUser = useSessionStore((s) => s.currentUser);
-	const { t } = useTranslation();
 	const usuarioId = currentUser?.id;
 
 	const dashboardWidgets = useSessionStore((s) => s.dashboardWidgets);
@@ -193,13 +191,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight text-foreground">
-						{t("dashboard.hola")}, {currentUser?.nombre || "Usuario"}
+						Hola, {currentUser?.nombre || "Usuario"}
 					</h1>
 					<p className="text-muted-foreground mt-1 text-sm flex items-center gap-2">
 						<span className="font-bold border border-border bg-secondary px-2 py-0.5 rounded text-[10px] uppercase">
 							{currentUser?.rol || "Rol"}
 						</span>
-						<span>{t("dashboard.panelSubtitulo")}</span>
+						<span>Panel de gestión y control de rotulado vehicular.</span>
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-3 relative">
@@ -209,12 +207,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
 					>
 						<SlidersHorizontal className="h-4 w-4" />
-						{t("dashboard.personalizar")}
+						Personalizar
 					</button>
 					{showWidgetPanel && (
 						<div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-card p-4 shadow-lg">
 							<h4 className="text-sm font-semibold text-foreground mb-3">
-								{t("dashboard.widgetsVisibles")}
+								Widgets visibles
 							</h4>
 							<div className="space-y-2">
 								{DASHBOARD_WIDGETS.map((widget) => (
@@ -242,7 +240,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
 					>
 						<CalendarDays className="h-4 w-4" />
-						{t("dashboard.agendarCita")}
+						Agendar una Cita
 					</button>
 					<button
 						type="button"
@@ -250,7 +248,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors"
 					>
 						<Plus className="h-4 w-4" />
-						{t("dashboard.crearCotizacion")}
+						Crear Nueva Cotización
 					</button>
 				</div>
 			</div>
@@ -262,7 +260,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 					<div className="rounded-xl border border-border bg-card p-6 shadow-sm">
 						<div className="flex items-center justify-between">
 							<span className="text-sm font-medium text-muted-foreground">
-								{t("dashboard.ordenesPendientes")}
+								Órdenes Pendientes
 							</span>
 							<ClipboardList className="h-5 w-5 text-yellow-500" />
 						</div>
@@ -280,7 +278,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 					<div className="rounded-xl border border-border bg-card p-6 shadow-sm">
 						<div className="flex items-center justify-between">
 							<span className="text-sm font-medium text-muted-foreground">
-								{t("dashboard.ordenesCompletadas")}
+								Órdenes Completadas
 							</span>
 							<CheckCircle className="h-5 w-5 text-green-500" />
 						</div>
@@ -298,7 +296,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 					<div className="rounded-xl border border-border bg-card p-6 shadow-sm">
 						<div className="flex items-center justify-between">
 							<span className="text-sm font-medium text-muted-foreground">
-								{t("dashboard.citasParaHoy")}
+								Citas para Hoy
 							</span>
 							<CalendarDays className="h-5 w-5 text-blue-500" />
 						</div>
@@ -319,7 +317,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 					<div className="rounded-xl border border-border bg-card p-6 shadow-sm">
 						<div className="flex items-center justify-between">
 							<span className="text-sm font-medium text-muted-foreground">
-								{t("dashboard.inversionEstimada")}
+								Inversión Estimada
 							</span>
 							<TrendingUp className="h-5 w-5 text-purple-500" />
 						</div>
@@ -345,7 +343,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 								<div className="flex items-center justify-between mb-4">
 									<div>
 										<h2 className="text-lg font-semibold text-foreground">
-											{t("dashboard.ordenesRecientes")}
+											Órdenes de Trabajo Recientes
 										</h2>
 										<p className="text-sm text-muted-foreground">
 											Seguimiento en tiempo real de stickers e instalaciones.
@@ -356,7 +354,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 										onClick={() => onNavigate("ordenes")}
 										className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
 									>
-										{t("dashboard.verTodas")}
+										Ver todas
 										<ChevronRight className="h-4 w-4" />
 									</button>
 								</div>
@@ -443,7 +441,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 										onClick={() => onNavigate("agenda")}
 										className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
 									>
-										{t("dashboard.verAgenda")}
+										Ver agenda
 										<ChevronRight className="h-4 w-4" />
 									</button>
 								</div>
@@ -508,7 +506,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 			{showQuickActions && (
 				<div className="rounded-xl border border-border bg-card p-6 shadow-sm">
 					<h3 className="text-lg font-semibold text-foreground mb-4">
-						{t("dashboard.accionesRapidas")}
+						Acciones Rápidas
 					</h3>
 					<div className="grid gap-4 grid-cols-2 md:grid-cols-4">
 						<button
@@ -520,7 +518,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 								<Plus className="h-5 w-5" />
 							</div>
 							<span className="text-sm font-semibold text-foreground">
-								{t("dashboard.registrarCliente")}
+								Registrar Cliente
 							</span>
 						</button>
 						<button
@@ -532,7 +530,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 								<Plus className="h-5 w-5" />
 							</div>
 							<span className="text-sm font-semibold text-foreground">
-								{t("dashboard.anadirVehiculo")}
+								Añadir Vehículo
 							</span>
 						</button>
 						<button
@@ -544,7 +542,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 								<Plus className="h-5 w-5" />
 							</div>
 							<span className="text-sm font-semibold text-foreground">
-								{t("dashboard.agregarEmpresa")}
+								Agregar Empresa
 							</span>
 						</button>
 						<button
@@ -556,7 +554,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 								<FileText className="h-5 w-5" />
 							</div>
 							<span className="text-sm font-semibold text-foreground">
-								{t("dashboard.preciosStickers")}
+								Precios Stickers
 							</span>
 						</button>
 					</div>

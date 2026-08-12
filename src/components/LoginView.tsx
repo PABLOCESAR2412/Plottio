@@ -7,13 +7,13 @@ import {
 	Loader2,
 	Lock,
 	Mail,
-	ShieldCheck,
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { useSessionStore } from "../store/useSessionStore";
+import PlottioLogo from "./PlottioLogo";
 
 export const LoginView: React.FC = () => {
 	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
@@ -67,14 +67,7 @@ export const LoginView: React.FC = () => {
 				<div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
 				<div className="relative z-10">
-					<div className="flex items-center gap-3 mb-16">
-						<div className="w-12 h-12 bg-primary text-primary-foreground flex items-center justify-center rounded-xl shadow-lg">
-							<ShieldCheck className="h-6 w-6" />
-						</div>
-						<h1 className="text-3xl font-black tracking-widest text-foreground">
-							PLOTTIO
-						</h1>
-					</div>
+					<PlottioLogo size="lg" className="mb-16" />
 
 					<div className="space-y-8 max-w-md">
 						<h2 className="text-4xl font-semibold tracking-tight text-foreground leading-tight">
@@ -108,14 +101,7 @@ export const LoginView: React.FC = () => {
 			<div className="flex-1 flex flex-col justify-between bg-background relative">
 				<div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12">
 					{/* Logo solo en móvil */}
-					<div className="flex md:hidden items-center justify-center gap-3 mb-10">
-						<div className="w-10 h-10 bg-primary text-primary-foreground flex items-center justify-center rounded-xl shadow-lg">
-							<ShieldCheck className="h-5 w-5" />
-						</div>
-						<h1 className="text-2xl font-black tracking-widest text-foreground">
-							PLOTTIO
-						</h1>
-					</div>
+					<PlottioLogo size="md" className="mb-10 md:hidden justify-center" />
 
 					<div className="w-full max-w-md space-y-8">
 						<div className="text-center md:text-left">

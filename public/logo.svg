@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+  <defs>
+    <clipPath id="clip">
+      <rect x="4" y="4" width="56" height="56" rx="14"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect x="4" y="4" width="56" height="56" fill="#18181b"/>
+    <!-- Piso -->
+    <rect x="4" y="50" width="56" height="10" fill="#f4f4f5"/>
+    <!-- Silueta de la furgoneta -->
+    <path d="M10 44
+             c0-3.2 2.2-5.2 5-5.6
+             l2.6-9.4
+             c1-3.4 4-5.4 7.6-5.4
+             h11.6
+             l7 6.4
+             h8.2
+             c2.8 0 4.6 2 4.6 4.8
+             v9.2
+             C56 39 54 40 53.4 40
+             h-5.2
+             a5 5 0 0 1-10 0
+             H19.4
+             a5 5 0 0 1-9.4 4 z"
+          fill="#ffffff"/>
+    <!-- Ventana de la cabina -->
+    <path d="M18 27.8
+             l2-7.2
+             c.8-2.2 2.2-3.4 4-3.4
+             h5.6
+             c.6.2.8.8.8 1.4
+             l1.2 8.6
+             h-4.8
+             c-3 0-5.6 2-6.8 4.2
+             l-2-3.6 z"
+          fill="#18181b"/>
+    <!-- Franja de vinilo -->
+    <path d="M10 30
+             L34 4
+             h10 L16 44
+             h-4 c-1.4-1.6-2-4-2-5
+             z"
+          fill="#f59e0b"/>
+    <!-- Rueda trasera -->
+    <circle cx="23" cy="45" r="5.5" fill="#18181b"/>
+    <circle cx="23" cy="45" r="2.4" fill="#f4f4f5"/>
+    <!-- Rueda delantera -->
+    <circle cx="45" cy="45" r="5.5" fill="#18181b"/>
+    <circle cx="45" cy="45" r="2.4" fill="#f4f4f5"/>
+  </g>
+</svg>
