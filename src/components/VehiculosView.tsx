@@ -257,8 +257,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const handleCreate = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!placa.trim() || !marca.trim() || !modelo.trim() || !currentUser)
-			return;
+		if (!placa.trim() || !currentUser) return;
 
 		const newVeh = await createVehiculoMut({
 			usuarioId: currentUser.id as Id<"usuarios">,
@@ -305,8 +304,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const handleEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!selectedVehiculo || !placa.trim() || !marca.trim() || !currentUser)
-			return;
+		if (!selectedVehiculo || !placa.trim() || !currentUser) return;
 
 		await updateVehiculoMut({
 			usuarioId: currentUser.id as Id<"usuarios">,
@@ -850,6 +848,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										onChange={(e) => setCategoria(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 									>
+										{categoriasPrecios.length === 0 && (
+											<option value="Bus Urbano">Bus Urbano</option>
+										)}
 										{categoriasPrecios.map((cat) => (
 											<option key={cat} value={cat}>
 												{cat}
@@ -865,12 +866,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										htmlFor="create-marca"
 										className="block text-xs font-semibold text-muted-foreground mb-1"
 									>
-										Marca *
+										Marca
 									</label>
 									<input
 										id="create-marca"
 										type="text"
-										required
 										value={marca}
 										onChange={(e) => setMarca(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -882,12 +882,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										htmlFor="create-modelo"
 										className="block text-xs font-semibold text-muted-foreground mb-1"
 									>
-										Modelo *
+										Modelo
 									</label>
 									<input
 										id="create-modelo"
 										type="text"
-										required
 										value={modelo}
 										onChange={(e) => setModelo(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -911,22 +910,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										onChange={(e) => setAño(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="Ej. 2020"
-									/>
-								</div>
-								<div>
-									<label
-										htmlFor="create-serie"
-										className="block text-xs font-semibold text-muted-foreground mb-1"
-									>
-										N° de Serie / Chasis
-									</label>
-									<input
-										id="create-serie"
-										type="text"
-										value={numeroSerie}
-										onChange={(e) => setNumeroSerie(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-										placeholder="Ej. HN8J129384"
 									/>
 								</div>
 							</div>
@@ -1083,6 +1066,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										onChange={(e) => setCategoria(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 									>
+										{categoriasPrecios.length === 0 && (
+											<option value={categoria}>
+												{categoria || "Bus Urbano"}
+											</option>
+										)}
 										{categoriasPrecios.map((cat) => (
 											<option key={cat} value={cat}>
 												{cat}
@@ -1098,12 +1086,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										htmlFor="edit-marca"
 										className="block text-xs font-semibold text-muted-foreground mb-1"
 									>
-										Marca *
+										Marca
 									</label>
 									<input
 										id="edit-marca"
 										type="text"
-										required
 										value={marca}
 										onChange={(e) => setMarca(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -1114,12 +1101,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										htmlFor="edit-modelo"
 										className="block text-xs font-semibold text-muted-foreground mb-1"
 									>
-										Modelo *
+										Modelo
 									</label>
 									<input
 										id="edit-modelo"
 										type="text"
-										required
 										value={modelo}
 										onChange={(e) => setModelo(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -1140,21 +1126,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										type="text"
 										value={año}
 										onChange={(e) => setAño(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-									/>
-								</div>
-								<div>
-									<label
-										htmlFor="edit-serie"
-										className="block text-xs font-semibold text-muted-foreground mb-1"
-									>
-										N° de Serie / Chasis
-									</label>
-									<input
-										id="edit-serie"
-										type="text"
-										value={numeroSerie}
-										onChange={(e) => setNumeroSerie(e.target.value)}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>

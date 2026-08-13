@@ -92,8 +92,11 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 				nombre: e.nombre ?? "",
 				ruc: e.ruc ?? "",
 				razonSocial: e.razonSocial,
-				contactoNombre: e.contactoNombre,
-				contactoTelefono: e.contactoTelefono,
+				contactoNombre:
+					e.razonSocial && e.razonSocial !== e.nombre
+						? e.razonSocial
+						: undefined,
+				contactoTelefono: e.telefono || undefined,
 				direccion: e.direccion,
 				email: e.email,
 				telefono: e.telefono,

@@ -73,7 +73,14 @@ export const InventarioView: React.FC = () => {
 		try {
 			await createItemMutation({
 				usuarioId: currentUser.id as Id<"usuarios">,
-				items: [newItem],
+				items: [
+					{
+						...newItem,
+						costoUnitario: Number.isNaN(newItem.costoUnitario)
+							? 0
+							: newItem.costoUnitario,
+					},
+				],
 			});
 			toast.success("Ítem creado exitosamente");
 			setShowNewItemModal(false);
@@ -81,7 +88,7 @@ export const InventarioView: React.FC = () => {
 				nombre: "",
 				tipo: "",
 				descripcion: "",
-				costoUnitario: 0,
+				costoUnitario: NaN,
 				unidadMedida: "Unidades",
 			});
 		} catch (error) {
@@ -412,7 +419,6 @@ export const InventarioView: React.FC = () => {
 								<input
 									id="itemCostoUnitario"
 									type="number"
-									required
 									min="0"
 									step="0.01"
 									value={
@@ -424,7 +430,9 @@ export const InventarioView: React.FC = () => {
 										setNewItem({
 											...newItem,
 											costoUnitario:
-												e.target.value === "" ? 0 : parseFloat(e.target.value),
+												e.target.value === ""
+													? NaN
+													: parseFloat(e.target.value),
 										})
 									}
 									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"

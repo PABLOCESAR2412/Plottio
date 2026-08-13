@@ -7,11 +7,10 @@ import {
 	Clock,
 	FileText,
 	Plus,
-	SlidersHorizontal,
 	TrendingUp,
 } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
@@ -70,18 +69,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 	const usuarioId = currentUser?.id;
 
 	const dashboardWidgets = useSessionStore((s) => s.dashboardWidgets);
-	const setDashboardWidgets = useSessionStore((s) => s.setDashboardWidgets);
-	const [showWidgetPanel, setShowWidgetPanel] = useState(false);
 
 	const visibleWidgets =
 		dashboardWidgets.length > 0 ? dashboardWidgets : ALL_WIDGETS;
-
-	const toggleWidget = (id: string) => {
-		const next = visibleWidgets.includes(id)
-			? visibleWidgets.filter((w) => w !== id)
-			: [...visibleWidgets, id];
-		setDashboardWidgets(next);
-	};
 
 	const showStats = visibleWidgets.includes("stats");
 	const showRecentOrders = visibleWidgets.includes("recentOrders");
@@ -200,40 +190,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 						<span>Panel de gestión y control de rotulado vehicular.</span>
 					</p>
 				</div>
-				<div className="flex flex-wrap gap-3 relative">
-					<button
-						type="button"
-						onClick={() => setShowWidgetPanel((v) => !v)}
-						className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-					>
-						<SlidersHorizontal className="h-4 w-4" />
-						Personalizar
-					</button>
-					{showWidgetPanel && (
-						<div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-card p-4 shadow-lg">
-							<h4 className="text-sm font-semibold text-foreground mb-3">
-								Widgets visibles
-							</h4>
-							<div className="space-y-2">
-								{DASHBOARD_WIDGETS.map((widget) => (
-									<label
-										key={widget.id}
-										className="flex items-center justify-between gap-2 cursor-pointer"
-									>
-										<span className="text-sm text-foreground">
-											{widget.label}
-										</span>
-										<input
-											type="checkbox"
-											checked={visibleWidgets.includes(widget.id)}
-											onChange={() => toggleWidget(widget.id)}
-											className="h-4 w-4"
-										/>
-									</label>
-								))}
-							</div>
-						</div>
-					)}
+				<div className="flex flex-wrap gap-3">
 					<button
 						type="button"
 						onClick={onAgendarCitaClick}

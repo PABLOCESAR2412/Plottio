@@ -881,7 +881,7 @@ export const ConfiguracionView: React.FC = () => {
 					</p>
 				</div>
 
-				<div className="flex items-center gap-2 border-b border-border pb-px">
+				<div className="flex flex-wrap items-center gap-2 border-b border-border pb-px">
 					<button
 						type="button"
 						onClick={() => startTransition(() => setConfigTab("general"))}

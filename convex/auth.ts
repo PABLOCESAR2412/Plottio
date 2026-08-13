@@ -75,6 +75,44 @@ export async function getCurrentUserContext(
     sucursal = suc ? { id: suc._id, nombre: suc.nombre } : null;
   }
 
+  // Fallback: si el usuario no tiene empresa/sucursal asignadas en su documento,
+  // derivarlas de sus roles (usuariosRolesSucursal) o de la primera empresa/sucursal
+  // activa en caso de SuperAdmin. Evita errores tipo "usuario necesita estar
+  // asignado a una Empresa y Sucursal" y consultas vacías para admins sin contexto.
+  if (!empresa || !sucursal) {
+    for (const r of roles) {
+      const suc = await ctx.db.get(r.sucursalId);
+      if (!suc) continue;
+      if (!sucursal) sucursal = { id: suc._id, nombre: suc.nombre };
+      if (!empresa) {
+        const emp = suc.empresaId ? await ctx.db.get(suc.empresaId) : null;
+        if (emp) empresa = { id: emp._id, nombre: emp.nombre };
+      }
+    }
+  }
+
+  if (!empresa || !sucursal) {
+    const esSuperAdmin = roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (esSuperAdmin) {
+      if (!empresa) {
+        const emp = await ctx.db
+          .query("empresas")
+          .filter((q) => q.eq(q.field("activa"), true))
+          .first();
+        if (emp) empresa = { id: emp._id, nombre: emp.nombre };
+      }
+      if (!sucursal && empresa) {
+        const empresaId = empresa.id;
+        const suc = await ctx.db
+          .query("sucursales")
+          .withIndex("by_empresa", (q) => q.eq("empresaId", empresaId))
+          .filter((q) => q.eq(q.field("activa"), true))
+          .first();
+        if (suc) sucursal = { id: suc._id, nombre: suc.nombre };
+      }
+    }
+  }
+
   let pv: UserContext["pv"] = null;
   if (user.pvId) {
     const pvd = await ctx.db.get(user.pvId);
