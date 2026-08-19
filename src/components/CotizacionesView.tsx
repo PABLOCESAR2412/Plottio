@@ -23,6 +23,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
+import { TableSkeleton } from "./Skeleton";
 
 interface CotizacionesViewProps {
 	onNavigate: (
@@ -95,10 +96,10 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	const usuarioId = currentUser?.id;
 
 	// ── QUERIES (sustituyen a los arrays del store) ─────────────────────────
-	const rawCotizaciones = useQuery(
+	const cotizaciones = useQuery(
 		api.cotizaciones.fetchCotizaciones,
-		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
-	) as Array<Cotizacion & { _id: string }> | undefined;
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
 
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
@@ -129,30 +130,15 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 	// ── MUTATIONS (sustituyen a los setters de Zustand) ─────────────────────
 	const createCotizacionMut = useMutation(api.cotizaciones.createCotizacion);
+	const updateCotizacionMut = useMutation(api.cotizaciones.updateCotizacion);
 	const deleteCotizacionMut = useMutation(api.cotizaciones.deleteCotizacion);
 	const createVehiculoMut = useMutation(api.vehiculos.createVehiculo);
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
 	const createClienteMut = useMutation(api.clientes.createCliente);
 
+	if (cotizaciones === undefined) return <TableSkeleton />;
+
 	// ── ADAPTACIÓN: Convex devuelve _id; mapeamos a `id` para mantener la UI ──
-	const cotizaciones: Cotizacion[] = useMemo(
-		() =>
-			(rawCotizaciones ?? []).map((c) => ({
-				id: c._id,
-				clienteNombre: c.clienteNombre ?? "",
-				clienteTelefono: c.clienteTelefono ?? "",
-				vehiculoTipo: c.vehiculoTipo ?? "",
-				items: (c.items ?? []).map((it) => ({
-					descripcion: it.descripcion ?? "",
-					cantidad: it.cantidad ?? 1,
-					precioUnitario: it.precioUnitario ?? 0,
-				})),
-				total: c.total ?? 0,
-				estado: (c.estado as Cotizacion["estado"]) ?? "Pendiente",
-				fecha: c.fecha ?? "",
-			})),
-		[rawCotizaciones],
-	);
 
 	const clientes: LocalCliente[] = useMemo(
 		() =>
@@ -207,7 +193,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	// Selected Quote for browsing list
 	const [selectedCotizacionId, setSelectedCotizacionId] = useState<
 		string | null
-	>(cotizaciones.length > 0 ? cotizaciones[0].id : null);
+	>(cotizaciones.length > 0 ? cotizaciones[0]._id : null);
 
 	// Quote list search term
 	const [quoteSearchTerm, setQuoteSearchTerm] = useState("");
@@ -618,7 +604,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 	// Browse details mapping
 	const activeCotizacion = cotizaciones.find(
-		(c) => c.id === selectedCotizacionId,
+		(c) => c._id === selectedCotizacionId,
 	);
 
 	// 5. EXPORT / EXTRAS
@@ -646,7 +632,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 		doc.setFont("Helvetica", "bold");
 		doc.setFontSize(14);
 		doc.setTextColor(197, 48, 48); // Accent Red
-		doc.text(`PRESUPUESTO #${cot.id}`, 130, 26);
+		doc.text(`PRESUPUESTO #${cot._id}`, 130, 26);
 
 		doc.setFontSize(10);
 		doc.setFont("Helvetica", "normal");
@@ -735,25 +721,25 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 		doc.text("Plottio - Impresión y Rotulación Profesional.", 20, yPos + 32);
 
 		doc.save(
-			`Cotizacion-${cot.id}-${cot.clienteNombre.replace(/\s+/g, "_")}.pdf`,
+			`Cotizacion-${cot._id}-${cot.clienteNombre.replace(/\s+/g, "_")}.pdf`,
 		);
 	};
 
 	// WhatsApp formatted message trigger
-	const handleSendWhatsApp = (cot: Cotizacion) => {
+	const handleSendWhatsApp = (cot: any) => {
 		let itemsStr = "";
-		cot.items.forEach((it, idx) => {
+		cot.items.forEach((it: any, idx: number) => {
 			itemsStr += `${idx + 1}. ${it.descripcion} x${it.cantidad} - $${it.precioUnitario} c/u (%2A$${it.cantidad * it.precioUnitario}%2A)%0A`;
 		});
 
-		const msg = `%2ACOTIZACIÓN EN PLOTTIO%2A%0A%0A%2APresupuesto ID:%2A ${cot.id}%0A%2ACliente:%2A ${cot.clienteNombre}%0A%2AVehículo:%2A ${cot.vehiculoTipo}%0A%0A%2ADetalle:%2A%0A${itemsStr}%0A%2ATOTAL ESTIMADO:%2A %2A$${cot.total.toLocaleString("en-US")} USD%2A%0A%0A_Cotización válida por 15 días. ¡Escríbenos para confirmar e iniciar!_`;
+		const msg = `%2ACOTIZACIÓN EN PLOTTIO%2A%0A%0A%2APresupuesto ID:%2A ${cot._id}%0A%2ACliente:%2A ${cot.clienteNombre}%0A%2AVehículo:%2A ${cot.vehiculoTipo}%0A%0A%2ADetalle:%2A%0A${itemsStr}%0A%2ATOTAL ESTIMADO:%2A %2A$${cot.total.toLocaleString("en-US")} USD%2A%0A%0A_Cotización válida por 15 días. ¡Escríbenos para confirmar e iniciar!_`;
 		const cleanPhone = cot.clienteTelefono.replace(/[^0-9+]/g, "");
 		const url = `https://wa.me/${cleanPhone || ""}?text=${msg}`;
 		window.open(url, "_blank");
 	};
 
 	// 6. CONVERT QUOTE TO WORK ORDER
-	const handleConvertToWorkOrder = (cot: Cotizacion) => {
+	const handleConvertToWorkOrder = (cot: any) => {
 		setAlertConfig({
 			isOpen: true,
 			title: "¿Convertir en Orden de Trabajo?",
@@ -770,7 +756,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					return;
 				}
 				try {
-					const orderItems = cot.items.map((it) => ({
+					const orderItems = cot.items.map((it: any) => ({
 						descripcion: it.descripcion,
 						cantidad: it.cantidad,
 						precioUnitario: it.precioUnitario,
@@ -790,9 +776,9 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						fechaFin: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
 							.toISOString()
 							.split("T")[0], // 3 days
-						notas: [`Generado desde la cotización ${cot.id}.`],
+						notas: [`Generado desde la cotización ${cot._id}.`],
 						fotos: [],
-						cotizacionId: cot.id as Id<"cotizaciones">,
+						cotizacionId: cot._id as Id<"cotizaciones">,
 					})) as { _id: string };
 
 					// Trigger Success feedback
@@ -830,9 +816,9 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						usuarioId: usuarioId as Id<"usuarios">,
 						id: id as Id<"cotizaciones">,
 					});
-					const remaining = cotizaciones.filter((c) => c.id !== id);
+					const remaining = cotizaciones.filter((c) => c._id !== id);
 					setSelectedCotizacionId(
-						remaining.length > 0 ? remaining[0].id : null,
+						remaining.length > 0 ? remaining[0]._id : null,
 					);
 					setAlertConfig({
 						isOpen: true,
@@ -867,7 +853,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 		}
 
 		return (
-			c.id.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
+			c._id.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
 			c.clienteNombre.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
 			c.vehiculoTipo.toLowerCase().includes(quoteSearchTerm.toLowerCase())
 		);
@@ -917,11 +903,11 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						<div className="divide-y divide-border overflow-y-auto max-h-[520px] pr-1">
 							{filteredCotizaciones.map((cot) => (
 								<button
-									key={cot.id}
+									key={cot._id}
 									type="button"
-									onClick={() => setSelectedCotizacionId(cot.id)}
+									onClick={() => setSelectedCotizacionId(cot._id)}
 									className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
-										selectedCotizacionId === cot.id
+										selectedCotizacionId === cot._id
 											? "bg-primary text-primary-foreground shadow-sm"
 											: "hover:bg-secondary"
 									}`}
@@ -930,12 +916,12 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										<div className="flex items-center gap-1.5 font-bold text-sm">
 											<span
 												className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold ${
-													selectedCotizacionId === cot.id
+													selectedCotizacionId === cot._id
 														? "bg-primary-foreground/15 text-primary-foreground"
 														: "bg-secondary text-foreground"
 												}`}
 											>
-												{cot.id}
+												{cot._id}
 											</span>
 											<span className="truncate">{cot.clienteNombre}</span>
 										</div>
@@ -985,7 +971,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											ID Cotización
 										</div>
 										<div className="text-lg font-bold text-primary">
-											{activeCotizacion.id}
+											{activeCotizacion._id}
 										</div>
 										<div className="text-xs text-muted-foreground mt-1">
 											Fecha: {activeCotizacion.fecha}
@@ -1121,7 +1107,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 									</button>
 									<button
 										type="button"
-										onClick={() => handleDeleteCotizacion(activeCotizacion.id)}
+										onClick={() => handleDeleteCotizacion(activeCotizacion._id)}
 										className="flex items-center justify-center gap-1.5 rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 py-2.5 text-xs font-semibold transition-all cursor-pointer"
 									>
 										<Trash2 className="h-4 w-4" />

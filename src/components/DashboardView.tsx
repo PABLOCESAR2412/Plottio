@@ -14,6 +14,7 @@ import { useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
+import { TableSkeleton } from "./Skeleton";
 
 const DASHBOARD_WIDGETS: { id: string; label: string }[] = [
 	{ id: "stats", label: "Tarjetas de métricas" },
@@ -87,6 +88,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 		api.citas.fetchCitas,
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCita & { _id: string }> | undefined;
+
+	if (rawOrdenes === undefined || rawCitas === undefined) {
+		return <TableSkeleton />;
+	}
 
 	const ordenesTrabajo: LocalOrden[] = useMemo(
 		() =>

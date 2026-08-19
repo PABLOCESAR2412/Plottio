@@ -178,7 +178,9 @@ export const createCotizacion = mutation({
     usuarioId: v.id("usuarios"),
     clienteNombre: v.string(),
     clienteTelefono: v.string(),
-    vehiculoTipo: v.string(),
+    // Se mantiene opcional para aceptar clientes que aún tengan el frontend
+    // anterior cacheado. La tabla siempre recibe un string más abajo.
+    vehiculoTipo: v.optional(v.string()),
     items: v.array(v.object({
       servicioId: v.optional(v.id("catalogoServicios")),
       descripcion: v.string(),
@@ -213,7 +215,7 @@ export const createCotizacion = mutation({
     const cotizacionId = await ctx.db.insert("cotizaciones", {
       clienteNombre: args.clienteNombre,
       clienteTelefono: args.clienteTelefono,
-      vehiculoTipo: args.vehiculoTipo,
+      vehiculoTipo: args.vehiculoTipo?.trim() || "Vehículo sin especificar",
       items: args.items,
       total: args.total ?? totalCalculado,
       estado: args.estado ?? "Pendiente",
@@ -365,4 +367,3 @@ export const deleteCotizacion = mutation({
     return { success: true };
   }
 });
-

@@ -5,7 +5,10 @@ import type { Id } from "./_generated/dataModel";
 // --- EMPRESAS ---
 export const getEmpresas = query({
   handler: async (ctx) => {
-    return await ctx.db.query("empresas").collect();
+    return await ctx.db
+      .query("empresas")
+      .filter((q) => q.eq(q.field("activa"), true))
+      .collect();
   }
 });
 
@@ -59,7 +62,13 @@ export const getEmpresaBranding = query({
     if (!emp) return { nombre: null, logoUrl: null };
     let logoUrl: string | null = null;
     if (emp.logoUrl) {
-      logoUrl = (await ctx.storage.getUrl(emp.logoUrl as Id<"_storage">)) ?? emp.logoUrl;
+      // Los logos subidos a Convex se guardan como IDs de _storage. Si el
+      // archivo fue eliminado, getUrl devuelve null: nunca debemos exponer el
+      // ID como src, porque el navegador lo interpreta como una ruta local y
+      // produce un 404 (por ejemplo /kg29...).
+      logoUrl = /^https?:\/\//i.test(emp.logoUrl)
+        ? emp.logoUrl
+        : await ctx.storage.getUrl(emp.logoUrl as Id<"_storage">);
     }
     return { nombre: emp.nombre, logoUrl };
   }
@@ -175,7 +184,7 @@ export const updatePuntoVenta = mutation({
   }
 });
 
-// --- DELETES CON VALIDACIÓN DE HIJOS ---
+// --- ARCHIVADO SEGURO ---
 
 export const deleteEmpresa = mutation({
   args: { id: v.id("empresas") },
@@ -183,19 +192,12 @@ export const deleteEmpresa = mutation({
     const empresa = await ctx.db.get(args.id);
     if (!empresa) throw new Error("Empresa no encontrada");
 
-    // Verificar que no tenga sucursales activas
-    const sucursales = await ctx.db
-      .query("sucursales")
-      .withIndex("by_empresa", (q) => q.eq("empresaId", args.id))
-      .collect();
-    if (sucursales.length > 0) {
-      throw new Error(
-        `No se puede eliminar: la empresa tiene ${sucursales.length} sucursal(es) asociada(s). Elimínelas primero.`,
-      );
-    }
-
-    await ctx.db.delete(args.id);
-    return { success: true };
+    // Una empresa puede tener sucursales, usuarios, vehículos y documentos
+    // históricos. En vez de borrar el padre y dejar referencias inválidas,
+    // la desactivamos: desaparece de las listas operativas y se conserva el
+    // historial para auditoría y reportes.
+    await ctx.db.patch(args.id, { activa: false });
+    return { success: true, archived: true };
   }
 });
 

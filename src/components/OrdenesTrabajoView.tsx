@@ -20,6 +20,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
+import { TableSkeleton } from "./Skeleton";
 
 interface OrdenesTrabajoViewProps {
 	preselectedOrderId?: string | null;
@@ -27,7 +28,7 @@ interface OrdenesTrabajoViewProps {
 }
 
 type LocalCliente = {
-	id: string;
+	_id: string;
 	nombre: string;
 	telefono: string;
 	email: string;
@@ -36,14 +37,14 @@ type LocalCliente = {
 };
 
 type LocalEmpresa = {
-	id: string;
+	_id: string;
 	nombre: string;
 	ruc: string;
 	direccion?: string;
 };
 
 type LocalVehiculo = {
-	id: string;
+	_id: string;
 	placa: string;
 	categoria: string;
 	marca: string;
@@ -61,20 +62,20 @@ interface ItemOrdenTrabajo {
 }
 
 interface OrdenTrabajo {
-	id: string;
+	_id: string;
 	clienteNombre: string;
 	clienteTelefono: string;
 	placa: string;
 	vehiculoTipo: string;
 	items: ItemOrdenTrabajo[];
 	total: number;
-	prioridad: "Alta" | "Media" | "Baja";
+	prioridad: string;
 	progreso: number;
 	estado: "Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado";
 	fechaInicio: string;
 	fechaFin: string;
-	notas: string[];
-	fotos: string[];
+	notas?: string[];
+	fotos?: string[];
 	sucursalId?: string;
 	pvId?: string;
 }
@@ -87,10 +88,10 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	const usuarioId = currentUser?.id;
 
 	// ── QUERIES ──────────────────────────────────────────────────────────────
-	const rawOrdenes = useQuery(
+	const ordenesTrabajo = useQuery(
 		api.ordenes.fetchOrdenes,
-		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
-	) as Array<OrdenTrabajo & { _id: string }> | undefined;
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
@@ -112,6 +113,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	) as
 		| Array<{ _id: string; nombre: string; categoria: string; precio: number }>
 		| undefined;
+
+
 
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
@@ -149,35 +152,6 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			updated,
 		);
 	});
-
-	// ── ADAPTACIÓN: _id → id ────────────────────────────────────────────────
-	const ordenesTrabajo: OrdenTrabajo[] = useMemo(
-		() =>
-			(rawOrdenes ?? []).map((o) => ({
-				id: o._id,
-				clienteNombre: o.clienteNombre ?? "",
-				clienteTelefono: o.clienteTelefono ?? "",
-				placa: o.placa ?? "",
-				vehiculoTipo: o.vehiculoTipo ?? "",
-				items: (o.items ?? []).map((it) => ({
-					descripcion: it.descripcion ?? "",
-					cantidad: it.cantidad ?? 1,
-					precioUnitario: it.precioUnitario ?? 0,
-					completado: it.completado ?? false,
-				})),
-				total: o.total ?? 0,
-				prioridad: (o.prioridad as OrdenTrabajo["prioridad"]) ?? "Media",
-				progreso: o.progreso ?? 0,
-				estado: (o.estado as OrdenTrabajo["estado"]) ?? "Pendiente",
-				fechaInicio: o.fechaInicio ?? "",
-				fechaFin: o.fechaFin ?? "",
-				notas: o.notas ?? [],
-				fotos: o.fotos ?? [],
-				sucursalId: o.sucursalId,
-				pvId: o.pvId,
-			})),
-		[rawOrdenes],
-	);
 
 	const clientes: LocalCliente[] = useMemo(
 		() =>
@@ -232,7 +206,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	>("Todos");
 
 	const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
-		ordenesTrabajo.length > 0 ? ordenesTrabajo[0].id : null,
+		ordenesTrabajo && ordenesTrabajo.length > 0 ? ordenesTrabajo[0]._id : null,
 	);
 
 	// Modals
@@ -279,6 +253,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	// Timeline note state
 	const [newNote, setNewNote] = useState("");
 
+	if (ordenesTrabajo === undefined) return <TableSkeleton />;
+
 	// Filter orders
 	const filteredOrders = ordenesTrabajo.filter((o) => {
 		// SaaS Multi-tenant filtering
@@ -289,12 +265,12 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 				o.sucursalId !== currentUser.sucursalId
 			)
 				return false;
-			if (currentUser?.pvId && o.pvId && o.pvId !== currentUser.pvId)
+			if (currentUser?.pvId && o.pvOrigen && o.pvOrigen !== currentUser.pvId)
 				return false;
 		}
 
 		const matchesSearch =
-			o.id.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
+			o._id.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
 			o.clienteNombre
 				.toLowerCase()
 				.includes(deferredSearchTerm.toLowerCase()) ||
@@ -306,13 +282,13 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		return matchesSearch && matchesStatus;
 	});
 
-	const activeOrderId = filteredOrders.find((o) => o.id === selectedOrderId)
+	const activeOrderId = filteredOrders.find((o) => o._id === selectedOrderId)
 		? selectedOrderId
 		: filteredOrders.length > 0
-			? filteredOrders[0].id
+			? filteredOrders[0]._id
 			: null;
 
-	const selectedOrder = ordenesTrabajo.find((o) => o.id === activeOrderId);
+	const selectedOrder = ordenesTrabajo.find((o) => o._id === activeOrderId);
 
 	// Edit states for selected order
 	const [editPlaca, setEditPlaca] = useState("");
@@ -331,11 +307,11 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	useEffect(() => {
 		if (selectedOrder) {
 			setEditPlaca(selectedOrder.placa);
-			setEditPrioridad(selectedOrder.prioridad);
+			setEditPrioridad(selectedOrder.prioridad as "Alta" | "Media" | "Baja");
 			setEditFechaFin(selectedOrder.fechaFin);
 		}
 	}, [
-		selectedOrder?.id,
+		selectedOrder?._id,
 		selectedOrder?.fechaFin,
 		selectedOrder?.placa,
 		selectedOrder,
@@ -346,7 +322,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		try {
 			await updateOrdenMut({
 				usuarioId: usuarioId as Id<"usuarios">,
-				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
+				ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
 				placa: editPlaca.trim().toUpperCase(),
 				prioridad: editPrioridad,
 				fechaFin: editFechaFin,
@@ -518,7 +494,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		try {
 			await toggleItemMut({
 				usuarioId: usuarioId as Id<"usuarios">,
-				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
+				ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
 				itemIndex: itemIdx,
 				completado: !item.completado,
 			});
@@ -533,12 +509,12 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	};
 
 	// Status changes from drop-down
-	const handleStatusChange = async (newStatus: OrdenTrabajo["estado"]) => {
+	const handleStatusChange = async (newStatus: any) => {
 		if (!selectedOrder || !usuarioId) return;
 		try {
 			await updateOrdenMut({
 				usuarioId: usuarioId as Id<"usuarios">,
-				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
+				ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
 				estado: newStatus,
 				notas: [
 					...(selectedOrder.notas || []),
@@ -555,21 +531,21 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		}
 	};
 
-	const handleDeleteOrderClick = (ord: OrdenTrabajo) => {
+	const handleDeleteOrderClick = (ord: any) => {
 		setAlertConfig({
 			isOpen: true,
 			title: "¿Eliminar Orden de Trabajo?",
-			message: `¿Estás seguro de que deseas eliminar la orden "${ord.id}"? Esta acción removerá el registro del panel de control permanentemente.`,
+			message: `¿Estás seguro de que deseas eliminar la orden "${ord._id}"? Esta acción removerá el registro del panel de control permanentemente.`,
 			type: "delete",
 			onConfirm: async () => {
 				if (!usuarioId) return;
 				try {
 					await deleteOrdenMut({
 						usuarioId: usuarioId as Id<"usuarios">,
-						ordenId: ord.id as Id<"ordenesTrabajo">,
+						ordenId: ord._id as Id<"ordenesTrabajo">,
 					});
-					const remaining = ordenesTrabajo.filter((o) => o.id !== ord.id);
-					setSelectedOrderId(remaining.length > 0 ? remaining[0].id : null);
+					const remaining = ordenesTrabajo.filter((o) => o._id !== ord._id);
+					setSelectedOrderId(remaining.length > 0 ? remaining[0]._id : null);
 					setAlertConfig({
 						isOpen: true,
 						title: "Orden Eliminada",
@@ -595,7 +571,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		try {
 			await updateOrdenMut({
 				usuarioId: usuarioId as Id<"usuarios">,
-				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
+				ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
 				notas: [...(selectedOrder.notas || []), newNote.trim()],
 			});
 			setNewNote("");
@@ -623,7 +599,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		try {
 			await updateOrdenMut({
 				usuarioId: usuarioId as Id<"usuarios">,
-				ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
+				ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
 				fotos: [...(selectedOrder.fotos || []), randomPhoto],
 				notas: [
 					...(selectedOrder.notas || []),
@@ -758,20 +734,20 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 						{filteredOrders.map((ord) => (
 							<button
 								type="button"
-								key={ord.id}
-								onClick={() => setSelectedOrderId(ord.id)}
+								key={ord._id}
+								onClick={() => setSelectedOrderId(ord._id)}
 								className={`w-full flex items-center justify-between py-3 px-3 rounded-lg text-left transition-colors my-1 ${
-									selectedOrderId === ord.id
+									selectedOrderId === ord._id
 										? "bg-primary text-primary-foreground shadow-sm"
 										: "hover:bg-secondary"
 								}`}
 							>
 								<div className="truncate pr-2">
 									<div className="font-bold text-sm flex items-center gap-1.5">
-										<span>{ord.id}</span>
+										<span>{ord._id}</span>
 										<span
 											className={`text-[10px] px-1 py-0.2 rounded font-mono ${
-												selectedOrderId === ord.id
+												selectedOrderId === ord._id
 													? "bg-primary-foreground/15 text-primary-foreground"
 													: "bg-secondary/60 text-foreground"
 											}`}
@@ -780,7 +756,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 										</span>
 									</div>
 									<div
-										className={`text-xs truncate ${selectedOrderId === ord.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+										className={`text-xs truncate ${selectedOrderId === ord._id ? "text-primary-foreground/80" : "text-muted-foreground"}`}
 									>
 										Prop: {ord.clienteNombre}
 									</div>
@@ -789,7 +765,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 											className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
 												ord.prioridad === "Alta"
 													? "bg-destructive/10 text-destructive"
-													: selectedOrderId === ord.id
+													: selectedOrderId === ord._id
 														? "bg-primary-foreground/15 text-primary-foreground"
 														: "bg-secondary text-foreground"
 											}`}
@@ -836,7 +812,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 									<div>
 										<div className="flex items-center gap-2 flex-wrap">
 											<h2 className="text-lg font-black text-foreground">
-												{selectedOrder.id}
+												{selectedOrder._id}
 											</h2>
 											<span
 												className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -951,7 +927,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 																await updateOrdenMut({
 																	usuarioId: usuarioId as Id<"usuarios">,
 																	ordenId:
-																		selectedOrder.id as Id<"ordenesTrabajo">,
+																		selectedOrder._id as Id<"ordenesTrabajo">,
 																	items: updatedItems,
 																});
 															} catch (err) {
@@ -1008,7 +984,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 													try {
 														await updateOrdenMut({
 															usuarioId: usuarioId as Id<"usuarios">,
-															ordenId: selectedOrder.id as Id<"ordenesTrabajo">,
+															ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
 															items: updatedItems,
 														});
 													} catch (err) {
@@ -1612,7 +1588,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 						<div className="flex items-center justify-between pb-3 border-b border-border mb-4">
 							<h3 className="text-base font-bold text-foreground flex items-center gap-2">
 								<FileText className="h-5 w-5 text-muted-foreground" />
-								Datos de Facturación ({selectedOrder.id})
+								Datos de Facturación ({selectedOrder._id})
 							</h3>
 							<button
 								type="button"

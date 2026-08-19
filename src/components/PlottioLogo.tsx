@@ -13,47 +13,33 @@ const SIZE = {
 function LogoMark({ iconClass }: { iconClass: string }) {
 	return (
 		<div
-			className={`shrink-0 rounded-[22%] bg-primary text-primary-foreground shadow-md flex items-center justify-center ${iconClass}`}
+			className={`shrink-0 rounded-[22%] bg-primary text-primary-foreground shadow-[0_8px_18px_-10px_color-mix(in_oklch,var(--primary),transparent_30%)] flex items-center justify-center ${iconClass}`}
 			aria-hidden="true"
 		>
 			<svg viewBox="0 0 64 64" className="h-full w-full p-[12%]" fill="none">
 				<title>Plottio</title>
-				{/* Carrocería de la furgoneta */}
+				{/* Furgón de rotulación: una silueta limpia con una película de vinilo en movimiento. */}
 				<path
-					d="M6 46c0-3.4 2.2-5.6 5.2-6.2l2.6-9.6c.9-3.4 3.8-5.4 7.6-5.4h11.8l7.2 6.6h8.6c3 0 5 2 5 5v8.6h-2.2a5.6 5.6 0 0 1-11.2 0h-16.4"
+					d="M7 43.5h3.8l3.1-12.1c.7-2.8 3.2-4.8 6.1-4.8h13.6c2.2 0 4.2.8 5.8 2.3l4.2 4.1h6.1c2.8 0 5.1 2.3 5.1 5.1v5.4h-3.9"
 					stroke="currentColor"
-					strokeWidth="5"
+					strokeWidth="4.4"
 					strokeLinecap="round"
 					strokeLinejoin="round"
 				/>
-				{/* Cabina / ventana */}
 				<path
-					d="M23.5 28.5v-4.5h5.4l3.2 3.8-2.2 2.6h-6.4v-1.9z"
-					fill="currentColor"
-					opacity="0.55"
+					d="M18.9 32.7h15.5l4.1 4H16.8l2.1-4z"
+					fill="var(--plottio-logo-window)"
 				/>
-				{/* Franja de vinilo */}
+				{/* Banda de vinilo que envuelve la carrocería. */}
 				<path
-					d="M20 46 40 20v-3.4L19.6 46h.4z"
-					fill="var(--plottio-accent, #f59e0b)"
+					d="M13.2 42.8c8.6-1.4 15.9-5.1 22.1-11.2l3.7 3.6c-6.5 6.4-14.1 10.6-23 12.4l-2.8-4.8z"
+					fill="var(--plottio-accent)"
 				/>
 				{/* Ruedas */}
-				<circle
-					cx="21.5"
-					cy="48"
-					r="6.2"
-					stroke="currentColor"
-					strokeWidth="4.5"
-				/>
-				<circle cx="21.5" cy="48" r="2.6" fill="currentColor" />
-				<circle
-					cx="44.5"
-					cy="48"
-					r="6.2"
-					stroke="currentColor"
-					strokeWidth="4.5"
-				/>
-				<circle cx="44.5" cy="48" r="2.6" fill="currentColor" />
+				<circle cx="21" cy="45" r="5.8" stroke="currentColor" strokeWidth="4" />
+				<circle cx="21" cy="45" r="2.1" fill="currentColor" />
+				<circle cx="46" cy="45" r="5.8" stroke="currentColor" strokeWidth="4" />
+				<circle cx="46" cy="45" r="2.1" fill="currentColor" />
 			</svg>
 		</div>
 	);

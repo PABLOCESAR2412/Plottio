@@ -19,6 +19,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 import { SuccessDialog } from "./SuccessDialog";
+import { TableSkeleton } from "./Skeleton";
 
 interface EmpresasViewProps {
 	onNavigate: (
@@ -76,6 +77,8 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		api.vehiculos.fetchVehiculos,
 		currentUser?.id ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	) as Array<LocalVehiculo & { _id: string }> | undefined;
+
+
 
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const createEmpresaMut = useMutation(api.organizacion.createEmpresa);
@@ -347,8 +350,8 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	const handleDeleteClick = (emp: LocalEmpresa) => {
 		setAlertConfig({
 			isOpen: true,
-			title: "¿Eliminar Empresa?",
-			message: `¿Estás seguro de eliminar a "${emp.nombre}"? Esto romperá el vínculo con sus vehículos de flota y desvinculará a los clientes asignados.`,
+			title: "¿Desactivar Empresa?",
+			message: `¿Quieres desactivar a "${emp.nombre}"? Dejará de aparecer en las listas operativas, pero se conservarán sus sucursales, vehículos e historial.`,
 			type: "delete",
 			onConfirm: async () => {
 				try {
@@ -359,8 +362,8 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					}
 					setAlertConfig({
 						isOpen: true,
-						title: "Empresa Eliminada",
-						message: "La empresa y sus métricas de flota han sido removidas.",
+						title: "Empresa Desactivada",
+						message: "La empresa fue retirada de las listas operativas. Su historial se conserva.",
 						type: "success",
 					});
 				} catch (err) {
@@ -374,6 +377,10 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			},
 		});
 	};
+
+	if (rawEmpresas === undefined || rawVehiculos === undefined) {
+		return <TableSkeleton />;
+	}
 
 	return (
 		<div className="space-y-6">
@@ -486,7 +493,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 										type="button"
 										onClick={() => handleDeleteClick(selectedEmpresa)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
-										title="Eliminar Empresa"
+						title="Desactivar Empresa"
 									>
 										<Trash2 className="h-4 w-4" />
 									</button>
