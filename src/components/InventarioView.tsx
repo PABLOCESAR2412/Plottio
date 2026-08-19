@@ -68,9 +68,7 @@ export const InventarioView: React.FC = () => {
 		cantidad: 0,
 	});
 
-	if (inventario === undefined) {
-		return <TableSkeleton />;
-	}
+
 
 	const handleCreateItem = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -168,6 +166,10 @@ export const InventarioView: React.FC = () => {
 			setIsSubmitting(false);
 		}
 	};
+
+	if (inventario === undefined) {
+		return <TableSkeleton />;
+	}
 
 	return (
 		<div className="space-y-6 animate-fade-in relative">

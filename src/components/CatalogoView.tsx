@@ -33,7 +33,6 @@ export function CatalogoView() {
 		precioBase: 0,
 	});
 
-	if (servicios === undefined) return <TableSkeleton />;
 
 	const filteredServicios = servicios.filter(
 		(s) =>
@@ -106,6 +105,8 @@ export function CatalogoView() {
 			toast.error("Error al cambiar estado");
 		}
 	};
+
+	if (servicios === undefined) return <TableSkeleton />;
 
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">

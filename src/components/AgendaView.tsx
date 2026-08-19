@@ -64,9 +64,7 @@ export const AgendaView: React.FC = () => {
 		type: "success",
 	});
 
-	if (citasData === undefined) {
-		return <TableSkeleton />;
-	}
+
 
 	const citas = citasData;
 
@@ -293,6 +291,10 @@ export const AgendaView: React.FC = () => {
 			type: "success",
 		});
 	};
+
+	if (citasData === undefined) {
+		return <TableSkeleton />;
+	}
 
 	return (
 		<div className="space-y-6">

@@ -60,9 +60,6 @@ export function AuditoriaView() {
 		[logs],
 	);
 
-	if (logs === undefined) {
-		return <TableSkeleton />;
-	}
 
 	const tieneFiltros = Boolean(desde || hasta || tabla || usuario);
 
@@ -71,7 +68,9 @@ export function AuditoriaView() {
 		setHasta("");
 		setTabla("");
 		setUsuario("");
-	};
+	if (logs === undefined) {
+		return <TableSkeleton />;
+	}
 
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">

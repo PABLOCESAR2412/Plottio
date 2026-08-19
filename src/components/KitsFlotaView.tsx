@@ -58,8 +58,6 @@ export function KitsFlotaView() {
 
 	const [selectedServicioId, setSelectedServicioId] = useState("");
 
-	if (!currentUser) return <p>Cargando...</p>;
-	if (kits === undefined || servicios === undefined) return <TableSkeleton />;
 
 	const filteredKits = kits.filter((k) =>
 		k.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -213,6 +211,9 @@ export function KitsFlotaView() {
 			);
 		}
 	};
+
+	if (!currentUser) return <p>Cargando...</p>;
+	if (kits === undefined || servicios === undefined) return <TableSkeleton />;
 
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">

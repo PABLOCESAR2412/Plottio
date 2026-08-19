@@ -46,9 +46,6 @@ export function RolesView() {
 		}
 	}, [editingRole, loadRolePermissions]);
 
-	if (roles === undefined || permisos === undefined) {
-		return <TableSkeleton />;
-	}
 
 	const handleOpenModal = (role?: Doc<"roles">) => {
 		if (role) {
@@ -97,13 +94,18 @@ export function RolesView() {
 
 	// Agrupar permisos por módulo para UI
 	const permisosPorModulo = permisos.reduce(
+	const permisosPorModulo = permisos?.reduce(
 		(acc, p) => {
 			if (!acc[p.modulo]) acc[p.modulo] = [];
 			acc[p.modulo].push(p);
 			return acc;
 		},
 		{} as Record<string, Doc<"permisos">[]>,
-	);
+	) ?? {};
+
+	if (roles === undefined || permisos === undefined) {
+		return <TableSkeleton />;
+	}
 
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
