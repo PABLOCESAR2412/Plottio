@@ -22,6 +22,14 @@ export const createEmpresa = mutation({
     direccion: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("empresas")
+      .filter((q) => q.eq(q.field("ruc"), args.ruc))
+      .first();
+    if (existing) {
+      throw new Error(`Ya existe una empresa con el RUC ${args.ruc}`);
+    }
+
     return await ctx.db.insert("empresas", {
       ...args,
       activa: true,
@@ -42,6 +50,16 @@ export const updateEmpresa = mutation({
     logoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.ruc && args.ruc.trim() !== "") {
+      const existing = await ctx.db
+        .query("empresas")
+        .filter((q) => q.eq(q.field("ruc"), args.ruc))
+        .first();
+      if (existing && existing._id !== args.id) {
+        throw new Error(`Ya existe una empresa con el RUC ${args.ruc}`);
+      }
+    }
+
     const { id, ...updates } = args;
     return await ctx.db.patch(id, updates);
   }

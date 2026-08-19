@@ -204,7 +204,7 @@ export const ConfiguracionView: React.FC = () => {
 
 	// Top level config tabs
 	const [configTab, setConfigTab] = useState<
-		"general" | "usuarios" | "roles" | "bugs" | "sucursales" | "auditoria"
+		"general" | "plantillas" | "usuarios" | "roles" | "bugs" | "sucursales" | "auditoria"
 	>("general");
 	const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 	const [newComment, setNewComment] = useState("");
@@ -289,10 +289,12 @@ export const ConfiguracionView: React.FC = () => {
 		? activeCategoryTab
 		: categoriasPrecios[0] || "";
 
-	const baseVisibleBugs =
-		currentUser?.rol === "SuperAdmin"
-			? bugs
-			: bugs.filter((b) => b.sucursalId === currentUser?.sucursalId);
+	const baseVisibleBugs = bugs.filter(
+		(b) =>
+			!currentUser?.sucursalId ||
+			!b.sucursalId ||
+			b.sucursalId === currentUser.sucursalId
+	);
 
 	const visibleBugs =
 		currentUser?.rol === "SuperAdmin" && showArchivedBugs
@@ -895,6 +897,19 @@ export const ConfiguracionView: React.FC = () => {
 						General y Preferencias
 					</button>
 
+					<button
+						type="button"
+						onClick={() => startTransition(() => setConfigTab("plantillas"))}
+						className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+							configTab === "plantillas"
+								? "border-primary text-primary"
+								: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+						}`}
+					>
+						<DollarSign className="h-4 w-4" />
+						Plantilla de Precios
+					</button>
+
 					{(currentUser?.rol === "SuperAdmin" ||
 						currentUser?.rol === "AdminSucursal") && (
 						<button
@@ -1244,10 +1259,10 @@ export const ConfiguracionView: React.FC = () => {
 						</div>
 					</div>
 				</div>
-			) : (
-				<div className="grid gap-6 md:grid-cols-3 animate-fade-in">
-					{/* Left Col: General configs & System Notifications */}
-					<div className="md:col-span-1 space-y-6">
+			) : configTab === "general" ? (
+				<div className="animate-fade-in space-y-6 max-w-2xl">
+					{/* General configs & System Notifications */}
+					<div className="space-y-6">
 						{/* Card 1: Notifications Control */}
 						<div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
 							<h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
@@ -1513,10 +1528,10 @@ export const ConfiguracionView: React.FC = () => {
 							</div>
 						</div>
 					</div>
-
-					{/* Right Col: Price List Editor (Divided by tabs/categories) */}
-					<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between space-y-4">
-						<div className="space-y-4">
+				</div>
+			) : (
+				<div className="animate-fade-in rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between space-y-4">
+					<div className="space-y-4">
 							<div className="pb-3 border-b border-border flex flex-col sm:flex-row sm:items-start justify-between gap-3">
 								<div>
 									<h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -1782,9 +1797,7 @@ export const ConfiguracionView: React.FC = () => {
 							</span>
 						</div>
 					</div>
-				</div>
 			)}
-
 			{/* CONFIRMATION OR SUCCESS OVERLAYS */}
 			<SuccessDialog
 				isOpen={alertConfig.isOpen}

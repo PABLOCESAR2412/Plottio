@@ -28,6 +28,13 @@ export function LotesProduccionView() {
 	const [searchTerm, setSearchTerm] = useState("");
 	const deferredSearchTerm = useDeferredValue(searchTerm);
 	const [showModal, setShowModal] = useState(false);
+	const [showDetailModal, setShowDetailModal] = useState(false);
+	const [selectedLote, setSelectedLote] = useState<any>(null);
+	const [nuevoComentario, setNuevoComentario] = useState("");
+
+	const cambiarEstado = useMutation(api.lotesProduccion.cambiarEstadoLote);
+	const agregarComentario = useMutation(api.lotesProduccion.agregarComentarioLote);
+
 	const [formData, setFormData] = useState({
 		notas: "",
 		cantidad: 50,
@@ -170,7 +177,11 @@ export function LotesProduccionView() {
 								{filteredLotes.map((l) => (
 									<tr
 										key={l._id}
-										className="hover:bg-muted/50 transition-colors"
+										className="hover:bg-muted/50 transition-colors cursor-pointer"
+										onClick={() => {
+											setSelectedLote(l);
+											setShowDetailModal(true);
+										}}
 									>
 										<td className="px-6 py-4">
 											<div className="flex items-center gap-3">
@@ -430,6 +441,109 @@ export function LotesProduccionView() {
 								</button>
 							</div>
 						</form>
+					</div>
+				</div>
+			)}
+			{showDetailModal && selectedLote && (
+				<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+					<div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+						<div className="p-6 border-b border-border flex justify-between items-center">
+							<h3 className="text-xl font-bold text-foreground">
+								Detalles del Lote {selectedLote.numero}
+							</h3>
+							<button onClick={() => setShowDetailModal(false)} className="text-muted-foreground hover:text-foreground">
+								✕
+							</button>
+						</div>
+						<div className="p-6 space-y-4">
+							<div className="flex justify-between items-center">
+								<span className="font-medium text-foreground">Estado Actual:</span>
+								<select
+									value={selectedLote.estado}
+									onChange={async (e) => {
+										const newEstado = e.target.value;
+										try {
+											await cambiarEstado({ loteId: selectedLote._id, estado: newEstado });
+											setSelectedLote({ ...selectedLote, estado: newEstado });
+											toast.success("Estado actualizado");
+										} catch (err) {
+											toast.error("Error al actualizar estado");
+										}
+									}}
+									className="px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground"
+								>
+									<option value="En Producción">En Producción</option>
+									<option value="Terminado">Terminado</option>
+									<option value="Parcialmente Asignado">Parcialmente Asignado</option>
+									<option value="Agotado">Agotado</option>
+								</select>
+							</div>
+
+							<div className="border-t border-border pt-4">
+								<h4 className="font-semibold text-foreground mb-2">Comentarios</h4>
+								<div className="max-h-40 overflow-y-auto space-y-2 mb-4 pr-2">
+									{selectedLote.comentarios?.length ? (
+										selectedLote.comentarios.map((c: any, i: number) => (
+											<div key={i} className="bg-muted p-3 rounded-xl text-sm">
+												<div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
+													<span className="font-medium">{c.autorNombre}</span>
+													<span>{new Date(c.fecha).toLocaleString()}</span>
+												</div>
+												<p className="text-foreground">{c.texto}</p>
+											</div>
+										))
+									) : (
+										<p className="text-sm text-muted-foreground">No hay comentarios aún.</p>
+									)}
+								</div>
+								
+								<div className="flex gap-2">
+									<input
+										type="text"
+										value={nuevoComentario}
+										onChange={(e) => setNuevoComentario(e.target.value)}
+										placeholder="Escribe un comentario..."
+										className="flex-1 px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground text-sm"
+										onKeyDown={async (e) => {
+											if (e.key === "Enter" && nuevoComentario.trim()) {
+												try {
+													await agregarComentario({
+														loteId: selectedLote._id,
+														usuarioId: currentUser.id as Id<"usuarios">,
+														texto: nuevoComentario.trim(),
+													});
+													setNuevoComentario("");
+													toast.success("Comentario añadido");
+													// Optionally you could optimistically update the local state here
+												} catch (err) {
+													toast.error("Error al añadir comentario");
+												}
+											}
+										}}
+									/>
+									<button
+										onClick={async () => {
+											if (nuevoComentario.trim()) {
+												try {
+													await agregarComentario({
+														loteId: selectedLote._id,
+														usuarioId: currentUser.id as Id<"usuarios">,
+														texto: nuevoComentario.trim(),
+													});
+													setNuevoComentario("");
+													toast.success("Comentario añadido");
+												} catch (err) {
+													toast.error("Error al añadir comentario");
+												}
+											}
+										}}
+										className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl transition-colors font-medium text-sm"
+									>
+										Añadir
+									</button>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			)}

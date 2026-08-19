@@ -339,3 +339,46 @@ export const deleteOrdenTrabajo = mutation({
     return { success: true, placasLiberadas: placasAOrden.length };
   }
 });
+
+export const addFoto = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+    ordenId: v.id("ordenesTrabajo"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_ordenes");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
+    const actual = await ctx.db.get(args.ordenId);
+    if (!actual) throw new Error("Orden de trabajo no encontrada");
+
+    if (
+      userContext.empresa &&
+      actual.empresaId &&
+      actual.empresaId !== userContext.empresa.id
+    ) {
+      throw new Error("No tiene permisos para modificar esta orden");
+    }
+
+    const url = await ctx.storage.getUrl(args.storageId);
+    if (!url) throw new Error("Error obteniendo URL de la foto");
+
+    const nuevasFotos = [...(actual.fotos || []), url];
+    const nuevasNotas = [...(actual.notas || []), "Se añadió una nueva foto del proceso de instalación."];
+
+    await ctx.db.patch(args.ordenId, { fotos: nuevasFotos, notas: nuevasNotas });
+
+    if (userContext.empresa) {
+      await registrarAccion(ctx, {
+        empresaId: userContext.empresa.id,
+        usuarioId: args.usuarioId,
+        sucursalId: actual.sucursalId,
+        tablaAfectada: "ordenesTrabajo",
+        accion: "UPDATE",
+        registroId: args.ordenId,
+        cambios: { fotoAñadida: true },
+      });
+    }
+  }
+});

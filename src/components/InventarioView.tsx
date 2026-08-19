@@ -7,6 +7,8 @@ import {
 	PackageSearch,
 	Plus,
 	Settings2,
+	Edit2,
+	Trash2,
 	TrendingDown,
 	TrendingUp,
 	X,
@@ -35,6 +37,8 @@ export const InventarioView: React.FC = () => {
 
 	const createItemMutation = useMutation(api.inventario.createInventarioItems);
 	const transferirMutation = useMutation(api.inventario.transferirInventario);
+	const updateItemMutation = useMutation(api.inventario.updateInventarioItem);
+	const deleteItemMutation = useMutation(api.inventario.deleteInventarioItem);
 
 	const [activeTab, setActiveTab] = useState<
 		"items" | "movimientos" | "alertas"
@@ -42,6 +46,8 @@ export const InventarioView: React.FC = () => {
 
 	// Modals state
 	const [showNewItemModal, setShowNewItemModal] = useState(false);
+	const [showEditItemModal, setShowEditItemModal] = useState(false);
+	const [editingItem, setEditingItem] = useState<{ id: Id<"inventarioItems">, nombre: string, tipo: string, descripcion: string, costoUnitario: number, unidadMedida: string } | null>(null);
 	const [showTransferModal, setShowTransferModal] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -97,6 +103,45 @@ export const InventarioView: React.FC = () => {
 			);
 		} finally {
 			setIsSubmitting(false);
+		}
+	};
+
+	
+	const handleEditItem = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!currentUser || !editingItem) return;
+		setIsSubmitting(true);
+		try {
+			await updateItemMutation({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				itemId: editingItem.id,
+				nombre: editingItem.nombre,
+				tipo: editingItem.tipo,
+				descripcion: editingItem.descripcion,
+				costoUnitario: Number.isNaN(editingItem.costoUnitario) ? 0 : editingItem.costoUnitario,
+				unidadMedida: editingItem.unidadMedida,
+			});
+			toast.success("Ítem actualizado exitosamente");
+			setShowEditItemModal(false);
+			setEditingItem(null);
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Error al actualizar ítem");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleDeleteItem = async (itemId: Id<"inventarioItems">) => {
+		if (!currentUser) return;
+		if (!window.confirm("¿Está seguro de eliminar este ítem y su stock?")) return;
+		try {
+			await deleteItemMutation({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				itemId,
+			});
+			toast.success("Ítem eliminado exitosamente");
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Error al eliminar ítem");
 		}
 	};
 
@@ -316,12 +361,47 @@ export const InventarioView: React.FC = () => {
 											)}
 										</td>
 										<td className="px-6 py-4 text-right">
-											<button
-												type="button"
-												className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-											>
-												<Settings2 className="h-4 w-4" />
-											</button>
+
+											<div className="flex justify-end gap-1">
+												<button
+													type="button"
+													onClick={() => {
+														setTransfer({ desde: "", hacia: "", itemId: item.item_id, cantidad: 0 });
+														setShowTransferModal(true);
+													}}
+													className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+													title="Transferir"
+												>
+													<ArrowRightLeft className="h-4 w-4" />
+												</button>
+												<button
+													type="button"
+													onClick={() => {
+														setEditingItem({
+															id: item.item_id,
+															nombre: item.nombre,
+															tipo: item.tipo || "",
+															descripcion: "",
+															costoUnitario: item.costo_unitario || 0,
+															unidadMedida: item.unidadMedida
+														});
+														setShowEditItemModal(true);
+													}}
+													className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+													title="Editar"
+												>
+													<Edit2 className="h-4 w-4" />
+												</button>
+												<button
+													type="button"
+													onClick={() => handleDeleteItem(item.item_id as Id<"inventarioItems">)}
+													className="p-2 hover:bg-destructive/10 rounded-lg text-destructive transition-colors cursor-pointer"
+													title="Eliminar"
+												>
+													<Trash2 className="h-4 w-4" />
+												</button>
+											</div>
+
 										</td>
 									</tr>
 								))
@@ -474,6 +554,137 @@ export const InventarioView: React.FC = () => {
 										<Loader2 className="h-4 w-4 animate-spin" />
 									) : (
 										"Guardar Ítem"
+									)}
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+
+			
+			{/* MODAL: Editar Ítem */}
+			{showEditItemModal && editingItem && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+					<div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+						<div className="p-4 border-b border-border flex justify-between items-center bg-secondary/50">
+							<h3 className="font-bold text-foreground flex items-center gap-2">
+								<Edit2 className="h-5 w-5 text-primary" />
+								Editar Ítem
+							</h3>
+							<button
+								type="button"
+								onClick={() => setShowEditItemModal(false)}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<X className="h-5 w-5" />
+							</button>
+						</div>
+						<form onSubmit={handleEditItem} className="p-5 space-y-4">
+							<div>
+								<label
+									htmlFor="editItemNombre"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
+									Nombre del material
+								</label>
+								<input
+									id="editItemNombre"
+									type="text"
+									required
+									value={editingItem.nombre}
+									onChange={(e) =>
+										setEditingItem({ ...editingItem, nombre: e.target.value })
+									}
+									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+								/>
+							</div>
+							<div className="grid grid-cols-2 gap-4">
+								<div>
+									<label
+										htmlFor="editItemTipo"
+										className="block text-xs font-semibold text-foreground mb-1.5"
+									>
+										Categoría
+									</label>
+									<input
+										id="editItemTipo"
+										type="text"
+										value={editingItem.tipo}
+										onChange={(e) =>
+											setEditingItem({ ...editingItem, tipo: e.target.value })
+										}
+										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+									/>
+								</div>
+								<div>
+									<label
+										htmlFor="editItemUnidadMedida"
+										className="block text-xs font-semibold text-foreground mb-1.5"
+									>
+										Unidad
+									</label>
+									<select
+										id="editItemUnidadMedida"
+										value={editingItem.unidadMedida}
+										onChange={(e) =>
+											setEditingItem({ ...editingItem, unidadMedida: e.target.value })
+										}
+										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+									>
+										<option value="Metros">Metros</option>
+										<option value="Rollos">Rollos</option>
+										<option value="Unidades">Unidades</option>
+										<option value="Litros">Litros</option>
+									</select>
+								</div>
+							</div>
+							<div>
+								<label
+									htmlFor="editItemCostoUnitario"
+									className="block text-xs font-semibold text-foreground mb-1.5"
+								>
+									Costo Unitario ($)
+								</label>
+								<input
+									id="editItemCostoUnitario"
+									type="number"
+									min="0"
+									step="0.01"
+									value={
+										Number.isNaN(editingItem.costoUnitario)
+											? ""
+											: editingItem.costoUnitario
+									}
+									onChange={(e) =>
+										setEditingItem({
+											...editingItem,
+											costoUnitario:
+												e.target.value === ""
+													? NaN
+													: parseFloat(e.target.value),
+										})
+									}
+									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+								/>
+							</div>
+							<div className="pt-4 flex gap-3">
+								<button
+									type="button"
+									onClick={() => setShowEditItemModal(false)}
+									className="w-full py-2.5 rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-secondary transition-colors cursor-pointer"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									disabled={isSubmitting}
+									className="w-full flex justify-center py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+								>
+									{isSubmitting ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										"Actualizar Ítem"
 									)}
 								</button>
 							</div>

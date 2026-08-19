@@ -254,3 +254,40 @@ export const fetchSubgruposPorVehiculo = query({
     return resultados;
   }
 });
+
+export const actualizarKitFlota = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+    kitId: v.id("kitsFlota"),
+    nombre: v.optional(v.string()),
+    descripcion: v.optional(v.string()),
+    items: v.optional(v.array(v.object({
+      servicioId: v.id("catalogoServicios"),
+      cantidad_por_unidad: v.number(),
+      precio_unitario: v.optional(v.number()),
+      notas: v.optional(v.string())
+    }))),
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
+    
+    const patchData: any = {};
+    if (args.nombre !== undefined) patchData.nombre = args.nombre;
+    if (args.descripcion !== undefined) patchData.descripcion = args.descripcion;
+    if (args.items !== undefined) patchData.items = args.items;
+
+    await ctx.db.patch(args.kitId, patchData);
+  }
+});
+
+export const eliminarKitFlota = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+    kitId: v.id("kitsFlota")
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
+    
+    await ctx.db.delete(args.kitId);
+  }
+});

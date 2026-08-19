@@ -181,11 +181,11 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	const filteredEmpresas = empresas.filter((e) => {
 		// SaaS Multi-tenant filtering
 		if (
-			currentUser?.rol !== "SuperAdmin" &&
 			e.sucursalId &&
-			currentUser?.sucursalId
+			currentUser?.sucursalId &&
+			e.sucursalId !== currentUser.sucursalId
 		) {
-			if (e.sucursalId !== currentUser.sucursalId) return false;
+			return false;
 		}
 
 		return (
@@ -283,7 +283,13 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		setContactoNombre(emp.contactoNombre || emp.razonSocial || "");
 		setContactoTelefono(emp.contactoTelefono || emp.telefono || "");
 		setDireccion(emp.direccion || "");
-		setLogoPreview(emp.logoUrl || "");
+		setLogoPreview(
+			emp.id === activeEmpresaId && branding?.logoUrl
+				? branding.logoUrl
+				: emp.logoUrl?.startsWith("http")
+					? emp.logoUrl
+					: ""
+		);
 		setLogoFile(null);
 		setIsEditOpen(true);
 	};

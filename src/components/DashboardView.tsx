@@ -89,9 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCita & { _id: string }> | undefined;
 
-	if (rawOrdenes === undefined || rawCitas === undefined) {
-		return <TableSkeleton />;
-	}
+
 
 	const ordenesTrabajo: LocalOrden[] = useMemo(
 		() =>
@@ -122,12 +120,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 	);
 
 	// SaaS Multi-tenant filtering
-	const visibleOrders =
-		currentUser?.rol === "SuperAdmin"
-			? ordenesTrabajo
-			: ordenesTrabajo.filter(
-					(o) => !o.sucursalId || o.sucursalId === currentUser?.sucursalId,
-				);
+	// SaaS Multi-tenant filtering
+	const visibleOrders = ordenesTrabajo.filter(
+		(o) =>
+			!currentUser?.sucursalId ||
+			!o.sucursalId ||
+			o.sucursalId === currentUser.sucursalId
+	);
 
 	// Statistics calculations
 	const pendingOrdersCount = visibleOrders.filter(
@@ -179,6 +178,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 				return null;
 		}
 	};
+
+	if (rawOrdenes === undefined || rawCitas === undefined) {
+		return <TableSkeleton />;
+	}
 
 	return (
 		<div className="space-y-6">

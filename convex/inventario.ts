@@ -343,3 +343,46 @@ export const getInventarioConsolidado = query({
     })).then(res => res.sort((a, b) => a.nombre.localeCompare(b.nombre)));
   }
 });
+
+// 6.9 FUNCIÓN: updateInventarioItem()
+export const updateInventarioItem = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+    itemId: v.id("inventarioItems"),
+    nombre: v.optional(v.string()),
+    tipo: v.optional(v.string()),
+    descripcion: v.optional(v.string()),
+    costoUnitario: v.optional(v.number()),
+    unidadMedida: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_inventario");
+    const { usuarioId: _u, itemId, ...updates } = args;
+    await ctx.db.patch(itemId, updates);
+    return { success: true };
+  }
+});
+
+// 6.10 FUNCIÓN: deleteInventarioItem()
+export const deleteInventarioItem = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+    itemId: v.id("inventarioItems")
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_inventario");
+    
+    // Check if there is stock. If so, fail or delete it. Let's delete stock as well.
+    const stocks = await ctx.db
+      .query("inventarioSucursal")
+      .withIndex("by_item", q => q.eq("itemId", args.itemId))
+      .collect();
+      
+    for (const stock of stocks) {
+      await ctx.db.delete(stock._id);
+    }
+    
+    await ctx.db.delete(args.itemId);
+    return { success: true };
+  }
+});

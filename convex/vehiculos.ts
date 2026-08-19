@@ -69,6 +69,14 @@ export const createVehiculo = mutation({
 
     let empId = userContext.empresa.id;
 
+    const existing = await ctx.db
+      .query("vehiculos")
+      .filter((q) => q.eq(q.field("placa"), args.placa))
+      .first();
+    if (existing) {
+      throw new Error(`Ya existe un vehículo con la placa ${args.placa}`);
+    }
+
     const newId = await ctx.db.insert("vehiculos", {
       placa: args.placa,
       categoria: args.categoria,
@@ -102,6 +110,14 @@ export const updateVehiculo = mutation({
     estado: v.string(),
   },
   handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("vehiculos")
+      .filter((q) => q.eq(q.field("placa"), args.placa))
+      .first();
+    if (existing && existing._id !== args.vehiculoId) {
+      throw new Error(`Ya existe un vehículo con la placa ${args.placa}`);
+    }
+
     await ctx.db.patch(args.vehiculoId, {
       placa: args.placa,
       categoria: args.categoria,

@@ -7,6 +7,7 @@ import {
 	Check,
 	CheckSquare,
 	ChevronRight,
+	Copy,
 	Download,
 	FileText,
 	MessageSquare,
@@ -136,7 +137,6 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
 	const createClienteMut = useMutation(api.clientes.createCliente);
 
-	if (cotizaciones === undefined) return <TableSkeleton />;
 
 	// ── ADAPTACIÓN: Convex devuelve _id; mapeamos a `id` para mantener la UI ──
 
@@ -514,6 +514,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 		try {
 			// Save inline vehicle if new user registered it details manually
 			let clienteIdParaVehiculo = matchedCliente?.id;
+			let currentVehiculoId = selectedVehiculoId;
 			if (
 				selectedVehiculoId === "nuevo" &&
 				newPlaca.trim() &&
@@ -548,8 +549,9 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					sucursalId: currentUser?.sucursalId
 						? (currentUser.sucursalId as Id<"sucursales">)
 						: undefined,
-				})) as unknown as { placa: string };
+				})) as unknown as { _id: string; placa: string };
 				setPlaca(inlineVeh.placa);
+				currentVehiculoId = inlineVeh._id;
 			}
 
 			const savedCot = (await createCotizacionMut({
@@ -561,6 +563,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					descripcion: it.descripcion,
 					cantidad: it.cantidad,
 					precioUnitario: it.precioUnitario,
+					vehiculoId: (currentVehiculoId && currentVehiculoId !== "nuevo") ? currentVehiculoId as Id<"vehiculos"> : undefined,
 				})),
 				estado: "Pendiente",
 				fecha: new Date().toISOString().split("T")[0],
@@ -841,16 +844,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	// Filtered list of quotes
 	const filteredCotizaciones = cotizaciones.filter((c) => {
 		// SaaS Multi-tenant filtering
-		if (currentUser?.rol !== "SuperAdmin") {
-			if (
-				c.sucursalId &&
-				currentUser?.sucursalId &&
-				c.sucursalId !== currentUser.sucursalId
-			)
-				return false;
-			if (currentUser?.pvId && c.pvId && c.pvId !== currentUser.pvId)
-				return false;
-		}
+		if (
+			c.sucursalId &&
+			currentUser?.sucursalId &&
+			c.sucursalId !== currentUser.sucursalId
+		)
+			return false;
+		if (currentUser?.pvId && c.pvId && c.pvId !== currentUser.pvId)
+			return false;
 
 		return (
 			c._id.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
@@ -858,6 +859,8 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 			c.vehiculoTipo.toLowerCase().includes(quoteSearchTerm.toLowerCase())
 		);
 	});
+
+	if (cotizaciones === undefined) return <TableSkeleton />;
 
 	return (
 		<div className="space-y-6">
@@ -921,7 +924,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 														: "bg-secondary text-foreground"
 												}`}
 											>
-												{cot._id}
+												{cot._id.substring(0,4) + "..."}
 											</span>
 											<span className="truncate">{cot.clienteNombre}</span>
 										</div>
@@ -970,8 +973,15 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
 											ID Cotización
 										</div>
-										<div className="text-lg font-bold text-primary">
-											{activeCotizacion._id}
+										<div className="flex items-center gap-2 text-lg font-bold text-primary">
+											<span>{activeCotizacion._id.substring(0,4) + "..."}</span>
+											<button
+												onClick={() => navigator.clipboard.writeText(activeCotizacion._id)}
+												className="p-1 rounded hover:bg-primary/20 text-primary transition-colors cursor-pointer"
+												title="Copiar ID completo"
+											>
+												<Copy className="h-4 w-4" />
+											</button>
 										</div>
 										<div className="text-xs text-muted-foreground mt-1">
 											Fecha: {activeCotizacion.fecha}

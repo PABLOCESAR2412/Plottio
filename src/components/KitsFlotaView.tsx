@@ -30,6 +30,8 @@ export function KitsFlotaView() {
 	);
 
 	const crearKit = useMutation(api.kitsFlota.crearKitFlota);
+	const actualizarKit = useMutation(api.kitsFlota.actualizarKitFlota);
+	const eliminarKit = useMutation(api.kitsFlota.eliminarKitFlota);
 	const generarMasivo = useMutation(
 		api.kitsFlota.generarCotizacionesMasivasDesdeKit,
 	);
@@ -37,6 +39,7 @@ export function KitsFlotaView() {
 	const [searchTerm] = useState("");
 	const [showModal, setShowModal] = useState(false);
 	const [showGenerarModal, setShowGenerarModal] = useState(false);
+	const [showEditModal, setShowEditModal] = useState(false);
 	const [selectedKit, setSelectedKit] = useState<Doc<"kitsFlota"> | null>(null);
 
 	const [formData, setFormData] = useState({
@@ -122,6 +125,53 @@ export function KitsFlotaView() {
 		}
 	};
 
+	const handleEditSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!selectedKit) return;
+		try {
+			if (formData.items.length === 0) {
+				toast.error("El kit debe tener al menos un ítem");
+				return;
+			}
+			await actualizarKit({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				kitId: selectedKit._id,
+				nombre: formData.nombre,
+				descripcion: formData.descripcion,
+				items: formData.items.map((item) => ({
+					servicioId: item.servicioId as Id<"catalogoServicios">,
+					cantidad_por_unidad: item.cantidad_por_unidad,
+					precio_unitario: item.precio_unitario,
+					notas: item.notas,
+				})),
+			});
+
+			toast.success("Kit actualizado exitosamente");
+			setShowEditModal(false);
+			setSelectedKit(null);
+			setFormData({ nombre: "", descripcion: "", items: [] });
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al actualizar kit");
+		}
+	};
+
+	const handleDelete = async () => {
+		if (!selectedKit) return;
+		if (confirm("¿Estás seguro de que deseas eliminar este kit?")) {
+			try {
+				await eliminarKit({
+					usuarioId: currentUser.id as Id<"usuarios">,
+					kitId: selectedKit._id,
+				});
+				toast.success("Kit eliminado");
+				setShowEditModal(false);
+				setSelectedKit(null);
+			} catch (err) {
+				toast.error("Error al eliminar kit");
+			}
+		}
+	};
+
 	const handleGenerarMasivoSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!selectedKit) return;
@@ -190,7 +240,22 @@ export function KitsFlotaView() {
 				{filteredKits.map((k) => (
 					<div
 						key={k._id}
-						className="bg-card rounded-2xl shadow-sm border border-border p-6 hover:shadow-md transition-shadow"
+						className="bg-card rounded-2xl shadow-sm border border-border p-6 hover:shadow-md transition-shadow cursor-pointer"
+						onClick={() => {
+							setSelectedKit(k);
+							setFormData({
+								nombre: k.nombre,
+								descripcion: k.descripcion || "",
+								items: k.items.map(item => ({
+									servicioId: item.servicioId,
+									nombre: "Servicio", // We might not have the name without fetching, but we can do our best. Or let it be.
+									cantidad_por_unidad: item.cantidad_por_unidad,
+									precio_unitario: item.precio_unitario,
+									notas: item.notas,
+								}))
+							});
+							setShowEditModal(true);
+						}}
 					>
 						<div className="flex justify-between items-start mb-4">
 							<div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -212,7 +277,8 @@ export function KitsFlotaView() {
 							</span>
 							<button
 								type="button"
-								onClick={() => {
+								onClick={(e) => {
+									e.stopPropagation();
 									setSelectedKit(k);
 									setShowGenerarModal(true);
 								}}
@@ -378,6 +444,169 @@ export function KitsFlotaView() {
 								className="flex-1 px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl transition-colors font-medium shadow-sm"
 							>
 								Guardar Kit
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{showEditModal && (
+				<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+					<div className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+						<div className="p-6 border-b border-border flex justify-between items-center">
+							<h3 className="text-xl font-bold text-foreground">
+								Editar Kit de Flota
+							</h3>
+							<button onClick={() => setShowEditModal(false)} className="text-muted-foreground hover:text-foreground">
+								✕
+							</button>
+						</div>
+
+						<div className="overflow-y-auto p-6 flex-1 space-y-6">
+							<div className="space-y-4">
+								<div>
+									<label
+										htmlFor="kit-nombre-edit"
+										className="block text-sm font-medium text-foreground mb-1"
+									>
+										Nombre del Kit
+									</label>
+									<input
+										id="kit-nombre-edit"
+										required
+										type="text"
+										value={formData.nombre}
+										onChange={(e) =>
+											setFormData({ ...formData, nombre: e.target.value })
+										}
+										placeholder="Ej. Kit Bus Urbano Estándar"
+										className="w-full px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground"
+									/>
+								</div>
+								<div>
+									<label
+										htmlFor="kit-descripcion-edit"
+										className="block text-sm font-medium text-foreground mb-1"
+									>
+										Descripción
+									</label>
+									<input
+										id="kit-descripcion-edit"
+										type="text"
+										value={formData.descripcion}
+										onChange={(e) =>
+											setFormData({ ...formData, descripcion: e.target.value })
+										}
+										className="w-full px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground"
+									/>
+								</div>
+							</div>
+
+							<div className="border-t border-border pt-6">
+								<h4 className="font-semibold text-foreground mb-4">
+									Ítems del Kit
+								</h4>
+
+								<div className="flex gap-2 mb-4">
+									<select
+										value={selectedServicioId}
+										onChange={(e) => setSelectedServicioId(e.target.value)}
+										className="flex-1 px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground"
+									>
+										<option value="">
+											Seleccionar un servicio del catálogo...
+										</option>
+										{servicios?.map((s) => (
+											<option key={s._id} value={s._id}>
+												{s.nombre} - ${s.precioBase}
+											</option>
+										))}
+									</select>
+									<button
+										type="button"
+										onClick={addItemToKit}
+										className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl transition-colors"
+									>
+										Añadir
+									</button>
+								</div>
+
+								<div className="space-y-3">
+									{formData.items.map((item, index) => (
+										<div
+											key={index}
+											className="flex flex-col sm:flex-row gap-3 items-center bg-background p-3 rounded-xl border border-border"
+										>
+											<div className="flex-1 font-medium text-foreground text-sm">
+												{item.nombre}
+											</div>
+											<div className="w-24">
+												<input
+													type="number"
+													title="Cantidad"
+													min="1"
+													value={item.cantidad_por_unidad}
+													onChange={(e) =>
+														updateItem(
+															index,
+															"cantidad_por_unidad",
+															parseInt(e.target.value, 10),
+														)
+													}
+													className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-background outline-none text-foreground"
+												/>
+											</div>
+											<div className="flex-1">
+												<input
+													type="text"
+													title="Notas/Ubicación"
+													placeholder="Notas (ej. Frontal)"
+													value={item.notas}
+													onChange={(e) =>
+														updateItem(index, "notas", e.target.value)
+													}
+													className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-background outline-none text-foreground"
+												/>
+											</div>
+											<button
+												type="button"
+												onClick={() => removeItem(index)}
+												className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+											>
+												x
+											</button>
+										</div>
+									))}
+									{formData.items.length === 0 && (
+										<p className="text-sm text-center text-muted-foreground py-4">
+											No hay ítems en este kit todavía.
+										</p>
+									)}
+								</div>
+							</div>
+						</div>
+
+						<div className="p-6 border-t border-border bg-muted/30 flex gap-3 mt-auto">
+							<button
+								type="button"
+								onClick={handleDelete}
+								className="px-4 py-2 border border-destructive text-destructive rounded-xl hover:bg-destructive/10 transition-colors font-medium mr-auto"
+							>
+								Eliminar
+							</button>
+							<button
+								type="button"
+								onClick={() => setShowEditModal(false)}
+								className="px-4 py-2 border border-border text-foreground rounded-xl hover:bg-muted transition-colors font-medium"
+							>
+								Cancelar
+							</button>
+							<button
+								type="button"
+								onClick={handleEditSubmit}
+								className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl transition-colors font-medium shadow-sm"
+							>
+								Guardar Cambios
 							</button>
 						</div>
 					</div>

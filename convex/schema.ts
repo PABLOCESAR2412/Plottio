@@ -240,6 +240,12 @@ export default defineSchema({
     numero: v.string(),
     estado: v.string(), // 'En Producción' | 'Terminado' | 'Parcialmente Asignado' | 'Agotado'
     notas: v.optional(v.string()),
+    comentarios: v.optional(v.array(v.object({
+      autorId: v.id("usuarios"),
+      autorNombre: v.string(),
+      texto: v.string(),
+      fecha: v.string(),
+    }))),
     creadoPorUsuarioId: v.optional(v.id("usuarios")),
     fechaCreacion: v.string(),
     fechaActualizacion: v.string(),

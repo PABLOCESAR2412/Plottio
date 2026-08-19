@@ -1,5 +1,8 @@
 import { useMutation, useQuery } from "convex/react";
-import { Layers, PlusCircle, Search, Settings2, Tag } from "lucide-react";
+import { Layers, PlusCircle, Search, Settings2,
+	Tag,
+	Edit2,
+	Trash2 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -17,9 +20,13 @@ export function CatalogoView() {
 
 	const createServicio = useMutation(api.catalogoServicios.createServicio);
 	const toggleActivo = useMutation(api.catalogoServicios.toggleActivo);
+	const updateServicio = useMutation(api.catalogoServicios.updateServicio);
+	const deleteServicio = useMutation(api.catalogoServicios.deleteServicio);
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [showModal, setShowModal] = useState(false);
+	const [showEditModal, setShowEditModal] = useState(false);
+	const [editingServicio, setEditingServicio] = useState<{ id: Id<"catalogoServicios">, nombre: string, categoria: string, precioBase: number } | null>(null);
 	const [formData, setFormData] = useState({
 		nombre: "",
 		categoria: "general",
@@ -49,6 +56,40 @@ export function CatalogoView() {
 			setFormData({ nombre: "", categoria: "general", precioBase: 0 });
 		} catch (err) {
 			toast.error((err as Error).message || "Error al crear servicio");
+		}
+	};
+
+	
+	const handleEdit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!currentUser || !editingServicio) return;
+		try {
+			await updateServicio({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				id: editingServicio.id,
+				nombre: editingServicio.nombre,
+				categoria: editingServicio.categoria,
+				precioBase: Number(editingServicio.precioBase),
+			});
+			toast.success("Servicio actualizado exitosamente");
+			setShowEditModal(false);
+			setEditingServicio(null);
+		} catch (err) {
+			toast.error((err as Error).message || "Error al actualizar servicio");
+		}
+	};
+
+	const handleDelete = async (id: Id<"catalogoServicios">) => {
+		if (!currentUser) return;
+		if (!window.confirm("¿Está seguro de eliminar este servicio del catálogo?")) return;
+		try {
+			await deleteServicio({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				id,
+			});
+			toast.success("Servicio eliminado exitosamente");
+		} catch (err) {
+			toast.error((err as Error).message || "Error al eliminar servicio");
 		}
 	};
 
@@ -141,15 +182,44 @@ export function CatalogoView() {
 											{s.activo ? "Activo" : "Inactivo"}
 										</span>
 									</td>
+									
 									<td className="px-6 py-4 text-right">
-										<button
-											type="button"
-											onClick={() => handleToggle(s._id, s.activo)}
-											className="text-muted-foreground hover:text-primary p-2 rounded-lg hover:bg-muted transition-colors"
-										>
-											<Settings2 className="w-4 h-4" />
-										</button>
+										<div className="flex justify-end gap-1">
+											<button
+												type="button"
+												onClick={() => handleToggle(s._id, s.activo)}
+												className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+												title={s.activo ? "Desactivar" : "Activar"}
+											>
+												<Settings2 className="w-4 h-4" />
+											</button>
+											<button
+												type="button"
+												onClick={() => {
+													setEditingServicio({
+														id: s._id,
+														nombre: s.nombre,
+														categoria: s.categoria,
+														precioBase: s.precioBase
+													});
+													setShowEditModal(true);
+												}}
+												className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+												title="Editar"
+											>
+												<Edit2 className="w-4 h-4" />
+											</button>
+											<button
+												type="button"
+												onClick={() => handleDelete(s._id)}
+												className="p-2 hover:bg-destructive/10 rounded-lg text-destructive transition-colors cursor-pointer"
+												title="Eliminar"
+											>
+												<Trash2 className="w-4 h-4" />
+											</button>
+										</div>
 									</td>
+
 								</tr>
 							))}
 						</tbody>

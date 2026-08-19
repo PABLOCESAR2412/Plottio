@@ -112,11 +112,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const filteredClientes = clientes.filter((c) => {
 		// SaaS Multi-tenant filtering
 		if (
-			currentUser?.rol !== "SuperAdmin" &&
+			currentUser?.sucursalId &&
 			c.sucursalId &&
-			currentUser?.sucursalId
+			c.sucursalId !== currentUser.sucursalId
 		) {
-			if (c.sucursalId !== currentUser.sucursalId) return false;
+			return false;
 		}
 
 		return (

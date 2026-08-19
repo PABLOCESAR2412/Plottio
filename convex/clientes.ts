@@ -70,6 +70,16 @@ export const createCliente = mutation({
       throw new Error("El usuario necesita estar asignado a una Empresa y Sucursal");
     }
 
+    if (args.identificacion && args.identificacion.trim() !== "") {
+      const existing = await ctx.db
+        .query("clientes")
+        .filter((q) => q.eq(q.field("identificacion"), args.identificacion))
+        .first();
+      if (existing) {
+        throw new Error(`Ya existe un cliente con la identificación ${args.identificacion}`);
+      }
+    }
+
     const newClienteId = await ctx.db.insert("clientes", {
       nombre: args.nombre,
       telefono: args.telefono,
@@ -161,6 +171,16 @@ export const updateCliente = mutation({
     // Validate permission or context if needed, but for simplicity:
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) throw new Error("Sin permisos");
+
+    if (args.identificacion && args.identificacion.trim() !== "") {
+      const existing = await ctx.db
+        .query("clientes")
+        .filter((q) => q.eq(q.field("identificacion"), args.identificacion))
+        .first();
+      if (existing && existing._id !== args.clienteId) {
+        throw new Error(`Ya existe un cliente con la identificación ${args.identificacion}`);
+      }
+    }
 
     let empId = args.empresaId ? (args.empresaId as import("./_generated/dataModel").Id<"empresas">) : undefined;
     

@@ -38,6 +38,8 @@ export const AgendaView: React.FC = () => {
 	// Modals
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
 	const [isEditOpen, setIsEditOpen] = useState(false);
+	const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+	const [detailsCita, setDetailsCita] = useState<Doc<"citas"> | null>(null);
 
 	// Form states
 	const [clienteNombre, setClienteNombre] = useState("");
@@ -492,9 +494,22 @@ export const AgendaView: React.FC = () => {
 												<Check className="h-3 w-3" /> Confirmar
 											</button>
 										)}
+										
+										<button
+											type="button"
+											onClick={() => {
+												setDetailsCita(cita);
+												setIsDetailsOpen(true);
+											}}
+											className="p-1 text-muted-foreground hover:bg-card hover:text-foreground rounded transition-colors"
+											title="Ver detalles"
+										>
+											<Info className="h-3 w-3" />
+										</button>
 										<button
 											type="button"
 											onClick={() => handleOpenEdit(cita)}
+
 											className="p-1 text-muted-foreground hover:bg-card hover:text-foreground rounded transition-colors"
 											title="Editar cita"
 										>
@@ -672,6 +687,70 @@ export const AgendaView: React.FC = () => {
 					</div>
 				</div>
 			)}
+
+			
+			{/* DETAILS APPOINTMENT MODAL */}
+			{isDetailsOpen && detailsCita && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+					<button
+						type="button"
+						aria-label="Cerrar modal"
+						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+						onClick={() => setIsDetailsOpen(false)}
+					/>
+					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+						<h3 className="text-lg font-bold text-foreground mb-4 border-b border-border pb-2 flex items-center gap-2">
+							<Info className="h-5 w-5 text-primary" /> Detalles de la Cita
+						</h3>
+						<div className="space-y-4">
+							<div className="grid grid-cols-2 gap-4">
+								<div>
+									<p className="text-xs font-semibold text-muted-foreground">Cliente</p>
+									<p className="text-sm font-medium text-foreground">{detailsCita.clienteNombre}</p>
+								</div>
+								<div>
+									<p className="text-xs font-semibold text-muted-foreground">Teléfono</p>
+									<p className="text-sm font-medium text-foreground">{detailsCita.clienteTelefono || "N/A"}</p>
+								</div>
+								<div>
+									<p className="text-xs font-semibold text-muted-foreground">Placa / Vehículo</p>
+									<p className="text-sm font-medium text-foreground">{detailsCita.vehiculoPlaca || "N/A"}</p>
+								</div>
+								<div>
+									<p className="text-xs font-semibold text-muted-foreground">Servicio</p>
+									<p className="text-sm font-medium text-foreground">{detailsCita.servicio}</p>
+								</div>
+								<div>
+									<p className="text-xs font-semibold text-muted-foreground">Fecha y Hora</p>
+									<p className="text-sm font-medium text-foreground">{detailsCita.fecha} - {detailsCita.hora}</p>
+								</div>
+								<div>
+									<p className="text-xs font-semibold text-muted-foreground">Estado</p>
+									<span
+										className={`inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded ${
+											detailsCita.estado === "Confirmada"
+												? "bg-green-500/10 text-green-500"
+												: "bg-yellow-500/10 text-yellow-500"
+										}`}
+									>
+										{detailsCita.estado}
+									</span>
+								</div>
+							</div>
+						</div>
+						<div className="flex gap-3 justify-end pt-6">
+							<button
+								type="button"
+								onClick={() => setIsDetailsOpen(false)}
+								className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
+							>
+								Cerrar
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
 
 			{/* EDIT APPOINTMENT MODAL */}
 			{isEditOpen && (

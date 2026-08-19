@@ -15,7 +15,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import type React from "react";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
@@ -120,6 +120,8 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
 	const updateOrdenMut = useMutation(api.ordenes.updateOrdenTrabajo);
 	const deleteOrdenMut = useMutation(api.ordenes.deleteOrdenTrabajo);
+	const generateUploadUrlMut = useMutation(api.organizacion.generateLogoUploadUrl);
+	const addFotoMut = useMutation(api.ordenes.addFoto);
 	const toggleItemMut = useMutation(
 		api.ordenes.toggleItemCompletado,
 	).withOptimisticUpdate((localStore, args) => {
@@ -252,22 +254,22 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 
 	// Timeline note state
 	const [newNote, setNewNote] = useState("");
+	const [showTimeline, setShowTimeline] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const [isUploading, setIsUploading] = useState(false);
 
-	if (ordenesTrabajo === undefined) return <TableSkeleton />;
 
 	// Filter orders
 	const filteredOrders = ordenesTrabajo.filter((o) => {
 		// SaaS Multi-tenant filtering
-		if (currentUser?.rol !== "SuperAdmin") {
-			if (
-				o.sucursalId &&
-				currentUser?.sucursalId &&
-				o.sucursalId !== currentUser.sucursalId
-			)
-				return false;
-			if (currentUser?.pvId && o.pvOrigen && o.pvOrigen !== currentUser.pvId)
-				return false;
-		}
+		if (
+			o.sucursalId &&
+			currentUser?.sucursalId &&
+			o.sucursalId !== currentUser.sucursalId
+		)
+			return false;
+		if (currentUser?.pvId && o.pvOrigen && o.pvOrigen !== currentUser.pvId)
+			return false;
 
 		const matchesSearch =
 			o._id.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
@@ -585,27 +587,70 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		}
 	};
 
-	// Timeline: Add simulated wrapping photos using Unsplash gallery elements
-	const handleAddPhoto = async () => {
-		if (!selectedOrder || !usuarioId) return;
-		// Realistic Unsplash wrapper vehicle pictures
-		const mockPhotos = [
-			"https://images.unsplash.com/photo-1611245807205-9f170fe79155?auto=format&fit=crop&w=600&q=80",
-			"https://images.unsplash.com/photo-1507136566006-cfc505b114fc?auto=format&fit=crop&w=600&q=80",
-			"https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80",
-		];
-		const randomPhoto =
-			mockPhotos[Math.floor(Math.random() * mockPhotos.length)];
+	// Timeline: Photo upload
+	const handleAddPhoto = () => {
+		if (!selectedOrder || !usuarioId || isLocked) return;
+		fileInputRef.current?.click();
+	};
+
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file || !selectedOrder || !usuarioId) return;
+
+		setIsUploading(true);
 		try {
-			await updateOrdenMut({
+			// Convert image to webp using an off-screen canvas to compress
+			const bitmap = await createImageBitmap(file);
+			const canvas = document.createElement("canvas");
+			// Optional: resize image if too large (max 1920x1080)
+			let width = bitmap.width;
+			let height = bitmap.height;
+			const MAX_WIDTH = 1920;
+			const MAX_HEIGHT = 1080;
+			if (width > height) {
+			  if (width > MAX_WIDTH) {
+				height *= MAX_WIDTH / width;
+				width = MAX_WIDTH;
+			  }
+			} else {
+			  if (height > MAX_HEIGHT) {
+				width *= MAX_HEIGHT / height;
+				height = MAX_HEIGHT;
+			  }
+			}
+			canvas.width = width;
+			canvas.height = height;
+			const ctx = canvas.getContext("2d");
+			if (!ctx) throw new Error("Could not get canvas context");
+			ctx.drawImage(bitmap, 0, 0, width, height);
+
+			const blob = await new Promise<Blob>((resolve, reject) => {
+				canvas.toBlob(
+					(b) => {
+						if (b) resolve(b);
+						else reject(new Error("Failed to convert image to WebP"));
+					},
+					"image/webp",
+					0.8
+				);
+			});
+
+			const uploadUrl = await generateUploadUrlMut();
+			const response = await fetch(uploadUrl, {
+				method: "POST",
+				headers: { "Content-Type": "image/webp" },
+				body: blob,
+			});
+
+			if (!response.ok) throw new Error("Error al subir archivo a Convex");
+			const { storageId } = await response.json();
+
+			await addFotoMut({
 				usuarioId: usuarioId as Id<"usuarios">,
 				ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
-				fotos: [...(selectedOrder.fotos || []), randomPhoto],
-				notas: [
-					...(selectedOrder.notas || []),
-					"Se añadió una nueva foto del proceso de instalación.",
-				],
+				storageId: storageId as Id<"_storage">,
 			});
+
 			setAlertConfig({
 				isOpen: true,
 				title: "Imagen Registrada",
@@ -615,10 +660,15 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		} catch (err) {
 			setAlertConfig({
 				isOpen: true,
-				title: "Error al añadir foto",
+				title: "Error al subir foto",
 				message: err instanceof Error ? err.message : "Error desconocido",
 				type: "alert",
 			});
+		} finally {
+			setIsUploading(false);
+			if (fileInputRef.current) {
+				fileInputRef.current.value = "";
+			}
 		}
 	};
 
@@ -664,6 +714,8 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 		setCopiedInvoice(true);
 		setTimeout(() => setCopiedInvoice(false), 2000);
 	};
+
+	if (ordenesTrabajo === undefined) return <TableSkeleton />;
 
 	return (
 		<div className="space-y-6">
@@ -744,7 +796,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 							>
 								<div className="truncate pr-2">
 									<div className="font-bold text-sm flex items-center gap-1.5">
-										<span>{ord._id}</span>
+										<span>{ord._id.substring(0,4) + "..."}</span>
 										<span
 											className={`text-[10px] px-1 py-0.2 rounded font-mono ${
 												selectedOrderId === ord._id
@@ -811,8 +863,15 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 									</div>
 									<div>
 										<div className="flex items-center gap-2 flex-wrap">
-											<h2 className="text-lg font-black text-foreground">
-												{selectedOrder._id}
+											<h2 className="text-lg font-black text-foreground flex items-center gap-2">
+												<span>{selectedOrder._id.substring(0,4) + "..."}</span>
+												<button
+													onClick={() => navigator.clipboard.writeText(selectedOrder._id)}
+													className="p-1 rounded hover:bg-secondary/50 text-muted-foreground transition-colors cursor-pointer"
+													title="Copiar ID completo"
+												>
+													<Copy className="h-4 w-4" />
+												</button>
 											</h2>
 											<span
 												className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -1245,71 +1304,93 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 							{/* Progress timeline logs, notes and photos */}
 							<div className="border-t border-border pt-6 space-y-6">
 								<div>
-									<h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
-										Línea de Tiempo y Fotos de Producción
-									</h3>
+									<div className="flex items-center justify-between mb-3">
+										<h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+											Línea de Tiempo y Fotos de Producción
+										</h3>
+										<button
+											type="button"
+											onClick={() => setShowTimeline(!showTimeline)}
+											className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+										>
+											{showTimeline ? "Ocultar Línea de Tiempo" : "Mostrar Línea de Tiempo"}
+										</button>
+									</div>
 
-									{/* Photo Gallery Grid */}
-									<div className="grid gap-3 grid-cols-3 sm:grid-cols-4 mb-4">
-										{selectedOrder.fotos.map((ph, idx) => (
-											<div
-												// biome-ignore lint/suspicious/noArrayIndexKey: galería de fotos estática
-												key={idx}
-												className="relative aspect-video rounded-lg overflow-hidden border border-border group bg-secondary"
-											>
-												<img
-													src={ph}
-													alt="Wrapping sticker installation process"
-													className="object-cover w-full h-full"
+									{showTimeline && (
+										<>
+											{/* Photo Gallery Grid */}
+											<div className="grid gap-3 grid-cols-3 sm:grid-cols-4 mb-4">
+												{selectedOrder.fotos.map((ph, idx) => (
+													<div
+														// biome-ignore lint/suspicious/noArrayIndexKey: galería de fotos estática
+														key={idx}
+														className="relative aspect-video rounded-lg overflow-hidden border border-border group bg-secondary"
+													>
+														<img
+															src={ph}
+															alt="Wrapping sticker installation process"
+															className="object-cover w-full h-full"
+														/>
+													</div>
+												))}
+
+												{!isLocked && (
+													<button
+														type="button"
+														onClick={handleAddPhoto}
+														disabled={isUploading}
+														className="aspect-video rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all gap-1 text-[10px] font-bold disabled:opacity-50"
+													>
+														<ImageIcon className="h-5 w-5 text-muted-foreground/60" />
+														{isUploading ? "Subiendo..." : "Añadir Foto"}
+													</button>
+												)}
+												<input 
+													type="file" 
+													ref={fileInputRef} 
+													hidden 
+													accept="image/*" 
+													onChange={handleFileChange} 
 												/>
 											</div>
-										))}
 
-										{!isLocked && (
-											<button
-												type="button"
-												onClick={handleAddPhoto}
-												className="aspect-video rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all gap-1 text-[10px] font-bold"
-											>
-												<ImageIcon className="h-5 w-5 text-muted-foreground/60" />
-												Añadir Foto
-											</button>
-										)}
-									</div>
-
-									{/* Notes Timeline */}
-									<div className="space-y-3 bg-secondary/15 rounded-xl p-4 border border-border max-h-[160px] overflow-y-auto">
-										{selectedOrder.notas.map((nt, idx) => (
-											<div
-												// biome-ignore lint/suspicious/noArrayIndexKey: lista de notas, las notas pueden repetirse
-												key={idx}
-												className="text-xs text-foreground flex gap-2"
-											>
-												<span className="text-muted-foreground select-none">
-													•
-												</span>
-												<p>{nt}</p>
+											{/* Notes Timeline */}
+											<div className="space-y-3 bg-secondary/15 rounded-xl p-4 border border-border max-h-[160px] overflow-y-auto">
+												{selectedOrder.notas.map((nt, idx) => (
+													<div
+														// biome-ignore lint/suspicious/noArrayIndexKey: lista de notas, las notas pueden repetirse
+														key={idx}
+														className="text-xs text-foreground flex gap-2"
+													>
+														<span className="text-muted-foreground select-none">
+															•
+														</span>
+														<p>{nt}</p>
+													</div>
+												))}
 											</div>
-										))}
-									</div>
+										</>
+									)}
 								</div>
 
 								{/* Add notes to timeline form */}
-								{isLocked ? (
-									<p className="text-xs text-muted-foreground italic bg-secondary/10 p-2.5 rounded border border-border">
-										Esta orden está cerrada. No se pueden añadir notas de
-										bitácora.
-									</p>
-								) : (
-									<form onSubmit={handleAddNote} className="flex gap-2">
-										<input
-											type="text"
-											required
-											placeholder="Escribe una actualización o nota en la bitácora..."
-											value={newNote}
-											onChange={(e) => setNewNote(e.target.value)}
-											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
-										/>
+								{showTimeline && (
+									isLocked ? (
+										<p className="text-xs text-muted-foreground italic bg-secondary/10 p-2.5 rounded border border-border">
+											Esta orden está cerrada. No se pueden añadir notas de
+											bitácora.
+										</p>
+									) : (
+										<form onSubmit={handleAddNote} className="flex gap-2">
+											<input
+												type="text"
+												required
+												placeholder="Escribe una actualización o nota en la bitácora..."
+												value={newNote}
+												onChange={(e) => setNewNote(e.target.value)}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
+											/>
 										<button
 											type="submit"
 											className="rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-colors"
@@ -1317,6 +1398,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 											Agregar Nota
 										</button>
 									</form>
+									)
 								)}
 							</div>
 						</div>

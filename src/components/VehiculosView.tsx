@@ -180,11 +180,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	const filteredVehiculos = vehiculos.filter((v) => {
 		// SaaS Multi-tenant filtering
 		if (
-			currentUser?.rol !== "SuperAdmin" &&
 			v.sucursalId &&
-			currentUser?.sucursalId
+			currentUser?.sucursalId &&
+			v.sucursalId !== currentUser.sucursalId
 		) {
-			if (v.sucursalId !== currentUser.sucursalId) return false;
+			return false;
 		}
 
 		const owner = getOwnerDetails(v);

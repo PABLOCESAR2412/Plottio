@@ -180,3 +180,38 @@ export const actualizarEstadoLote = mutation({
     return await actualizarEstadoLoteHelper(ctx, args.loteId);
   }
 });
+
+export const cambiarEstadoLote = mutation({
+  args: {
+    loteId: v.id("lotesProduccion"),
+    estado: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.loteId, { estado: args.estado });
+  }
+});
+
+export const agregarComentarioLote = mutation({
+  args: {
+    loteId: v.id("lotesProduccion"),
+    usuarioId: v.id("usuarios"),
+    texto: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const usuario = await ctx.db.get(args.usuarioId);
+    if (!usuario) throw new Error("Usuario no encontrado");
+
+    const lote = await ctx.db.get(args.loteId);
+    if (!lote) throw new Error("Lote no encontrado");
+
+    const comentarios = lote.comentarios || [];
+    comentarios.push({
+      autorId: usuario._id,
+      autorNombre: usuario.nombre,
+      texto: args.texto,
+      fecha: new Date().toISOString()
+    });
+
+    await ctx.db.patch(args.loteId, { comentarios });
+  }
+});
