@@ -87,26 +87,30 @@ export const useSessionStore = create<SessionStore>()(
 
 			theme: "light",
 			toggleTheme: () => {
-				set((state) => {
-					const next = state.theme === "light" ? "dark" : "light";
+				const state = get();
+				const next = state.theme === "light" ? "dark" : "light";
+				
+				const applyTheme = () => {
 					if (typeof window !== "undefined") {
 						const root = window.document.documentElement;
-						const applyTheme = () => {
-							if (next === "dark") root.classList.add("dark");
-							else root.classList.remove("dark");
-							window.localStorage.setItem("theme", next);
-						};
-
-						if ((document as any).startViewTransition) {
-							(document as any).startViewTransition(() => {
-								applyTheme();
-							});
-						} else {
-							applyTheme();
-						}
+						if (next === "dark") root.classList.add("dark");
+						else root.classList.remove("dark");
+						window.localStorage.setItem("theme", next);
 					}
-					return { theme: next };
-				});
+					set({ theme: next });
+				};
+
+				if (typeof window !== "undefined" && (document as any).startViewTransition) {
+					try {
+						(document as any).startViewTransition(() => {
+							applyTheme();
+						});
+					} catch (e) {
+						applyTheme();
+					}
+				} else {
+					applyTheme();
+				}
 			},
 
 			notificationsEnabled: true,
