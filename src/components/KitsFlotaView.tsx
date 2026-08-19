@@ -65,7 +65,7 @@ export function KitsFlotaView() {
 
 	const addItemToKit = () => {
 		if (!selectedServicioId) return;
-		const srv = servicios.find((s) => s._id === selectedServicioId);
+		const srv = (servicios ?? []).find((s) => s._id === selectedServicioId);
 		if (!srv) return;
 
 		setFormData({

@@ -165,7 +165,7 @@ export function AuditoriaView() {
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border">
-							{logs.map((log) => (
+							{(logs ?? []).map((log) => (
 								<>
 									<tr
 										key={log._id}
@@ -216,7 +216,7 @@ export function AuditoriaView() {
 									)}
 								</>
 							))}
-							{logs.length === 0 && (
+							{(logs ?? []).length === 0 && (
 								<tr>
 									<td
 										colSpan={6}

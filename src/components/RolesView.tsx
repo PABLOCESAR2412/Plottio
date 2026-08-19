@@ -164,7 +164,7 @@ export function RolesView() {
 						</div>
 					</div>
 				))}
-				{roles.length === 0 && (
+				{(roles ?? []).length === 0 && (
 					<div className="col-span-full py-8 text-center text-muted-foreground border-2 border-dashed border-border rounded-2xl">
 						No has creado roles personalizados. Los usuarios usarán roles
 						genéricos por defecto.

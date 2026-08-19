@@ -326,7 +326,7 @@ export const InventarioView: React.FC = () => {
 									</td>
 								</tr>
 							) : (
-								inventario.map((item) => (
+								(inventario ?? []).map((item) => (
 									<tr
 										key={item.item_id}
 										className="hover:bg-muted/30 transition-colors"

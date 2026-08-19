@@ -606,7 +606,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	};
 
 	// Browse details mapping
-	const activeCotizacion = cotizaciones.find(
+	const activeCotizacion = (cotizaciones ?? []).find(
 		(c) => c._id === selectedCotizacionId,
 	);
 

@@ -133,7 +133,7 @@ export const AgendaView: React.FC = () => {
 	};
 
 	// List of appointments for selected date
-	const appointmentsForSelectedDate = citas.filter(
+	const appointmentsForSelectedDate = (citas ?? []).filter(
 		(c) => c.fecha === selectedDate,
 	);
 
@@ -382,7 +382,7 @@ export const AgendaView: React.FC = () => {
 							const isToday = cellDateStr === "2026-06-03";
 
 							// Count appointments for this cell
-							const dayAppts = citas.filter((c) => c.fecha === cellDateStr);
+							const dayAppts = (citas ?? []).filter((c) => c.fecha === cellDateStr);
 
 							return (
 								<button

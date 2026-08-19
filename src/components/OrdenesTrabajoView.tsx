@@ -260,7 +260,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 
 
 	// Filter orders
-	const filteredOrders = ordenesTrabajo.filter((o) => {
+	const filteredOrders = (ordenesTrabajo ?? []).filter((o) => {
 		// SaaS Multi-tenant filtering
 		if (
 			o.sucursalId &&
@@ -290,7 +290,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			? filteredOrders[0]._id
 			: null;
 
-	const selectedOrder = ordenesTrabajo.find((o) => o._id === activeOrderId);
+	const selectedOrder = (ordenesTrabajo ?? []).find((o) => o._id === activeOrderId);
 
 	// Edit states for selected order
 	const [editPlaca, setEditPlaca] = useState("");
@@ -546,7 +546,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 						usuarioId: usuarioId as Id<"usuarios">,
 						ordenId: ord._id as Id<"ordenesTrabajo">,
 					});
-					const remaining = ordenesTrabajo.filter((o) => o._id !== ord._id);
+					const remaining = (ordenesTrabajo ?? []).filter((o) => o._id !== ord._id);
 					setSelectedOrderId(remaining.length > 0 ? remaining[0]._id : null);
 					setAlertConfig({
 						isOpen: true,
