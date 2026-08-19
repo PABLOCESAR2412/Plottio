@@ -91,9 +91,19 @@ export const useSessionStore = create<SessionStore>()(
 					const next = state.theme === "light" ? "dark" : "light";
 					if (typeof window !== "undefined") {
 						const root = window.document.documentElement;
-						if (next === "dark") root.classList.add("dark");
-						else root.classList.remove("dark");
-						window.localStorage.setItem("theme", next);
+						const applyTheme = () => {
+							if (next === "dark") root.classList.add("dark");
+							else root.classList.remove("dark");
+							window.localStorage.setItem("theme", next);
+						};
+
+						if ((document as any).startViewTransition) {
+							(document as any).startViewTransition(() => {
+								applyTheme();
+							});
+						} else {
+							applyTheme();
+						}
 					}
 					return { theme: next };
 				});
