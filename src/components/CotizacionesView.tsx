@@ -193,7 +193,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	// Selected Quote for browsing list
 	const [selectedCotizacionId, setSelectedCotizacionId] = useState<
 		string | null
-	>(cotizaciones.length > 0 ? cotizaciones[0]._id : null);
+	>(cotizaciones && cotizaciones.length > 0 ? cotizaciones[0]._id : null);
 
 	// Quote list search term
 	const [quoteSearchTerm, setQuoteSearchTerm] = useState("");
@@ -819,7 +819,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						usuarioId: usuarioId as Id<"usuarios">,
 						id: id as Id<"cotizaciones">,
 					});
-					const remaining = cotizaciones.filter((c) => c._id !== id);
+					const remaining = (cotizaciones ?? []).filter((c) => c._id !== id);
 					setSelectedCotizacionId(
 						remaining.length > 0 ? remaining[0]._id : null,
 					);
@@ -842,7 +842,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	};
 
 	// Filtered list of quotes
-	const filteredCotizaciones = cotizaciones.filter((c) => {
+	const filteredCotizaciones = (cotizaciones ?? []).filter((c) => {
 		// SaaS Multi-tenant filtering
 		if (
 			c.sucursalId &&

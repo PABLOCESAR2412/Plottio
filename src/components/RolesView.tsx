@@ -129,7 +129,7 @@ export function RolesView() {
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				{roles.map((rol) => (
+				{(roles ?? []).map((rol) => (
 					<div
 						key={rol._id}
 						className="bg-card rounded-2xl shadow-sm border border-border p-6 hover:shadow-md transition-shadow"

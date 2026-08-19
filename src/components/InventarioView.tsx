@@ -230,7 +230,7 @@ export const InventarioView: React.FC = () => {
 						</p>
 						<p className="text-2xl font-bold text-foreground">
 							{inventario
-								? inventario.filter(
+								? (inventario ?? []).filter(
 										(i) => i.cantidad_total <= i.cantidad_minima_total,
 									).length
 								: "..."}

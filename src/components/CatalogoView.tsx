@@ -34,7 +34,7 @@ export function CatalogoView() {
 	});
 
 
-	const filteredServicios = servicios.filter(
+	const filteredServicios = (servicios ?? []).filter(
 		(s) =>
 			s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			s.categoria.toLowerCase().includes(searchTerm.toLowerCase()),

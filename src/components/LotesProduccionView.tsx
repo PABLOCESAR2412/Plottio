@@ -45,7 +45,7 @@ export function LotesProduccionView() {
 	});
 
 
-	const filteredLotes = lotes.filter(
+	const filteredLotes = (lotes ?? []).filter(
 		(l) =>
 			l.numero.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
 			l.notas?.toLowerCase().includes(deferredSearchTerm.toLowerCase()),

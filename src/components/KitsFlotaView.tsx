@@ -59,7 +59,7 @@ export function KitsFlotaView() {
 	const [selectedServicioId, setSelectedServicioId] = useState("");
 
 
-	const filteredKits = kits.filter((k) =>
+	const filteredKits = (kits ?? []).filter((k) =>
 		k.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
 	);
 
