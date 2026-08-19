@@ -93,7 +93,6 @@ export function RolesView() {
 	};
 
 	// Agrupar permisos por módulo para UI
-	const permisosPorModulo = permisos.reduce(
 	const permisosPorModulo = permisos?.reduce(
 		(acc, p) => {
 			if (!acc[p.modulo]) acc[p.modulo] = [];

@@ -68,6 +68,8 @@ export function AuditoriaView() {
 		setHasta("");
 		setTabla("");
 		setUsuario("");
+	};
+
 	if (logs === undefined) {
 		return <TableSkeleton />;
 	}
