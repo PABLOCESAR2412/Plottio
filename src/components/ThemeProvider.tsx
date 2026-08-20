@@ -14,32 +14,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 	const toggleTheme = useSessionStore((s) => s.toggleTheme);
 
 	useEffect(() => {
-		// Initialize theme on mount from localStorage or system preferences
-		const storedTheme = localStorage.getItem("theme") as
-			| "light"
-			| "dark"
-			| null;
-
-		let activeTheme = "light";
-		if (storedTheme) {
-			activeTheme = storedTheme;
-		}
-
-		// Apply active theme class to document element
+		// Single source of truth: apply the store theme to the document element.
+		// The store initializes from localStorage on load, so no re-sync loop here.
 		const root = window.document.documentElement;
-		if (activeTheme === "dark") {
+		if (theme === "dark") {
 			root.classList.add("dark");
 		} else {
 			root.classList.remove("dark");
 		}
+	}, [theme]);
 
-		// Make sure Zustand matches the loaded value
-		if (activeTheme !== theme) {
-			toggleTheme();
-		}
-	}, [theme, toggleTheme]);
-
-	// To prevent hydration flashes, we render children, but apply class in useEffect
 	return (
 		<ThemeContext.Provider value={{ theme, toggleTheme }}>
 			{children}

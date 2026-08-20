@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Plottio - Gestión de Rotulado Vehicular</title>
     <meta name="description" content="Sistema premium de control y gestión para talleres de rotulación de buses, taxis y camiones." />
+    <script>
+      try {
+        if (localStorage.getItem("theme") === "dark") {
+          document.documentElement.classList.add("dark");
+        }
+      } catch {}
+    </script>
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
