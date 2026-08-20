@@ -278,7 +278,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 				modelo: modelo.trim(),
 				anio: año.trim() || "2025",
 				numeroSerie:
-					numeroSerie.trim() || S/N-,
+					numeroSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
 				propietarioId,
 				propietarioTipo,
 				estado,
@@ -1664,3 +1664,5 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		</div>
 	);
 };
+
+
