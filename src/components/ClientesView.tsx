@@ -17,6 +17,10 @@ import type React from "react";
 import { useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import {
+	consultarCacheIdentidad,
+	guardarCacheIdentidad,
+} from "../lib/consultaIdentidadCache";
 import { validarIdentificacion } from "../lib/identificacion";
 import { useSessionStore } from "../store/useSessionStore";
 import type { Cliente, Empresa, Vehiculo } from "../types/data";
@@ -121,6 +125,10 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const [buscado, setBuscado] = useState(false);
 	const searchTimerRef = useRef<number | null>(null);
 
+	// Validación de campos del formulario de creación
+	const [errorNombre, setErrorNombre] = useState("");
+	const [errorTelefono, setErrorTelefono] = useState("");
+
 	// Selected client for editing
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
 
@@ -170,6 +178,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		setEmpresaId("");
 		setResultadosBusqueda([]);
 		setErrorIdentificacion("");
+		setErrorNombre("");
+		setErrorTelefono("");
 		setIdentificacionValida(false);
 		setBuscado(false);
 		setBuscarIdentidadCargando(false);
@@ -181,8 +191,25 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		setBuscado(true);
 		setErrorIdentificacion("");
 		setResultadosBusqueda([]);
+
+		const cache = consultarCacheIdentidad(valor);
+		if (cache) {
+			if (cache.encontrado) {
+				setResultadosBusqueda([
+					{
+						nombres: cache.nombres,
+						identificacion: cache.identificacion,
+						direccion: cache.direccion,
+					},
+				]);
+			}
+			setBuscarIdentidadCargando(false);
+			return;
+		}
+
 		try {
 			const res = await consultarIdentidadAction({ numero: valor });
+			guardarCacheIdentidad(valor, res);
 			if (res.encontrado) {
 				setResultadosBusqueda([
 					{
@@ -191,8 +218,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 						direccion: res.direccion,
 					},
 				]);
-				setNombre(res.nombres);
-				if (res.direccion) setDireccion(res.direccion);
 			} else {
 				setResultadosBusqueda([]);
 			}
@@ -204,6 +229,30 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			);
 		} finally {
 			setBuscarIdentidadCargando(false);
+		}
+	};
+
+	const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const valor = e.target.value;
+		setNombre(valor);
+		if (valor && !/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]+$/.test(valor)) {
+			setErrorNombre("El nombre solo puede contener letras.");
+		} else {
+			setErrorNombre("");
+		}
+	};
+
+	const handleTelefonoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const soloNumeros = e.target.value.replace(/\D/g, "").slice(0, 10);
+		setTelefono(soloNumeros);
+		if (soloNumeros && soloNumeros.length !== 10) {
+			setErrorTelefono(
+				soloNumeros.length < 10
+					? "El número tiene menos dígitos de los correctos (10)."
+					: "El número tiene más dígitos de los correctos (10).",
+			);
+		} else {
+			setErrorTelefono("");
 		}
 	};
 
@@ -242,6 +291,26 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const handleCreate = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!nombre.trim() || !currentUser) return;
+
+		if (nombre.trim() && !/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]+$/.test(nombre.trim())) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: "El nombre solo puede contener letras.",
+				type: "error",
+			});
+			return;
+		}
+
+		if (telefono && telefono.length !== 10) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `El teléfono debe tener 10 dígitos (ingresó ${telefono.length}).`,
+				type: "error",
+			});
+			return;
+		}
 
 		if (!identificacion.trim() || !identificacionValida) {
 			setAlertConfig({
@@ -766,10 +835,13 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="text"
 									required
 									value={nombre}
-									onChange={(e) => setNombre(e.target.value)}
+									onChange={handleNombreChange}
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Carlos Mendoza"
 								/>
+								{errorNombre && (
+									<p className="mt-1 text-xs text-destructive">{errorNombre}</p>
+								)}
 							</div>
 
 							<div>
@@ -782,11 +854,18 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								<input
 									id="cliente-telefono"
 									type="text"
+									inputMode="numeric"
+									maxLength={10}
 									value={telefono}
-									onChange={(e) => setTelefono(e.target.value)}
+									onChange={handleTelefonoChange}
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-									placeholder="Ej. +593 98 765 4321"
+									placeholder="Ej. 0991234567"
 								/>
+								{errorTelefono && (
+									<p className="mt-1 text-xs text-destructive">
+										{errorTelefono}
+									</p>
+								)}
 							</div>
 
 							<div>
