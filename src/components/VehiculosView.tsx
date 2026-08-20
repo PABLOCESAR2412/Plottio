@@ -281,6 +281,19 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			return;
 		}
 
+		
+		const isDuplicate = vehiculos.some(
+			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase()
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `La placa "${placa.trim().toUpperCase()}" ya se encuentra registrada en otro vehículo.`,
+				type: "error",
+			});
+			return;
+		}
 		try {
 			const newVeh = await createVehiculoMut({
 				usuarioId: currentUser.id as any,
@@ -337,6 +350,19 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		e.preventDefault();
 		if (!selectedVehiculo || !placa.trim() || !currentUser) return;
 
+		
+		const isDuplicate = vehiculos.some(
+			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase() && v.id !== selectedVehiculo.id
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `La placa "${placa.trim().toUpperCase()}" ya se encuentra registrada en otro vehículo.`,
+				type: "error",
+			});
+			return;
+		}
 		await updateVehiculoMut({
 			usuarioId: currentUser.id as Id<"usuarios">,
 			vehiculoId: selectedVehiculo.id as Id<"vehiculos">,

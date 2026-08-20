@@ -158,6 +158,19 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		e.preventDefault();
 		if (!nombre.trim() || !currentUser) return;
 
+		
+		const isDuplicate = clientes.some(
+			(c) => c.identificacion && c.identificacion.trim() === identificacion.trim()
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `La identificación "${identificacion.trim()}" ya está registrada.`,
+				type: "error",
+			});
+			return;
+		}
 		const newCli = await createClienteMut({
 			usuarioId: currentUser.id as Id<"usuarios">,
 			nombre: nombre.trim(),
@@ -197,6 +210,19 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		e.preventDefault();
 		if (!editingClient || !nombre.trim() || !currentUser) return;
 
+		
+		const isDuplicate = clientes.some(
+			(c) => c.identificacion && c.identificacion.trim() === identificacion.trim() && c.id !== editingClient.id
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `La identificación "${identificacion.trim()}" ya está registrada en otro cliente.`,
+				type: "error",
+			});
+			return;
+		}
 		await updateClienteMut({
 			usuarioId: currentUser.id as Id<"usuarios">,
 			clienteId: editingClient.id as Id<"clientes">,
