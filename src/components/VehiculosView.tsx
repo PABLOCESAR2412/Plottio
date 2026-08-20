@@ -105,15 +105,13 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	const [selectedVehiculoId, setSelectedVehiculoId] = useState<string | null>(
 		null,
 	);
-	const ordenesVehiculo = useQuery(
+	const todasOrdenes = useQuery(
 		api.ordenes.fetchOrdenes,
 		currentUser && selectedVehiculoId
-			? {
-					usuarioId: currentUser.id as any,
-					filtros: { vehiculoId: selectedVehiculoId as any },
-				}
+			? { usuarioId: currentUser.id as any }
 			: "skip",
 	);
+	const ordenesVehiculo = (todasOrdenes || []).filter(o => o.vehiculoId === selectedVehiculoId);
 
 	// Modals
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
