@@ -95,11 +95,19 @@ export const consultarIdentidad = action({
 		if (Array.isArray(consolidados) && consolidados.length > 0) {
 			const data = consolidados[0] as Record<string, unknown>;
 			nombres = texto(data.razonSocial);
+			if (texto(data.tipoContribuyente) === "PERSONA NATURAL") {
+				const partes = nombres.split(/\s+/);
+				if (partes.length === 4) {
+					nombres = `${partes[2]} ${partes[3]} ${partes[0]} ${partes[1]}`;
+				}
+			}
 		}
 
 		if (Array.isArray(establecimientos) && establecimientos.length > 0) {
+			const esMatriz = (e: Record<string, unknown>) =>
+				e.matriz === true || e.matriz === "SI";
 			const matriz = establecimientos.find(
-				(e) => (e as Record<string, unknown>).matriz === true,
+				(e) => esMatriz(e as Record<string, unknown>),
 			) as Record<string, unknown> | undefined;
 			const escogido = matriz ?? (establecimientos[0] as Record<string, unknown>);
 			direccion = texto(escogido.direccionCompleta);
