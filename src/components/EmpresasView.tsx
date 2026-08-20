@@ -246,7 +246,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		if (!nombre.trim() || !ruc.trim()) return;
 
 
-		const isDuplicate = empresas.some(
+		const isDuplicate = ruc.trim() !== "" && empresas.some(
 			(e) => e.ruc && e.ruc.trim() === ruc.trim()
 		);
 		if (isDuplicate) {
@@ -260,7 +260,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		}
 
 		
-		const isDuplicate = empresas.some(
+		const isDuplicate = ruc.trim() !== "" && empresas.some(
 			(e) => e.ruc && e.ruc.trim() === ruc.trim()
 		);
 		if (isDuplicate) {
@@ -330,7 +330,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		if (!logoFile) return logoPreview;
 		setIsUploadingLogo(true);
 
-		const isDuplicate = empresas.some(
+		const isDuplicate = ruc.trim() !== "" && empresas.some(
 			(e) => e.ruc && e.ruc.trim() === ruc.trim() && e.id !== editingEmpresa.id
 		);
 		if (isDuplicate) {
@@ -363,7 +363,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		if (!editingEmpresa || !nombre.trim() || !ruc.trim()) return;
 
 		
-		const isDuplicate = empresas.some(
+		const isDuplicate = ruc.trim() !== "" && empresas.some(
 			(e) => e.ruc && e.ruc.trim() === ruc.trim() && e.id !== editingEmpresa.id
 		);
 		if (isDuplicate) {

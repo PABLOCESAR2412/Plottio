@@ -159,7 +159,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		if (!nombre.trim() || !currentUser) return;
 
 		
-		const isDuplicate = clientes.some(
+		const isDuplicate = identificacion.trim() !== "" && clientes.some(
 			(c) => c.identificacion && c.identificacion.trim() === identificacion.trim()
 		);
 		if (isDuplicate) {
@@ -211,7 +211,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		if (!editingClient || !nombre.trim() || !currentUser) return;
 
 		
-		const isDuplicate = clientes.some(
+		const isDuplicate = identificacion.trim() !== "" && clientes.some(
 			(c) => c.identificacion && c.identificacion.trim() === identificacion.trim() && c.id !== editingClient.id
 		);
 		if (isDuplicate) {

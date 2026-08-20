@@ -268,7 +268,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		if (!placa.trim() || !currentUser) return;
 
 		
-		const isDuplicate = vehiculos.some(
+		const isDuplicate = placa.trim() !== "" && vehiculos.some(
 			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase()
 		);
 		if (isDuplicate) {
@@ -282,7 +282,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		}
 
 		
-		const isDuplicate = vehiculos.some(
+		const isDuplicate = placa.trim() !== "" && vehiculos.some(
 			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase()
 		);
 		if (isDuplicate) {
@@ -351,7 +351,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		if (!selectedVehiculo || !placa.trim() || !currentUser) return;
 
 		
-		const isDuplicate = vehiculos.some(
+		const isDuplicate = placa.trim() !== "" && vehiculos.some(
 			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase() && v.id !== selectedVehiculo.id
 		);
 		if (isDuplicate) {
