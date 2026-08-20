@@ -1,5 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 
 export default defineSchema({
   empresas: defineTable({

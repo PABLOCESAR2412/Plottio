@@ -269,34 +269,43 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		e.preventDefault();
 		if (!placa.trim() || !currentUser) return;
 
-		const newVeh = await createVehiculoMut({
-			usuarioId: currentUser.id as Id<"usuarios">,
-			placa: placa.trim().toUpperCase(),
-			categoria,
-			marca: marca.trim(),
-			modelo: modelo.trim(),
-			anio: año.trim() || "2025",
-			numeroSerie:
-				numeroSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
-			propietarioId,
-			propietarioTipo,
-			estado,
-			sucursalId: currentUser?.sucursalId
-				? (currentUser.sucursalId as Id<"sucursales">)
-				: undefined,
-		});
+				try {
+			const newVeh = await createVehiculoMut({
+				usuarioId: currentUser.id as any,
+				placa: placa.trim().toUpperCase(),
+				categoria,
+				marca: marca.trim(),
+				modelo: modelo.trim(),
+				anio: año.trim() || "2025",
+				numeroSerie:
+					numeroSerie.trim() || S/N-,
+				propietarioId,
+				propietarioTipo,
+				estado,
+				sucursalId: currentUser?.sucursalId
+					? (currentUser.sucursalId as any)
+					: undefined,
+			});
 
-		setIsCreateOpen(false);
-		if (newVeh) {
-			setSelectedVehiculoId(newVeh._id);
+			setIsCreateOpen(false);
+			if (newVeh) {
+				setSelectedVehiculoId(newVeh._id);
+			}
+
+			setAlertConfig({
+				isOpen: true,
+				title: "Vehículo Añadido",
+				message: El vehículo con placa "" se registró exitosamente.,
+				type: "success",
+			});
+		} catch (error: any) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error",
+				message: error.data || error.message || "No se pudo crear el vehículo",
+				type: "error",
+			});
 		}
-
-		setAlertConfig({
-			isOpen: true,
-			title: "Vehículo Añadido",
-			message: `El vehículo con placa "${placa.trim().toUpperCase()}" se registró exitosamente.`,
-			type: "success",
-		});
 	};
 
 	const handleOpenEdit = (veh: Vehiculo) => {

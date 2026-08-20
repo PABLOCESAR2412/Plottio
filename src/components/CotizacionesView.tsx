@@ -131,7 +131,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 	// ── MUTATIONS (sustituyen a los setters de Zustand) ─────────────────────
 	const createCotizacionMut = useMutation(api.cotizaciones.createCotizacion);
-	const _updateCotizacionMut = useMutation(api.cotizaciones.updateCotizacion);
+	
 	const deleteCotizacionMut = useMutation(api.cotizaciones.deleteCotizacion);
 	const createVehiculoMut = useMutation(api.vehiculos.createVehiculo);
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);

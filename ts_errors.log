@@ -1,0 +1,16 @@
+src/components/AgendaView.tsx(377,32): error TS18048: 'citas' is possibly 'undefined'.
+src/components/CatalogoView.tsx(72,8): error TS6133: '_handleEdit' is declared but its value is never read.
+src/components/CotizacionesView.tsx(644,32): error TS2339: Property '_id' does not exist on type 'Cotizacion'.
+src/components/CotizacionesView.tsx(733,22): error TS2339: Property '_id' does not exist on type 'Cotizacion'.
+src/components/CotizacionesView.tsx(1115,44): error TS2345: Argument of type '{ cliente_nombre: string; sucursal_nombre: string; pv_nombre: string; pv_codigo: string; creado_por_nombre: string; _id: Id<"cotizaciones">; _creationTime: number; empresaId?: Id<"empresas"> | undefined; ... 11 more ...; total: number; }' is not assignable to parameter of type 'Cotizacion'.
+  Property 'id' is missing in type '{ cliente_nombre: string; sucursal_nombre: string; pv_nombre: string; pv_codigo: string; creado_por_nombre: string; _id: Id<"cotizaciones">; _creationTime: number; empresaId?: Id<"empresas"> | undefined; ... 11 more ...; total: number; }' but required in type 'Cotizacion'.
+src/components/InventarioView.tsx(461,16): error TS2554: Expected 0 arguments, but got 1.
+src/components/OrdenesTrabajoView.tsx(30,6): error TS6196: 'LocalCliente' is declared but never used.
+src/components/OrdenesTrabajoView.tsx(39,6): error TS6196: 'LocalEmpresa' is declared but never used.
+src/components/OrdenesTrabajoView.tsx(523,5): error TS2322: Type '"Pendiente" | "En Progreso" | "Cancelado" | "Completado"' is not assignable to type '"Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado" | undefined'.
+  Type '"En Progreso"' is not assignable to type '"Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado" | undefined'. Did you mean '"En Proceso"'?
+src/components/OrdenesTrabajoView.tsx(539,39): error TS2304: Cannot find name 'LocalOrden'.
+src/components/OrdenesTrabajoView.tsx(960,15): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<"Baja" | "Media" | "Alta">'.
+src/components/OrdenesTrabajoView.tsx(1153,13): error TS2345: Argument of type '"Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado"' is not assignable to parameter of type '"Pendiente" | "En Progreso" | "Cancelado" | "Completado"'.
+  Type '"En Proceso"' is not assignable to type '"Pendiente" | "En Progreso" | "Cancelado" | "Completado"'. Did you mean '"En Progreso"'?
+src/components/OrdenesTrabajoView.tsx(1492,17): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<"Baja" | "Media" | "Alta">'.

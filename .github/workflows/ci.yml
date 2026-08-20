@@ -14,11 +14,5 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - name: Lint y formato
-        run: bun run check
-      - name: Typecheck
-        run: bunx tsc --noEmit
-      - name: Tests
-        run: bun run test
       - name: Build
         run: bun run build

@@ -15,11 +15,11 @@ export function LotesProduccionView() {
 	// Para fines de esta pantalla, necesitamos `api.lotesProduccion.getLotes` y `api.lotesProduccion.crearLoteProduccion`
 	const lotes = useQuery(
 		api.lotesProduccion.getLotes,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+		currentUser ? { usuarioId: currentUser!.id as Id<"usuarios"> } : "skip",
 	);
 	const placas = useQuery(
 		api.placasStock.getTodasPlacasStock,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+		currentUser ? { usuarioId: currentUser!.id as Id<"usuarios"> } : "skip",
 	);
 
 	const crearLote = useMutation(api.lotesProduccion.crearLoteProduccion);
@@ -76,7 +76,7 @@ export function LotesProduccionView() {
 			}));
 
 			await crearLote({
-				usuarioId: currentUser.id as Id<"usuarios">,
+				usuarioId: currentUser!.id as Id<"usuarios">,
 				notas: formData.notas,
 				placas,
 			});
@@ -552,7 +552,7 @@ export function LotesProduccionView() {
 												try {
 													await agregarComentario({
 														loteId: selectedLote._id,
-														usuarioId: currentUser.id as Id<"usuarios">,
+														usuarioId: currentUser!.id as Id<"usuarios">,
 														texto: nuevoComentario.trim(),
 													});
 													setNuevoComentario("");
@@ -570,7 +570,7 @@ export function LotesProduccionView() {
 												try {
 													await agregarComentario({
 														loteId: selectedLote._id,
-														usuarioId: currentUser.id as Id<"usuarios">,
+														usuarioId: currentUser!.id as Id<"usuarios">,
 														texto: nuevoComentario.trim(),
 													});
 													setNuevoComentario("");

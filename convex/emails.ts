@@ -1,5 +1,5 @@
 import { internalAction } from "./_generated/server";
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 
 /**
  * Envío de emails transaccionales con Resend.

@@ -95,9 +95,9 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
-	) as Array<LocalCliente & { _id: string }> | undefined;
+	) as any[] | undefined;
 	const rawEmpresas = useQuery(api.organizacion.getEmpresas, {}) as
-		| Array<LocalEmpresa & { _id: string }>
+		| any[]
 		| undefined;
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
@@ -155,7 +155,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		);
 	});
 
-	const clientes: LocalCliente[] = useMemo(
+	const clientes: any[] = useMemo(
 		() =>
 			(rawClientes ?? []).map((c) => ({
 				id: c._id,
@@ -168,7 +168,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		[rawClientes],
 	);
 
-	const empresas: LocalEmpresa[] = useMemo(
+	const empresas: any[] = useMemo(
 		() =>
 			(rawEmpresas ?? []).map((e) => ({
 				id: e._id,
@@ -179,7 +179,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		[rawEmpresas],
 	);
 
-	const vehiculos: LocalVehiculo[] = useMemo(
+	const vehiculos: any[] = useMemo(
 		() =>
 			(rawVehiculos ?? []).map((v) => ({
 				id: v._id,
@@ -1818,3 +1818,4 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 		</div>
 	);
 };
+

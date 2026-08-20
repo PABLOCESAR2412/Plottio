@@ -21,12 +21,12 @@ export function KitsFlotaView() {
 
 	const kits = useQuery(
 		api.kitsFlota.getKits,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+		currentUser ? { usuarioId: currentUser!.id as Id<"usuarios"> } : "skip",
 	);
 
 	const servicios = useQuery(
 		api.catalogoServicios.getServicios,
-		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+		currentUser ? { usuarioId: currentUser!.id as Id<"usuarios"> } : "skip",
 	);
 
 	const crearKit = useMutation(api.kitsFlota.crearKitFlota);
@@ -103,7 +103,7 @@ export function KitsFlotaView() {
 				return;
 			}
 			await crearKit({
-				usuarioId: currentUser.id as Id<"usuarios">,
+				usuarioId: currentUser!.id as Id<"usuarios">,
 				nombre: formData.nombre,
 				descripcion: formData.descripcion,
 				items: formData.items.map((item) => ({
@@ -131,7 +131,7 @@ export function KitsFlotaView() {
 				return;
 			}
 			await actualizarKit({
-				usuarioId: currentUser.id as Id<"usuarios">,
+				usuarioId: currentUser!.id as Id<"usuarios">,
 				kitId: selectedKit._id,
 				nombre: formData.nombre,
 				descripcion: formData.descripcion,
@@ -159,7 +159,7 @@ export function KitsFlotaView() {
 		if (confirm("¿Estás seguro de que deseas eliminar este kit?")) {
 			try {
 				await eliminarKit({
-					usuarioId: currentUser.id as Id<"usuarios">,
+					usuarioId: currentUser!.id as Id<"usuarios">,
 					kitId: selectedKit._id,
 				});
 				toast.success("Kit eliminado");
@@ -186,7 +186,7 @@ export function KitsFlotaView() {
 
 		try {
 			await generarMasivo({
-				usuarioId: currentUser.id as Id<"usuarios">,
+				usuarioId: currentUser!.id as Id<"usuarios">,
 				kitId: selectedKit._id,
 				clienteId: selectedKit.clienteId as Id<"clientes">,
 				vehiculos: vehiculosValidos.map((v) => ({
