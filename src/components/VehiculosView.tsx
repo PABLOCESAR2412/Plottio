@@ -282,18 +282,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		}
 
 		
-		const isDuplicate = placa.trim() !== "" && vehiculos.some(
-			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase()
-		);
-		if (isDuplicate) {
-			setAlertConfig({
-				isOpen: true,
-				title: "Error de Validación",
-				message: `La placa "${placa.trim().toUpperCase()}" ya se encuentra registrada en otro vehículo.`,
-				type: "error",
-			});
-			return;
-		}
 		try {
 			const newVeh = await createVehiculoMut({
 				usuarioId: currentUser.id as any,

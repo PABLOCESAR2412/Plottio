@@ -260,18 +260,6 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		}
 
 		
-		const isDuplicate = ruc.trim() !== "" && empresas.some(
-			(e) => e.ruc && e.ruc.trim() === ruc.trim()
-		);
-		if (isDuplicate) {
-			setAlertConfig({
-				isOpen: true,
-				title: "Error de Validación",
-				message: `El RUC "${ruc.trim()}" ya está registrado en otra empresa.`,
-				type: "error",
-			});
-			return;
-		}
 		try {
 			const newEmp = (await createEmpresaMut({
 				nombre: nombre.trim(),
