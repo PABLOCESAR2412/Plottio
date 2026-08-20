@@ -558,10 +558,6 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 				clienteNombre: clienteNombre.trim(),
 				clienteTelefono: clienteTelefono.trim(),
 				vehiculoTipo,
-				vehiculoId:
-					currentVehiculoId && currentVehiculoId !== "nuevo"
-						? (currentVehiculoId as Id<"vehiculos">)
-						: undefined,
 				items: items.map((it) => ({
 					descripcion: it.descripcion,
 					cantidad: it.cantidad,
