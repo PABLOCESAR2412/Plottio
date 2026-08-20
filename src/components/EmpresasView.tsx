@@ -245,6 +245,20 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		e.preventDefault();
 		if (!nombre.trim() || !ruc.trim()) return;
 
+
+		const isDuplicate = empresas.some(
+			(e) => e.ruc && e.ruc.trim() === ruc.trim()
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `El RUC "${ruc.trim()}" ya está registrado en otra empresa.`,
+				type: "error",
+			});
+			return;
+		}
+
 		try {
 			const newEmp = (await createEmpresaMut({
 				nombre: nombre.trim(),
@@ -302,6 +316,20 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	const uploadLogo = async (): Promise<string> => {
 		if (!logoFile) return logoPreview;
 		setIsUploadingLogo(true);
+
+		const isDuplicate = empresas.some(
+			(e) => e.ruc && e.ruc.trim() === ruc.trim() && e.id !== editingEmpresa.id
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `El RUC "${ruc.trim()}" ya está registrado en otra empresa.`,
+				type: "error",
+			});
+			return;
+		}
+
 		try {
 			const uploadUrl = await generateLogoUploadUrl();
 			const res = await fetch(uploadUrl, {

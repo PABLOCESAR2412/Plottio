@@ -111,7 +111,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			? { usuarioId: currentUser.id as any }
 			: "skip",
 	);
-	const ordenesVehiculo = (todasOrdenes || []).filter(o => o.vehiculoId === selectedVehiculoId);
+	const ordenesVehiculo = (todasOrdenes || []).filter(o => o.placa && selectedVehiculo && o.placa.toUpperCase() === selectedVehiculo.placa.toUpperCase());
 
 	// Modals
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -267,7 +267,21 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		e.preventDefault();
 		if (!placa.trim() || !currentUser) return;
 
-				try {
+		
+		const isDuplicate = vehiculos.some(
+			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase()
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `La placa "${placa.trim().toUpperCase()}" ya se encuentra registrada en otro vehículo.`,
+				type: "error",
+			});
+			return;
+		}
+
+		try {
 			const newVeh = await createVehiculoMut({
 				usuarioId: currentUser.id as any,
 				placa: placa.trim().toUpperCase(),
