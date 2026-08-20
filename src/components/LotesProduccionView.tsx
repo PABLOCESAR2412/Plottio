@@ -33,7 +33,9 @@ export function LotesProduccionView() {
 	const [nuevoComentario, setNuevoComentario] = useState("");
 
 	const cambiarEstado = useMutation(api.lotesProduccion.cambiarEstadoLote);
-	const agregarComentario = useMutation(api.lotesProduccion.agregarComentarioLote);
+	const agregarComentario = useMutation(
+		api.lotesProduccion.agregarComentarioLote,
+	);
 
 	const [formData, setFormData] = useState({
 		notas: "",
@@ -43,7 +45,6 @@ export function LotesProduccionView() {
 		alto_cm: 20,
 		texto_base: "Ruta Genérica",
 	});
-
 
 	const filteredLotes = (lotes ?? []).filter(
 		(l) =>
@@ -452,22 +453,54 @@ export function LotesProduccionView() {
 							<h3 className="text-xl font-bold text-foreground">
 								Detalles del Lote {selectedLote.numero}
 							</h3>
-							<button onClick={() => setShowDetailModal(false)} className="text-muted-foreground hover:text-foreground">
+							<button
+								onClick={() => setShowDetailModal(false)}
+								className="text-muted-foreground hover:text-foreground"
+							>
 								✕
 							</button>
 						</div>
 						<div className="p-6 space-y-4">
+							<div className="grid grid-cols-2 gap-4 text-sm bg-secondary/50 p-4 rounded-xl border border-border">
+								<div>
+									<span className="text-muted-foreground block text-xs">
+										Fecha Creación
+									</span>
+									<span className="font-semibold">
+										{new Date(selectedLote.fechaCreacion).toLocaleDateString()}
+									</span>
+								</div>
+								<div>
+									<span className="text-muted-foreground block text-xs">
+										ID de Lote
+									</span>
+									<span className="font-semibold">{selectedLote._id}</span>
+								</div>
+								<div className="col-span-2">
+									<span className="text-muted-foreground block text-xs">
+										Notas Originales
+									</span>
+									<span className="font-semibold">
+										{selectedLote.notas || "Sin notas"}
+									</span>
+								</div>
+							</div>
 							<div className="flex justify-between items-center">
-								<span className="font-medium text-foreground">Estado Actual:</span>
+								<span className="font-medium text-foreground">
+									Estado Actual:
+								</span>
 								<select
 									value={selectedLote.estado}
 									onChange={async (e) => {
 										const newEstado = e.target.value;
 										try {
-											await cambiarEstado({ loteId: selectedLote._id, estado: newEstado });
+											await cambiarEstado({
+												loteId: selectedLote._id,
+												estado: newEstado,
+											});
 											setSelectedLote({ ...selectedLote, estado: newEstado });
 											toast.success("Estado actualizado");
-										} catch (err) {
+										} catch (_err) {
 											toast.error("Error al actualizar estado");
 										}
 									}}
@@ -475,17 +508,24 @@ export function LotesProduccionView() {
 								>
 									<option value="En Producción">En Producción</option>
 									<option value="Terminado">Terminado</option>
-									<option value="Parcialmente Asignado">Parcialmente Asignado</option>
+									<option value="Parcialmente Asignado">
+										Parcialmente Asignado
+									</option>
 									<option value="Agotado">Agotado</option>
 								</select>
 							</div>
 
 							<div className="border-t border-border pt-4">
-								<h4 className="font-semibold text-foreground mb-2">Comentarios</h4>
+								<h4 className="font-semibold text-foreground mb-2">
+									Comentarios
+								</h4>
 								<div className="max-h-40 overflow-y-auto space-y-2 mb-4 pr-2">
 									{selectedLote.comentarios?.length ? (
-										selectedLote.comentarios.map((c: any, i: number) => (
-											<div key={i} className="bg-muted p-3 rounded-xl text-sm">
+										selectedLote.comentarios.map((c: any, _i: number) => (
+											<div
+												key={crypto.randomUUID()}
+												className="bg-muted p-3 rounded-xl text-sm"
+											>
 												<div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
 													<span className="font-medium">{c.autorNombre}</span>
 													<span>{new Date(c.fecha).toLocaleString()}</span>
@@ -494,10 +534,12 @@ export function LotesProduccionView() {
 											</div>
 										))
 									) : (
-										<p className="text-sm text-muted-foreground">No hay comentarios aún.</p>
+										<p className="text-sm text-muted-foreground">
+											No hay comentarios aún.
+										</p>
 									)}
 								</div>
-								
+
 								<div className="flex gap-2">
 									<input
 										type="text"
@@ -516,7 +558,7 @@ export function LotesProduccionView() {
 													setNuevoComentario("");
 													toast.success("Comentario añadido");
 													// Optionally you could optimistically update the local state here
-												} catch (err) {
+												} catch (_err) {
 													toast.error("Error al añadir comentario");
 												}
 											}
@@ -533,7 +575,7 @@ export function LotesProduccionView() {
 													});
 													setNuevoComentario("");
 													toast.success("Comentario añadido");
-												} catch (err) {
+												} catch (_err) {
 													toast.error("Error al añadir comentario");
 												}
 											}

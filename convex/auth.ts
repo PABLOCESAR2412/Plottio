@@ -1,5 +1,6 @@
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { ConvexError } from "convex/values";
 
 export type UserContext = {
   usuarioId: Id<"usuarios">;
@@ -19,7 +20,7 @@ export async function getCurrentUserContext(
   usuarioId: Id<"usuarios">,
 ): Promise<UserContext> {
   const user = await ctx.db.get(usuarioId);
-  if (!user) throw new Error("Usuario no encontrado");
+  if (!user) throw new ConvexError("Usuario no encontrado");
 
   const userRoles = await ctx.db
     .query("usuariosRolesSucursal")
@@ -177,7 +178,7 @@ export async function requirePermission(
 ) {
   const hasPerm = await checkPermission(ctx, usuarioId, permisoRequerido, sucursalId);
   if (!hasPerm) {
-    throw new Error(`[403 Forbidden] No tienes permiso para realizar esta acción: ${permisoRequerido}`);
+    throw new ConvexError(`[403 Forbidden] No tienes permiso para realizar esta acción: ${permisoRequerido}`);
   }
 }
 

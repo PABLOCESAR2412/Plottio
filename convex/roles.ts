@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
 export const getRoles = query({
@@ -96,7 +96,7 @@ export const deleteRole = mutation({
   args: { roleId: v.id("roles") },
   handler: async (ctx, args) => {
     const role = await ctx.db.get(args.roleId);
-    if (!role) throw new Error("Rol no encontrado");
+    if (!role) throw new ConvexError("Rol no encontrado");
 
     // Verificar que no tenga usuarios asignados activos
     const asignaciones = await ctx.db
@@ -105,7 +105,7 @@ export const deleteRole = mutation({
       .filter((q) => q.eq(q.field("activo"), true))
       .collect();
     if (asignaciones.length > 0) {
-      throw new Error(
+      throw new ConvexError(
         `No se puede eliminar: el rol tiene ${asignaciones.length} usuario(s) asignado(s).`,
       );
     }

@@ -89,8 +89,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCita & { _id: string }> | undefined;
 
-
-
 	const ordenesTrabajo: LocalOrden[] = useMemo(
 		() =>
 			(rawOrdenes ?? []).map((o) => ({
@@ -125,7 +123,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 		(o) =>
 			!currentUser?.sucursalId ||
 			!o.sucursalId ||
-			o.sucursalId === currentUser.sucursalId
+			o.sucursalId === currentUser.sucursalId,
 	);
 
 	// Statistics calculations

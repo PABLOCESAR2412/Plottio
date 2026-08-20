@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -25,7 +25,7 @@ export const getUsuarios = query({
     } else {
       // Admin Sucursal ve solo su sucursal
       await requirePermission(ctx, args.usuarioId, "ver_usuarios");
-      if (!context.sucursal) throw new Error("Contexto de sucursal no encontrado");
+      if (!context.sucursal) throw new ConvexError("Contexto de sucursal no encontrado");
       
       return await ctx.db
         .query("usuarios")
@@ -63,13 +63,13 @@ export const invitarUsuario = mutation({
       .first();
 
     if (existente) {
-      throw new Error("El correo electrónico ya está registrado.");
+      throw new ConvexError("El correo electrónico ya está registrado.");
     }
 
     // Token criptográficamente seguro (UUID v4)
     const token = generateSecureToken();
 
-    if (!context.empresa) throw new Error("Empresa no encontrada");
+    if (!context.empresa) throw new ConvexError("Empresa no encontrada");
 
     const newUserId = await ctx.db.insert("usuarios", {
       nombre: args.nombre,
@@ -162,9 +162,9 @@ export const aceptarInvitacion = action({
     const user = await ctx.runQuery(internal.usuarios.getUserByTokenInternal, {
       token: args.token,
     });
-    if (!user) throw new Error("Token inválido o expirado.");
+    if (!user) throw new ConvexError("Token inválido o expirado.");
 
-    if (user.invitationAccepted) throw new Error("Esta invitación ya fue aceptada.");
+    if (user.invitationAccepted) throw new ConvexError("Esta invitación ya fue aceptada.");
 
     // bcrypt requiere ejecutarse en una action (usa scheduling interno).
     const hashed = await hashPassword(args.password);
@@ -219,7 +219,7 @@ export const deleteUsuario = mutation({
     await requirePermission(ctx, args.adminId, "crear_usuarios");
 
     const target = await ctx.db.get(args.usuarioId);
-    if (!target) throw new Error("Usuario no encontrado");
+    if (!target) throw new ConvexError("Usuario no encontrado");
 
     // Evitar borrar al último SuperAdmin activo
     if (target.rol === "SuperAdmin") {
@@ -234,7 +234,7 @@ export const deleteUsuario = mutation({
         .collect();
       const vivos = otrosSuperAdmins.filter(u => u._id !== args.usuarioId);
       if (vivos.length === 0) {
-        throw new Error(
+        throw new ConvexError(
           "No se puede eliminar al único SuperAdmin activo del sistema.",
         );
       }
@@ -267,8 +267,8 @@ export const login = action({
       email: args.email,
     });
 
-    if (!user) throw new Error("Credenciales incorrectas");
-    if (!user.activo) throw new Error("Tu cuenta está inactiva");
+    if (!user) throw new ConvexError("Credenciales incorrectas");
+    if (!user.activo) throw new ConvexError("Tu cuenta está inactiva");
 
     const stored = user.password ?? null;
 
@@ -287,7 +287,7 @@ export const login = action({
     // Caso 2: hash bcrypt
     if (isBcryptHash(stored)) {
       const ok = await verifyPassword(args.password, stored);
-      if (!ok) throw new Error("Credenciales incorrectas");
+      if (!ok) throw new ConvexError("Credenciales incorrectas");
       return await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
         userId: user._id,
       });
@@ -305,7 +305,7 @@ export const login = action({
       });
     }
 
-    throw new Error("Credenciales incorrectas");
+    throw new ConvexError("Credenciales incorrectas");
   }
 });
 

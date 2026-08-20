@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
@@ -35,7 +35,7 @@ export const createBug = mutation({
   },
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const bugId = await ctx.db.insert("bugs", {
       titulo: args.titulo,
@@ -139,7 +139,7 @@ export const addBugComment = mutation({
   },
   handler: async (ctx, args) => {
     const bug = await ctx.db.get(args.bugId);
-    if (!bug) throw new Error("Bug no encontrado");
+    if (!bug) throw new ConvexError("Bug no encontrado");
 
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 

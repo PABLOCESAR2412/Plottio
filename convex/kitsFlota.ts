@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
 // 12.3 FUNCIÓN: crearKitFlota()
@@ -19,7 +19,7 @@ export const crearKitFlota = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const kitId = await ctx.db.insert("kitsFlota", {
       empresaId: userContext.empresa.id,
@@ -62,7 +62,7 @@ export const fetchKitConItems = query({
     await requirePermission(ctx, args.usuarioId, "ver_cotizaciones");
 
     const kit = await ctx.db.get(args.kitId);
-    if (!kit) throw new Error("Kit no encontrado");
+    if (!kit) throw new ConvexError("Kit no encontrado");
 
     return await Promise.all(kit.items.map(async (item) => {
       const servicio = await ctx.db.get(item.servicioId);
@@ -92,11 +92,11 @@ export const generarCotizacionesMasivasDesdeKit = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa || !userContext.sucursal) throw new Error("Empresa/Sucursal no encontrada");
+    if (!userContext.empresa || !userContext.sucursal) throw new ConvexError("Empresa/Sucursal no encontrada");
 
     const kit = await ctx.db.get(args.kitId);
     if (!kit || kit.items.length === 0) {
-      throw new Error("El kit no tiene ítems configurados");
+      throw new ConvexError("El kit no tiene ítems configurados");
     }
 
     // Resolving prices and names beforehand
@@ -217,7 +217,7 @@ export const fetchSubgruposPorVehiculo = query({
 
     const cotizacion = await ctx.db.get(args.cotizacionId);
     if (!cotizacion || !cotizacion.esGrupoFlota) {
-      throw new Error("Cotización no válida o no es grupo de flota");
+      throw new ConvexError("Cotización no válida o no es grupo de flota");
     }
 
     const subgruposMap = new Map();

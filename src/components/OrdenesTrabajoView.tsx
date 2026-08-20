@@ -19,8 +19,8 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
-import { SuccessDialog } from "./SuccessDialog";
 import { TableSkeleton } from "./Skeleton";
+import { SuccessDialog } from "./SuccessDialog";
 
 interface OrdenesTrabajoViewProps {
 	preselectedOrderId?: string | null;
@@ -114,13 +114,13 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		| Array<{ _id: string; nombre: string; categoria: string; precio: number }>
 		| undefined;
 
-
-
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
 	const updateOrdenMut = useMutation(api.ordenes.updateOrdenTrabajo);
 	const deleteOrdenMut = useMutation(api.ordenes.deleteOrdenTrabajo);
-	const generateUploadUrlMut = useMutation(api.organizacion.generateLogoUploadUrl);
+	const generateUploadUrlMut = useMutation(
+		api.organizacion.generateLogoUploadUrl,
+	);
 	const addFotoMut = useMutation(api.ordenes.addFoto);
 	const toggleItemMut = useMutation(
 		api.ordenes.toggleItemCompletado,
@@ -258,7 +258,6 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isUploading, setIsUploading] = useState(false);
 
-
 	// Filter orders
 	const filteredOrders = (ordenesTrabajo ?? []).filter((o) => {
 		// SaaS Multi-tenant filtering
@@ -290,7 +289,9 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			? filteredOrders[0]._id
 			: null;
 
-	const selectedOrder = (ordenesTrabajo ?? []).find((o) => o._id === activeOrderId);
+	const selectedOrder = (ordenesTrabajo ?? []).find(
+		(o) => o._id === activeOrderId,
+	);
 
 	// Edit states for selected order
 	const [editPlaca, setEditPlaca] = useState("");
@@ -511,7 +512,9 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	};
 
 	// Status changes from drop-down
-	const handleStatusChange = async (newStatus: any) => {
+	const handleStatusChange = async (
+		newStatus: "Pendiente" | "En Progreso" | "Completado" | "Cancelado",
+	) => {
 		if (!selectedOrder || !usuarioId) return;
 		try {
 			await updateOrdenMut({
@@ -533,7 +536,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		}
 	};
 
-	const handleDeleteOrderClick = (ord: any) => {
+	const handleDeleteOrderClick = (ord: LocalOrden) => {
 		setAlertConfig({
 			isOpen: true,
 			title: "¿Eliminar Orden de Trabajo?",
@@ -546,7 +549,9 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 						usuarioId: usuarioId as Id<"usuarios">,
 						ordenId: ord._id as Id<"ordenesTrabajo">,
 					});
-					const remaining = (ordenesTrabajo ?? []).filter((o) => o._id !== ord._id);
+					const remaining = (ordenesTrabajo ?? []).filter(
+						(o) => o._id !== ord._id,
+					);
 					setSelectedOrderId(remaining.length > 0 ? remaining[0]._id : null);
 					setAlertConfig({
 						isOpen: true,
@@ -608,15 +613,15 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 			const MAX_WIDTH = 1920;
 			const MAX_HEIGHT = 1080;
 			if (width > height) {
-			  if (width > MAX_WIDTH) {
-				height *= MAX_WIDTH / width;
-				width = MAX_WIDTH;
-			  }
+				if (width > MAX_WIDTH) {
+					height *= MAX_WIDTH / width;
+					width = MAX_WIDTH;
+				}
 			} else {
-			  if (height > MAX_HEIGHT) {
-				width *= MAX_HEIGHT / height;
-				height = MAX_HEIGHT;
-			  }
+				if (height > MAX_HEIGHT) {
+					width *= MAX_HEIGHT / height;
+					height = MAX_HEIGHT;
+				}
 			}
 			canvas.width = width;
 			canvas.height = height;
@@ -631,7 +636,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 						else reject(new Error("Failed to convert image to WebP"));
 					},
 					"image/webp",
-					0.8
+					0.8,
 				);
 			});
 
@@ -796,7 +801,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 							>
 								<div className="truncate pr-2">
 									<div className="font-bold text-sm flex items-center gap-1.5">
-										<span>{ord._id.substring(0,4) + "..."}</span>
+										<span>{`${ord._id.substring(0, 4)}...`}</span>
 										<span
 											className={`text-[10px] px-1 py-0.2 rounded font-mono ${
 												selectedOrderId === ord._id
@@ -842,7 +847,241 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 				{/* Right Col: Details workspace */}
 				<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
-					{selectedOrder ? (
+					{isCreateOpen ? (
+						<div className="animate-fade-in space-y-6">
+							<h3 className="text-lg font-bold text-foreground mb-4">
+								Nueva Orden de Trabajo
+							</h3>
+
+							<div className="grid gap-4 sm:grid-cols-2 max-h-[450px] overflow-y-auto pr-1">
+								{/* Client and parameters */}
+								<div className="space-y-4">
+									<div>
+										<label
+											htmlFor="ot-clienteNombre"
+											className="block text-xs font-semibold text-muted-foreground mb-1"
+										>
+											Cliente *
+										</label>
+										<input
+											id="ot-clienteNombre"
+											type="text"
+											required
+											value={clienteNombre}
+											onChange={(e) => {
+												setClienteNombre(e.target.value);
+												const matched = clientes.find(
+													(c) =>
+														c.nombre.toLowerCase() ===
+														e.target.value.toLowerCase(),
+												);
+												if (matched) setClienteTelefono(matched.telefono);
+											}}
+											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+											placeholder="Búsqueda / Creación inteligente"
+											list="ot-clientes-list"
+										/>
+										<datalist id="ot-clientes-list">
+											{clientes.map((c) => (
+												<option key={c.id} value={c.nombre} />
+											))}
+										</datalist>
+									</div>
+
+									<div>
+										<label
+											htmlFor="ot-clienteTelefono"
+											className="block text-xs font-semibold text-muted-foreground mb-1"
+										>
+											Teléfono
+										</label>
+										<input
+											id="ot-clienteTelefono"
+											type="text"
+											value={clienteTelefono}
+											onChange={(e) => setClienteTelefono(e.target.value)}
+											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										/>
+									</div>
+
+									<div className="grid grid-cols-2 gap-3">
+										<div>
+											<label
+												htmlFor="ot-placa"
+												className="block text-xs font-semibold text-muted-foreground mb-1"
+											>
+												Placa *
+											</label>
+											<input
+												id="ot-placa"
+												type="text"
+												required
+												value={placa}
+												onChange={(e) => setPlaca(e.target.value)}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+												placeholder="PBA-0000"
+											/>
+										</div>
+										<div>
+											<label
+												htmlFor="ot-categoria"
+												className="block text-xs font-semibold text-muted-foreground mb-1"
+											>
+												Categoría *
+											</label>
+											<select
+												value={vehiculoTipo}
+												id="ot-categoria"
+												onChange={(e) => setVehiculoTipo(e.target.value)}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+											>
+												{categoriasPrecios.map((cat) => (
+													<option key={cat} value={cat}>
+														{cat}
+													</option>
+												))}
+											</select>
+										</div>
+									</div>
+
+									<div className="grid grid-cols-2 gap-3">
+										<div>
+											<label
+												htmlFor="ot-prioridad"
+												className="block text-xs font-semibold text-muted-foreground mb-1"
+											>
+												Prioridad
+											</label>
+											<select
+												value={prioridad}
+												id="ot-prioridad"
+												onChange={(e) =>
+													setPrioridad(
+														e.target.value as OrdenTrabajo["prioridad"],
+													)
+												}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+											>
+												<option value="Baja">Baja</option>
+												<option value="Media">Media</option>
+												<option value="Alta">Alta</option>
+											</select>
+										</div>
+										<div>
+											<label
+												htmlFor="ot-fechaFin"
+												className="block text-xs font-semibold text-muted-foreground mb-1"
+											>
+												Fecha Entrega *
+											</label>
+											<input
+												id="ot-fechaFin"
+												type="date"
+												required
+												value={fechaFin}
+												onChange={(e) => setFechaFin(e.target.value)}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+											/>
+										</div>
+									</div>
+								</div>
+
+								{/* Items builder */}
+								<div className="space-y-4">
+									<div className="border border-border rounded-lg p-3 bg-secondary/5">
+										<h4 className="text-xs font-bold text-foreground mb-2">
+											Añadir Stickers / Servicios
+										</h4>
+										<form onSubmit={handleAddItemToForm} className="space-y-2">
+											<input
+												type="text"
+												placeholder="Ej. Visera de parabrisas publicitaria"
+												value={itemDesc}
+												onChange={(e) => setItemDesc(e.target.value)}
+												className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none"
+											/>
+											<div className="grid grid-cols-2 gap-2">
+												<input
+													type="number"
+													min="1"
+													placeholder="Cant"
+													value={itemCant}
+													onChange={(e) => setItemCant(Number(e.target.value))}
+													className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none"
+												/>
+												<input
+													type="number"
+													min="0"
+													placeholder="Precio unitario ($)"
+													value={itemPrecio}
+													onChange={(e) =>
+														setItemPrecio(Number(e.target.value))
+													}
+													className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none"
+												/>
+											</div>
+											<button
+												type="submit"
+												className="w-full rounded bg-primary py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+											>
+												Insertar Item
+											</button>
+										</form>
+									</div>
+
+									{/* Items preview list */}
+									<div className="max-h-[140px] overflow-y-auto divide-y divide-border pr-1">
+										{orderItems.map((it, idx) => (
+											<div
+												// biome-ignore lint/suspicious/noArrayIndexKey: filas de formulario controladas por índice
+												key={idx}
+												className="flex justify-between items-center py-1.5 text-xs"
+											>
+												<div className="truncate">
+													<div className="font-semibold text-foreground truncate">
+														{it.descripcion}
+													</div>
+													<div className="text-muted-foreground text-[10px]">
+														{it.cantidad} x ${it.precioUnitario}
+													</div>
+												</div>
+												<button
+													type="button"
+													onClick={() => handleRemoveItemFromForm(idx)}
+													className="text-destructive hover:bg-destructive/10 p-1 rounded"
+												>
+													<Trash2 className="h-3.5 w-3.5" />
+												</button>
+											</div>
+										))}
+										{orderItems.length === 0 && (
+											<div className="text-center py-6 text-muted-foreground text-xs">
+												Agrega al menos una tarea a la orden de trabajo.
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+
+							<div className="flex gap-3 justify-end pt-4 border-t border-border mt-4">
+								<button
+									type="button"
+									onClick={() => setIsCreateOpen(false)}
+									className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+								>
+									Cancelar
+								</button>
+								<button
+									type="button"
+									disabled={!clienteNombre.trim() || orderItems.length === 0}
+									onClick={handleCreateOrder}
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
+								>
+									Iniciar Trabajo
+								</button>
+							</div>
+						</div>
+					) : selectedOrder ? (
 						<div className="space-y-6">
 							{/* Lock Banner if Closed */}
 							{isLocked && (
@@ -864,9 +1103,11 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 									<div>
 										<div className="flex items-center gap-2 flex-wrap">
 											<h2 className="text-lg font-black text-foreground flex items-center gap-2">
-												<span>{selectedOrder._id.substring(0,4) + "..."}</span>
+												<span>{`${selectedOrder._id.substring(0, 4)}...`}</span>
 												<button
-													onClick={() => navigator.clipboard.writeText(selectedOrder._id)}
+													onClick={() =>
+														navigator.clipboard.writeText(selectedOrder._id)
+													}
 													className="p-1 rounded hover:bg-secondary/50 text-muted-foreground transition-colors cursor-pointer"
 													title="Copiar ID completo"
 												>
@@ -1043,7 +1284,8 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 													try {
 														await updateOrdenMut({
 															usuarioId: usuarioId as Id<"usuarios">,
-															ordenId: selectedOrder._id as Id<"ordenesTrabajo">,
+															ordenId:
+																selectedOrder._id as Id<"ordenesTrabajo">,
 															items: updatedItems,
 														});
 													} catch (err) {
@@ -1313,7 +1555,9 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 											onClick={() => setShowTimeline(!showTimeline)}
 											className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
 										>
-											{showTimeline ? "Ocultar Línea de Tiempo" : "Mostrar Línea de Tiempo"}
+											{showTimeline
+												? "Ocultar Línea de Tiempo"
+												: "Mostrar Línea de Tiempo"}
 										</button>
 									</div>
 
@@ -1346,12 +1590,12 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 														{isUploading ? "Subiendo..." : "Añadir Foto"}
 													</button>
 												)}
-												<input 
-													type="file" 
-													ref={fileInputRef} 
-													hidden 
-													accept="image/*" 
-													onChange={handleFileChange} 
+												<input
+													type="file"
+													ref={fileInputRef}
+													hidden
+													accept="image/*"
+													onChange={handleFileChange}
 												/>
 											</div>
 
@@ -1375,8 +1619,8 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 								</div>
 
 								{/* Add notes to timeline form */}
-								{showTimeline && (
-									isLocked ? (
+								{showTimeline &&
+									(isLocked ? (
 										<p className="text-xs text-muted-foreground italic bg-secondary/10 p-2.5 rounded border border-border">
 											Esta orden está cerrada. No se pueden añadir notas de
 											bitácora.
@@ -1391,15 +1635,14 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												onChange={(e) => setNewNote(e.target.value)}
 												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
 											/>
-										<button
-											type="submit"
-											className="rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-colors"
-										>
-											Agregar Nota
-										</button>
-									</form>
-									)
-								)}
+											<button
+												type="submit"
+												className="rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+											>
+												Agregar Nota
+											</button>
+										</form>
+									))}
 							</div>
 						</div>
 					) : (
@@ -1413,249 +1656,6 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 					)}
 				</div>
 			</div>
-
-			{/* CREATE ORDER MODAL */}
-			{isCreateOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-					<button
-						type="button"
-						aria-label="Cerrar modal"
-						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-						onClick={() => setIsCreateOpen(false)}
-					/>
-					<div className="relative w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
-						<h3 className="text-lg font-bold text-foreground mb-4">
-							Nueva Orden de Trabajo
-						</h3>
-
-						<div className="grid gap-4 sm:grid-cols-2 max-h-[450px] overflow-y-auto pr-1">
-							{/* Client and parameters */}
-							<div className="space-y-4">
-								<div>
-									<label
-										htmlFor="ot-clienteNombre"
-										className="block text-xs font-semibold text-muted-foreground mb-1"
-									>
-										Cliente *
-									</label>
-									<input
-										id="ot-clienteNombre"
-										type="text"
-										required
-										value={clienteNombre}
-										onChange={(e) => {
-											setClienteNombre(e.target.value);
-											const matched = clientes.find(
-												(c) =>
-													c.nombre.toLowerCase() ===
-													e.target.value.toLowerCase(),
-											);
-											if (matched) setClienteTelefono(matched.telefono);
-										}}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-										placeholder="Búsqueda / Creación inteligente"
-										list="ot-clientes-list"
-									/>
-									<datalist id="ot-clientes-list">
-										{clientes.map((c) => (
-											<option key={c.id} value={c.nombre} />
-										))}
-									</datalist>
-								</div>
-
-								<div>
-									<label
-										htmlFor="ot-clienteTelefono"
-										className="block text-xs font-semibold text-muted-foreground mb-1"
-									>
-										Teléfono
-									</label>
-									<input
-										id="ot-clienteTelefono"
-										type="text"
-										value={clienteTelefono}
-										onChange={(e) => setClienteTelefono(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-									/>
-								</div>
-
-								<div className="grid grid-cols-2 gap-3">
-									<div>
-										<label
-											htmlFor="ot-placa"
-											className="block text-xs font-semibold text-muted-foreground mb-1"
-										>
-											Placa *
-										</label>
-										<input
-											id="ot-placa"
-											type="text"
-											required
-											value={placa}
-											onChange={(e) => setPlaca(e.target.value)}
-											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-											placeholder="PBA-0000"
-										/>
-									</div>
-									<div>
-										<label
-											htmlFor="ot-categoria"
-											className="block text-xs font-semibold text-muted-foreground mb-1"
-										>
-											Categoría *
-										</label>
-										<select
-											value={vehiculoTipo}
-											id="ot-categoria"
-											onChange={(e) => setVehiculoTipo(e.target.value)}
-											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-										>
-											{categoriasPrecios.map((cat) => (
-												<option key={cat} value={cat}>
-													{cat}
-												</option>
-											))}
-										</select>
-									</div>
-								</div>
-
-								<div className="grid grid-cols-2 gap-3">
-									<div>
-										<label
-											htmlFor="ot-prioridad"
-											className="block text-xs font-semibold text-muted-foreground mb-1"
-										>
-											Prioridad
-										</label>
-										<select
-											value={prioridad}
-											id="ot-prioridad"
-											onChange={(e) =>
-												setPrioridad(
-													e.target.value as OrdenTrabajo["prioridad"],
-												)
-											}
-											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-										>
-											<option value="Baja">Baja</option>
-											<option value="Media">Media</option>
-											<option value="Alta">Alta</option>
-										</select>
-									</div>
-									<div>
-										<label
-											htmlFor="ot-fechaFin"
-											className="block text-xs font-semibold text-muted-foreground mb-1"
-										>
-											Fecha Entrega *
-										</label>
-										<input
-											id="ot-fechaFin"
-											type="date"
-											required
-											value={fechaFin}
-											onChange={(e) => setFechaFin(e.target.value)}
-											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-										/>
-									</div>
-								</div>
-							</div>
-
-							{/* Items builder */}
-							<div className="space-y-4">
-								<div className="border border-border rounded-lg p-3 bg-secondary/5">
-									<h4 className="text-xs font-bold text-foreground mb-2">
-										Añadir Stickers / Servicios
-									</h4>
-									<form onSubmit={handleAddItemToForm} className="space-y-2">
-										<input
-											type="text"
-											placeholder="Ej. Visera de parabrisas publicitaria"
-											value={itemDesc}
-											onChange={(e) => setItemDesc(e.target.value)}
-											className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none"
-										/>
-										<div className="grid grid-cols-2 gap-2">
-											<input
-												type="number"
-												min="1"
-												placeholder="Cant"
-												value={itemCant}
-												onChange={(e) => setItemCant(Number(e.target.value))}
-												className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none"
-											/>
-											<input
-												type="number"
-												min="0"
-												placeholder="Precio unitario ($)"
-												value={itemPrecio}
-												onChange={(e) => setItemPrecio(Number(e.target.value))}
-												className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none"
-											/>
-										</div>
-										<button
-											type="submit"
-											className="w-full rounded bg-primary py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
-										>
-											Insertar Item
-										</button>
-									</form>
-								</div>
-
-								{/* Items preview list */}
-								<div className="max-h-[140px] overflow-y-auto divide-y divide-border pr-1">
-									{orderItems.map((it, idx) => (
-										<div
-											// biome-ignore lint/suspicious/noArrayIndexKey: filas de formulario controladas por índice
-											key={idx}
-											className="flex justify-between items-center py-1.5 text-xs"
-										>
-											<div className="truncate">
-												<div className="font-semibold text-foreground truncate">
-													{it.descripcion}
-												</div>
-												<div className="text-muted-foreground text-[10px]">
-													{it.cantidad} x ${it.precioUnitario}
-												</div>
-											</div>
-											<button
-												type="button"
-												onClick={() => handleRemoveItemFromForm(idx)}
-												className="text-destructive hover:bg-destructive/10 p-1 rounded"
-											>
-												<Trash2 className="h-3.5 w-3.5" />
-											</button>
-										</div>
-									))}
-									{orderItems.length === 0 && (
-										<div className="text-center py-6 text-muted-foreground text-xs">
-											Agrega al menos una tarea a la orden de trabajo.
-										</div>
-									)}
-								</div>
-							</div>
-						</div>
-
-						<div className="flex gap-3 justify-end pt-4 border-t border-border mt-4">
-							<button
-								type="button"
-								onClick={() => setIsCreateOpen(false)}
-								className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
-							>
-								Cancelar
-							</button>
-							<button
-								type="button"
-								disabled={!clienteNombre.trim() || orderItems.length === 0}
-								onClick={handleCreateOrder}
-								className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
-							>
-								Iniciar Trabajo
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
 
 			{/* BILLING DATA MODAL ("Datos para la Factura") */}
 			{isInvoiceOpen && selectedOrder && (

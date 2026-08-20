@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
@@ -43,7 +43,7 @@ export const createPlantillaPrecio = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const id = await ctx.db.insert("plantillasPrecios", {
       empresaId: userContext.empresa.id,
@@ -168,10 +168,10 @@ export const addCategoriaPrecio = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const limpia = args.nombre.trim();
-    if (!limpia) throw new Error("Nombre de categoría vacío");
+    if (!limpia) throw new ConvexError("Nombre de categoría vacío");
 
     const existente = await ctx.db
       .query("categoriasPrecios")
@@ -208,16 +208,16 @@ export const updateCategoriaPrecio = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const cat = await ctx.db.get(args.categoriaId);
-    if (!cat) throw new Error("Categoría no encontrada");
+    if (!cat) throw new ConvexError("Categoría no encontrada");
     if (cat.empresaId !== userContext.empresa.id) {
-      throw new Error("No pertenece a su empresa");
+      throw new ConvexError("No pertenece a su empresa");
     }
 
     const limpia = args.nuevoNombre.trim();
-    if (!limpia) throw new Error("Nombre vacío");
+    if (!limpia) throw new ConvexError("Nombre vacío");
 
     const oldName = cat.nombre;
 
@@ -301,10 +301,10 @@ export const deleteCategoriaPrecio = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const cat = await ctx.db.get(args.categoriaId);
-    if (!cat) throw new Error("Categoría no encontrada");
+    if (!cat) throw new ConvexError("Categoría no encontrada");
 
     const oldName = cat.nombre;
     const fallback = args.fallback?.trim() || "General";

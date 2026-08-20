@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
@@ -116,7 +116,7 @@ export const crearItemCotizacionConPlaca = mutation({
     await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
 
     const cotizacion = await ctx.db.get(args.cotizacionId);
-    if (!cotizacion) throw new Error("Cotización no encontrada");
+    if (!cotizacion) throw new ConvexError("Cotización no encontrada");
 
     const nuevoItem = {
       servicioId: args.servicioId,
@@ -147,7 +147,7 @@ export const fetchItemsCotizacionConPlacas = query({
     await requirePermission(ctx, args.usuarioId, "ver_cotizaciones");
 
     const cotizacion = await ctx.db.get(args.cotizacionId);
-    if (!cotizacion) throw new Error("Cotización no encontrada");
+    if (!cotizacion) throw new ConvexError("Cotización no encontrada");
 
     // Enriquecer items con la categoría del catálogo si existe
     return await Promise.all(cotizacion.items.map(async (item) => {
@@ -181,6 +181,7 @@ export const createCotizacion = mutation({
     // Se mantiene opcional para aceptar clientes que aún tengan el frontend
     // anterior cacheado. La tabla siempre recibe un string más abajo.
     vehiculoTipo: v.optional(v.string()),
+    vehiculoId: v.optional(v.id("vehiculos")),
     items: v.array(v.object({
       servicioId: v.optional(v.id("catalogoServicios")),
       descripcion: v.string(),
@@ -204,7 +205,7 @@ export const createCotizacion = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     // Recalcular total desde los items (la fuente de verdad son los items)
     const totalCalculado = args.items.reduce(
@@ -216,6 +217,7 @@ export const createCotizacion = mutation({
       clienteNombre: args.clienteNombre,
       clienteTelefono: args.clienteTelefono,
       vehiculoTipo: args.vehiculoTipo?.trim() || "Vehículo sin especificar",
+      vehiculoId: args.vehiculoId,
       items: args.items,
       total: args.total ?? totalCalculado,
       estado: args.estado ?? "Pendiente",
@@ -249,6 +251,7 @@ export const updateCotizacion = mutation({
     clienteNombre: v.optional(v.string()),
     clienteTelefono: v.optional(v.string()),
     vehiculoTipo: v.optional(v.string()),
+    vehiculoId: v.optional(v.id("vehiculos")),
     items: v.optional(v.array(v.object({
       servicioId: v.optional(v.id("catalogoServicios")),
       descripcion: v.string(),
@@ -272,7 +275,7 @@ export const updateCotizacion = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const actual = await ctx.db.get(args.cotizacionId);
-    if (!actual) throw new Error("Cotización no encontrada");
+    if (!actual) throw new ConvexError("Cotización no encontrada");
 
     // Validación multi-tenant
     if (
@@ -280,7 +283,7 @@ export const updateCotizacion = mutation({
       actual.empresaId &&
       actual.empresaId !== userContext.empresa.id
     ) {
-      throw new Error("No tiene permisos para modificar esta cotización");
+      throw new ConvexError("No tiene permisos para modificar esta cotización");
     }
 
     const { cotizacionId, usuarioId: _u, items, ...updates } = args;
@@ -340,14 +343,14 @@ export const deleteCotizacion = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const actual = await ctx.db.get(args.id);
-    if (!actual) throw new Error("Cotización no encontrada");
+    if (!actual) throw new ConvexError("Cotización no encontrada");
 
     if (
       userContext.empresa &&
       actual.empresaId &&
       actual.empresaId !== userContext.empresa.id
     ) {
-      throw new Error("No tiene permisos para eliminar esta cotización");
+      throw new ConvexError("No tiene permisos para eliminar esta cotización");
     }
 
     await ctx.db.delete(args.id);
@@ -367,3 +370,6 @@ export const deleteCotizacion = mutation({
     return { success: true };
   }
 });
+
+
+

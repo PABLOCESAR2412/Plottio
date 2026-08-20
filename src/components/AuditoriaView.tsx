@@ -60,7 +60,6 @@ export function AuditoriaView() {
 		[logs],
 	);
 
-
 	const tieneFiltros = Boolean(desde || hasta || tabla || usuario);
 
 	const limpiarFiltros = () => {

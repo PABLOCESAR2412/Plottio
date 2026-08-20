@@ -2,12 +2,11 @@ import { useMutation, useQuery } from "convex/react";
 import {
 	AlertTriangle,
 	ArrowRightLeft,
+	Edit2,
 	Loader2,
 	Package,
 	PackageSearch,
 	Plus,
-	Settings2,
-	Edit2,
 	Trash2,
 	TrendingDown,
 	TrendingUp,
@@ -39,6 +38,7 @@ export const InventarioView: React.FC = () => {
 	const transferirMutation = useMutation(api.inventario.transferirInventario);
 	const updateItemMutation = useMutation(api.inventario.updateInventarioItem);
 	const deleteItemMutation = useMutation(api.inventario.deleteInventarioItem);
+	const addStockMutation = useMutation(api.inventario.addInventarioSucursal);
 
 	const [activeTab, setActiveTab] = useState<
 		"items" | "movimientos" | "alertas"
@@ -47,8 +47,19 @@ export const InventarioView: React.FC = () => {
 	// Modals state
 	const [showNewItemModal, setShowNewItemModal] = useState(false);
 	const [showEditItemModal, setShowEditItemModal] = useState(false);
-	const [editingItem, setEditingItem] = useState<{ id: Id<"inventarioItems">, nombre: string, tipo: string, descripcion: string, costoUnitario: number, unidadMedida: string } | null>(null);
+	const [editingItem, setEditingItem] = useState<{
+		id: Id<"inventarioItems">;
+		nombre: string;
+		tipo: string;
+		descripcion: string;
+		costoUnitario: number;
+		unidadMedida: string;
+	} | null>(null);
 	const [showTransferModal, setShowTransferModal] = useState(false);
+	const [showAddStockModal, setShowAddStockModal] = useState(false);
+	const [_showDeleteModal, setShowDeleteModal] = useState(false);
+	const [itemToDelete, setItemToDelete] =
+		useState<Id<"inventarioItems"> | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// New Item Form
@@ -68,7 +79,12 @@ export const InventarioView: React.FC = () => {
 		cantidad: 0,
 	});
 
-
+	// Add Stock Form
+	const [addStockData, setAddStockData] = useState({
+		itemId: "",
+		sucursalId: "",
+		cantidad: 0,
+	});
 
 	const handleCreateItem = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -104,7 +120,6 @@ export const InventarioView: React.FC = () => {
 		}
 	};
 
-	
 	const handleEditItem = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!currentUser || !editingItem) return;
@@ -116,30 +131,63 @@ export const InventarioView: React.FC = () => {
 				nombre: editingItem.nombre,
 				tipo: editingItem.tipo,
 				descripcion: editingItem.descripcion,
-				costoUnitario: Number.isNaN(editingItem.costoUnitario) ? 0 : editingItem.costoUnitario,
+				costoUnitario: Number.isNaN(editingItem.costoUnitario)
+					? 0
+					: editingItem.costoUnitario,
 				unidadMedida: editingItem.unidadMedida,
 			});
 			toast.success("Ítem actualizado exitosamente");
 			setShowEditItemModal(false);
 			setEditingItem(null);
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Error al actualizar ítem");
+			toast.error(
+				error instanceof Error ? error.message : "Error al actualizar ítem",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
-	const handleDeleteItem = async (itemId: Id<"inventarioItems">) => {
-		if (!currentUser) return;
-		if (!window.confirm("¿Está seguro de eliminar este ítem y su stock?")) return;
+	const handleDeleteItem = async () => {
+		if (!currentUser || !itemToDelete) return;
+		setIsSubmitting(true);
 		try {
 			await deleteItemMutation({
 				usuarioId: currentUser.id as Id<"usuarios">,
-				itemId,
+				itemId: itemToDelete,
 			});
 			toast.success("Ítem eliminado exitosamente");
+			setShowDeleteModal(false);
+			setItemToDelete(null);
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Error al eliminar ítem");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar ítem",
+			);
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleAddStock = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!currentUser) return;
+		setIsSubmitting(true);
+		try {
+			await addStockMutation({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				sucursalId: addStockData.sucursalId as Id<"sucursales">,
+				itemId: addStockData.itemId as Id<"inventarioItems">,
+				cantidad: addStockData.cantidad,
+			});
+			toast.success("Stock agregado con éxito");
+			setShowAddStockModal(false);
+			setAddStockData({ itemId: "", sucursalId: "", cantidad: 0 });
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Error al agregar stock",
+			);
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
@@ -185,6 +233,14 @@ export const InventarioView: React.FC = () => {
 					</p>
 				</div>
 				<div className="flex gap-2">
+					<button
+						type="button"
+						onClick={() => setShowAddStockModal(true)}
+						className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-600 font-semibold rounded-lg hover:bg-green-500/20 transition-colors cursor-pointer"
+					>
+						<Plus className="h-4 w-4" />
+						Añadir Stock
+					</button>
 					<button
 						type="button"
 						onClick={() => setShowTransferModal(true)}
@@ -363,12 +419,16 @@ export const InventarioView: React.FC = () => {
 											)}
 										</td>
 										<td className="px-6 py-4 text-right">
-
 											<div className="flex justify-end gap-1">
 												<button
 													type="button"
 													onClick={() => {
-														setTransfer({ desde: "", hacia: "", itemId: item.item_id, cantidad: 0 });
+														setTransfer({
+															desde: "",
+															hacia: "",
+															itemId: item.item_id,
+															cantidad: 0,
+														});
 														setShowTransferModal(true);
 													}}
 													className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
@@ -385,7 +445,7 @@ export const InventarioView: React.FC = () => {
 															tipo: item.tipo || "",
 															descripcion: "",
 															costoUnitario: item.costo_unitario || 0,
-															unidadMedida: item.unidadMedida
+															unidadMedida: item.unidadMedida,
 														});
 														setShowEditItemModal(true);
 													}}
@@ -396,14 +456,17 @@ export const InventarioView: React.FC = () => {
 												</button>
 												<button
 													type="button"
-													onClick={() => handleDeleteItem(item.item_id as Id<"inventarioItems">)}
+													onClick={() =>
+														handleDeleteItem(
+															item.item_id as Id<"inventarioItems">,
+														)
+													}
 													className="p-2 hover:bg-destructive/10 rounded-lg text-destructive transition-colors cursor-pointer"
 													title="Eliminar"
 												>
 													<Trash2 className="h-4 w-4" />
 												</button>
 											</div>
-
 										</td>
 									</tr>
 								))
@@ -564,7 +627,6 @@ export const InventarioView: React.FC = () => {
 				</div>
 			)}
 
-			
 			{/* MODAL: Editar Ítem */}
 			{showEditItemModal && editingItem && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
@@ -630,7 +692,10 @@ export const InventarioView: React.FC = () => {
 										id="editItemUnidadMedida"
 										value={editingItem.unidadMedida}
 										onChange={(e) =>
-											setEditingItem({ ...editingItem, unidadMedida: e.target.value })
+											setEditingItem({
+												...editingItem,
+												unidadMedida: e.target.value,
+											})
 										}
 										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
 									>
@@ -695,6 +760,109 @@ export const InventarioView: React.FC = () => {
 				</div>
 			)}
 
+			{/* MODAL: Añadir Stock */}
+			{showAddStockModal && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+					<div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+						<div className="p-4 border-b border-border flex justify-between items-center bg-secondary/50">
+							<h3 className="font-bold text-foreground flex items-center gap-2">
+								<Plus className="h-5 w-5 text-primary" />
+								Añadir Stock
+							</h3>
+							<button
+								type="button"
+								onClick={() => setShowAddStockModal(false)}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<X className="h-5 w-5" />
+							</button>
+						</div>
+						<form onSubmit={handleAddStock} className="p-5 space-y-4">
+							<div>
+								<label className="block text-xs font-semibold text-foreground mb-1.5">
+									Ítem
+								</label>
+								<select
+									required
+									value={addStockData.itemId}
+									onChange={(e) =>
+										setAddStockData({ ...addStockData, itemId: e.target.value })
+									}
+									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+								>
+									<option value="">Seleccionar ítem...</option>
+									{inventario.map((it) => (
+										<option key={it.item_id} value={it.item_id}>
+											{it.nombre}
+										</option>
+									))}
+								</select>
+							</div>
+							<div>
+								<label className="block text-xs font-semibold text-foreground mb-1.5">
+									Sucursal
+								</label>
+								<select
+									required
+									value={addStockData.sucursalId}
+									onChange={(e) =>
+										setAddStockData({
+											...addStockData,
+											sucursalId: e.target.value,
+										})
+									}
+									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+								>
+									<option value="">Seleccionar sucursal...</option>
+									{sucursales?.map((s) => (
+										<option key={s.id} value={s.id}>
+											{s.nombre}
+										</option>
+									))}
+								</select>
+							</div>
+							<div>
+								<label className="block text-xs font-semibold text-foreground mb-1.5">
+									Cantidad
+								</label>
+								<input
+									type="number"
+									required
+									min="1"
+									value={addStockData.cantidad || ""}
+									onChange={(e) =>
+										setAddStockData({
+											...addStockData,
+											cantidad: parseInt(e.target.value, 10) || 0,
+										})
+									}
+									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+								/>
+							</div>
+							<div className="pt-4 flex gap-3">
+								<button
+									type="button"
+									onClick={() => setShowAddStockModal(false)}
+									className="w-full py-2.5 rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-secondary transition-colors cursor-pointer"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									disabled={isSubmitting}
+									className="w-full flex justify-center py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+								>
+									{isSubmitting ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										"Añadir"
+									)}
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
 			{/* MODAL: Transferir */}
 			{showTransferModal && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">

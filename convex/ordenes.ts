@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
@@ -10,7 +10,8 @@ export const fetchOrdenes = query({
     usuarioId: v.id("usuarios"),
     filtros: v.optional(v.object({
       estado: v.optional(v.string()),
-      tecnicoId: v.optional(v.id("usuarios"))
+      tecnicoId: v.optional(v.id("usuarios")),
+      vehiculoId: v.optional(v.id("vehiculos"))
     }))
   },
   handler: async (ctx, args) => {
@@ -38,11 +39,12 @@ export const fetchOrdenes = query({
 
        if (!hasAccess) return false;
 
-       if (args.filtros) {
+        if (args.filtros) {
          if (args.filtros.estado && orden.estado !== args.filtros.estado) return false;
          if (args.filtros.tecnicoId && !esInstalador) {
            if (orden.asignadoAUsuarioId !== args.filtros.tecnicoId) return false;
          }
+         if (args.filtros.vehiculoId && orden.vehiculoId !== args.filtros.vehiculoId) return false;
        }
 
        return true;
@@ -137,7 +139,7 @@ export const createOrdenTrabajo = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_orden");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const { total, progreso } = calcularProgresoYTotal(args.items);
 
@@ -159,6 +161,8 @@ export const createOrdenTrabajo = mutation({
       sucursalId: args.sucursalId ?? userContext.sucursal?.id,
       pvOrigen: args.pvOrigen,
       asignadoAUsuarioId: args.asignadoAUsuarioId,
+      vehiculoId: args.vehiculoId,
+      cotizacionId: args.cotizacionId,
     });
 
     await registrarAccion(ctx, {
@@ -209,14 +213,14 @@ export const updateOrdenTrabajo = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const actual = await ctx.db.get(args.ordenId);
-    if (!actual) throw new Error("Orden de trabajo no encontrada");
+    if (!actual) throw new ConvexError("Orden de trabajo no encontrada");
 
     if (
       userContext.empresa &&
       actual.empresaId &&
       actual.empresaId !== userContext.empresa.id
     ) {
-      throw new Error("No tiene permisos para modificar esta orden");
+      throw new ConvexError("No tiene permisos para modificar esta orden");
     }
 
     const { ordenId, usuarioId: _u, items, ...resto } = args;
@@ -267,9 +271,9 @@ export const toggleItemCompletado = mutation({
     }
 
     const actual = await ctx.db.get(args.ordenId);
-    if (!actual) throw new Error("Orden no encontrada");
+    if (!actual) throw new ConvexError("Orden no encontrada");
     if (args.itemIndex < 0 || args.itemIndex >= actual.items.length) {
-      throw new Error("Índice de ítem inválido");
+      throw new ConvexError("Índice de ítem inválido");
     }
 
     const nuevosItems = actual.items.map((item, idx) =>
@@ -297,14 +301,14 @@ export const deleteOrdenTrabajo = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const actual = await ctx.db.get(args.ordenId);
-    if (!actual) throw new Error("Orden no encontrada");
+    if (!actual) throw new ConvexError("Orden no encontrada");
 
     if (
       userContext.empresa &&
       actual.empresaId &&
       actual.empresaId !== userContext.empresa.id
     ) {
-      throw new Error("No tiene permisos para eliminar esta orden");
+      throw new ConvexError("No tiene permisos para eliminar esta orden");
     }
 
     // Liberar placas asignadas a esta orden
@@ -351,18 +355,18 @@ export const addFoto = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const actual = await ctx.db.get(args.ordenId);
-    if (!actual) throw new Error("Orden de trabajo no encontrada");
+    if (!actual) throw new ConvexError("Orden de trabajo no encontrada");
 
     if (
       userContext.empresa &&
       actual.empresaId &&
       actual.empresaId !== userContext.empresa.id
     ) {
-      throw new Error("No tiene permisos para modificar esta orden");
+      throw new ConvexError("No tiene permisos para modificar esta orden");
     }
 
     const url = await ctx.storage.getUrl(args.storageId);
-    if (!url) throw new Error("Error obteniendo URL de la foto");
+    if (!url) throw new ConvexError("Error obteniendo URL de la foto");
 
     const nuevasFotos = [...(actual.fotos || []), url];
     const nuevasNotas = [...(actual.notas || []), "Se añadió una nueva foto del proceso de instalación."];

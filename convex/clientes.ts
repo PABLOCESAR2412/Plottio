@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
 // 3.5 A) Función fetchClientes() DESPUÉS (con filtro Automático)
@@ -67,7 +67,7 @@ export const createCliente = mutation({
     
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa || !userContext.sucursal) {
-      throw new Error("El usuario necesita estar asignado a una Empresa y Sucursal");
+      throw new ConvexError("El usuario necesita estar asignado a una Empresa y Sucursal");
     }
 
     if (args.identificacion && args.identificacion.trim() !== "") {
@@ -76,7 +76,7 @@ export const createCliente = mutation({
         .filter((q) => q.eq(q.field("identificacion"), args.identificacion))
         .first();
       if (existing) {
-        throw new Error(`Ya existe un cliente con la identificación ${args.identificacion}`);
+        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
       }
     }
 
@@ -170,7 +170,7 @@ export const updateCliente = mutation({
   handler: async (ctx, args) => {
     // Validate permission or context if needed, but for simplicity:
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Sin permisos");
+    if (!userContext.empresa) throw new ConvexError("Sin permisos");
 
     if (args.identificacion && args.identificacion.trim() !== "") {
       const existing = await ctx.db
@@ -178,7 +178,7 @@ export const updateCliente = mutation({
         .filter((q) => q.eq(q.field("identificacion"), args.identificacion))
         .first();
       if (existing && existing._id !== args.clienteId) {
-        throw new Error(`Ya existe un cliente con la identificación ${args.identificacion}`);
+        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
       }
     }
 
@@ -202,7 +202,7 @@ export const deleteCliente = mutation({
   },
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Sin permisos");
+    if (!userContext.empresa) throw new ConvexError("Sin permisos");
 
     await ctx.db.delete(args.clienteId);
   }

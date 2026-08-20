@@ -58,7 +58,6 @@ export function KitsFlotaView() {
 
 	const [selectedServicioId, setSelectedServicioId] = useState("");
 
-
 	const filteredKits = (kits ?? []).filter((k) =>
 		k.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
 	);
@@ -149,7 +148,9 @@ export function KitsFlotaView() {
 			setSelectedKit(null);
 			setFormData({ nombre: "", descripcion: "", items: [] });
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Error al actualizar kit");
+			toast.error(
+				err instanceof Error ? err.message : "Error al actualizar kit",
+			);
 		}
 	};
 
@@ -164,7 +165,7 @@ export function KitsFlotaView() {
 				toast.success("Kit eliminado");
 				setShowEditModal(false);
 				setSelectedKit(null);
-			} catch (err) {
+			} catch (_err) {
 				toast.error("Error al eliminar kit");
 			}
 		}
@@ -247,13 +248,13 @@ export function KitsFlotaView() {
 							setFormData({
 								nombre: k.nombre,
 								descripcion: k.descripcion || "",
-								items: k.items.map(item => ({
+								items: k.items.map((item) => ({
 									servicioId: item.servicioId,
 									nombre: "Servicio", // We might not have the name without fetching, but we can do our best. Or let it be.
 									cantidad_por_unidad: item.cantidad_por_unidad,
 									precio_unitario: item.precio_unitario,
 									notas: item.notas,
-								}))
+								})),
 							});
 							setShowEditModal(true);
 						}}
@@ -379,7 +380,7 @@ export function KitsFlotaView() {
 									{formData.items.map((item, index) => (
 										<div
 											// biome-ignore lint/suspicious/noArrayIndexKey: filas de formulario controladas por índice
-											key={index}
+											key={crypto.randomUUID()}
 											className="flex flex-col sm:flex-row gap-3 items-center bg-background p-3 rounded-xl border border-border"
 										>
 											<div className="flex-1 font-medium text-foreground text-sm">
@@ -458,7 +459,10 @@ export function KitsFlotaView() {
 							<h3 className="text-xl font-bold text-foreground">
 								Editar Kit de Flota
 							</h3>
-							<button onClick={() => setShowEditModal(false)} className="text-muted-foreground hover:text-foreground">
+							<button
+								onClick={() => setShowEditModal(false)}
+								className="text-muted-foreground hover:text-foreground"
+							>
 								✕
 							</button>
 						</div>
@@ -535,7 +539,7 @@ export function KitsFlotaView() {
 								<div className="space-y-3">
 									{formData.items.map((item, index) => (
 										<div
-											key={index}
+											key={crypto.randomUUID()}
 											className="flex flex-col sm:flex-row gap-3 items-center bg-background p-3 rounded-xl border border-border"
 										>
 											<div className="flex-1 font-medium text-foreground text-sm">

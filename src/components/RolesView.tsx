@@ -46,7 +46,6 @@ export function RolesView() {
 		}
 	}, [editingRole, loadRolePermissions]);
 
-
 	const handleOpenModal = (role?: Doc<"roles">) => {
 		if (role) {
 			setEditingRole(role);
@@ -93,14 +92,15 @@ export function RolesView() {
 	};
 
 	// Agrupar permisos por módulo para UI
-	const permisosPorModulo = permisos?.reduce(
-		(acc, p) => {
-			if (!acc[p.modulo]) acc[p.modulo] = [];
-			acc[p.modulo].push(p);
-			return acc;
-		},
-		{} as Record<string, Doc<"permisos">[]>,
-	) ?? {};
+	const permisosPorModulo =
+		permisos?.reduce(
+			(acc, p) => {
+				if (!acc[p.modulo]) acc[p.modulo] = [];
+				acc[p.modulo].push(p);
+				return acc;
+			},
+			{} as Record<string, Doc<"permisos">[]>,
+		) ?? {};
 
 	if (roles === undefined || permisos === undefined) {
 		return <TableSkeleton />;

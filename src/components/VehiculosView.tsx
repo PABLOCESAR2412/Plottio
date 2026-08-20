@@ -63,6 +63,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
 	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
+
 	const rawCategorias = useQuery(
 		api.plantillas.getCategorias,
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
@@ -103,6 +104,15 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 	const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 	const [selectedVehiculoId, setSelectedVehiculoId] = useState<string | null>(
 		null,
+	);
+	const ordenesVehiculo = useQuery(
+		api.ordenes.fetchOrdenes,
+		currentUser && selectedVehiculoId
+			? {
+					usuarioId: currentUser.id as any,
+					filtros: { vehiculoId: selectedVehiculoId as any },
+				}
+			: "skip",
 	);
 
 	// Modals
@@ -783,11 +793,48 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 											</div>
 										</div>
 									))}
-									{selectedVehiculo.servicios.length === 0 && (
-										<div className="text-center py-6 text-muted-foreground text-sm border border-dashed border-border rounded-lg ml-[-12px]">
-											Aún no hay registros en la cronología de este vehículo.
+									{/* ORDENES DE TRABAJO (CONVEX) */}
+									{(ordenesVehiculo ?? []).map((orden) => (
+										<div key={orden._id} className="relative">
+											<span className="absolute -left-9 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 border border-primary/30 text-[10px] text-primary font-bold">
+												<Wrench className="h-3 w-3" />
+											</span>
+											<div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 p-3 rounded-lg border border-border/60 bg-secondary/5 hover:bg-secondary/20 transition-all group">
+												<div className="flex-1 min-w-0 text-left">
+													<div className="flex items-center gap-2">
+														<span className="text-xs font-semibold bg-primary/20 text-primary px-2 py-0.5 rounded">
+															{orden.fechaInicio}
+														</span>
+														<span className="text-xs font-bold px-2 py-0.5 rounded border border-border/50 text-foreground">
+															{orden.estado}
+														</span>
+													</div>
+													<div className="mt-2 text-sm text-foreground space-y-1">
+														{orden.items.map((item, _i) => (
+															<div
+																key={crypto.randomUUID()}
+																className="flex items-center gap-1.5"
+															>
+																<div className={"h-1.5 w-1.5 rounded-full "} />
+																<span>
+																	{item.descripcion} (x{item.cantidad})
+																</span>
+															</div>
+														))}
+													</div>
+												</div>
+												<div className="flex items-center sm:flex-col sm:items-end justify-between sm:justify-start">
+													<span className="font-bold text-foreground"></span>
+												</div>
+											</div>
 										</div>
-									)}
+									))}
+									{selectedVehiculo.servicios.length === 0 &&
+										(ordenesVehiculo ?? []).length === 0 && (
+											<div className="text-center py-6 text-muted-foreground text-sm border border-dashed border-border rounded-lg ml-[-12px]">
+												Aún no hay registros en la cronología de este vehículo.
+											</div>
+										)}
 								</div>
 							</div>
 						</div>

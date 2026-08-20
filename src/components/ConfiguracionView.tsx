@@ -204,7 +204,13 @@ export const ConfiguracionView: React.FC = () => {
 
 	// Top level config tabs
 	const [configTab, setConfigTab] = useState<
-		"general" | "plantillas" | "usuarios" | "roles" | "bugs" | "sucursales" | "auditoria"
+		| "general"
+		| "plantillas"
+		| "usuarios"
+		| "roles"
+		| "bugs"
+		| "sucursales"
+		| "auditoria"
 	>("general");
 	const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 	const [newComment, setNewComment] = useState("");
@@ -293,7 +299,7 @@ export const ConfiguracionView: React.FC = () => {
 		(b) =>
 			!currentUser?.sucursalId ||
 			!b.sucursalId ||
-			b.sucursalId === currentUser.sucursalId
+			b.sucursalId === currentUser.sucursalId,
 	);
 
 	const visibleBugs =
@@ -1532,271 +1538,270 @@ export const ConfiguracionView: React.FC = () => {
 			) : (
 				<div className="animate-fade-in rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between space-y-4">
 					<div className="space-y-4">
-							<div className="pb-3 border-b border-border flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-								<div>
-									<h3 className="text-base font-bold text-foreground flex items-center gap-2">
-										<Settings className="h-5 w-5 text-muted-foreground" />
-										Plantilla de Precios para Stickers
-									</h3>
-									<p className="text-xs text-muted-foreground mt-0.5">
-										Establece tarifas de referencia por tipo de transporte para
-										cotizar rápido.
-									</p>
-								</div>
+						<div className="pb-3 border-b border-border flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+							<div>
+								<h3 className="text-base font-bold text-foreground flex items-center gap-2">
+									<Settings className="h-5 w-5 text-muted-foreground" />
+									Plantilla de Precios para Stickers
+								</h3>
+								<p className="text-xs text-muted-foreground mt-0.5">
+									Establece tarifas de referencia por tipo de transporte para
+									cotizar rápido.
+								</p>
+							</div>
 
-								{/* Add category inline form */}
-								<form
-									onSubmit={handleCreateCategory}
-									className="flex gap-1.5 items-center shrink-0"
+							{/* Add category inline form */}
+							<form
+								onSubmit={handleCreateCategory}
+								className="flex gap-1.5 items-center shrink-0"
+							>
+								<input
+									type="text"
+									required
+									placeholder="Nueva Categoría (Ej. Motos)"
+									value={newCategoryName}
+									onChange={(e) => setNewCategoryName(e.target.value)}
+									className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none w-36 sm:w-40"
+								/>
+								<button
+									type="submit"
+									className="rounded-lg bg-primary text-primary-foreground p-1.5 hover:opacity-90 transition-opacity cursor-pointer"
+									title="Añadir Categoría"
 								>
-									<input
-										type="text"
-										required
-										placeholder="Nueva Categoría (Ej. Motos)"
-										value={newCategoryName}
-										onChange={(e) => setNewCategoryName(e.target.value)}
-										className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none w-36 sm:w-40"
-									/>
-									<button
-										type="submit"
-										className="rounded-lg bg-primary text-primary-foreground p-1.5 hover:opacity-90 transition-opacity cursor-pointer"
-										title="Añadir Categoría"
-									>
-										<Plus className="h-4 w-4" />
-									</button>
-								</form>
-							</div>
+									<Plus className="h-4 w-4" />
+								</button>
+							</form>
+						</div>
 
-							{/* Price Category Tabs Selector */}
-							<div className="flex flex-wrap gap-1.5 border-b border-border/60 pb-2">
-								{categoriasPrecios.map((cat) => (
-									<button
-										type="button"
-										key={cat}
-										onClick={() => {
-											setActiveCategoryTab(cat);
-											setEditingId(null);
-											setIsEditingCategory(false);
-										}}
-										className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-											currentCategory === cat
-												? "bg-primary text-primary-foreground shadow-sm font-black"
-												: "text-muted-foreground hover:text-foreground hover:bg-secondary/40 border border-transparent"
-										}`}
-									>
-										<Car className="h-3.5 w-3.5" />
-										{cat}
-									</button>
-								))}
-							</div>
+						{/* Price Category Tabs Selector */}
+						<div className="flex flex-wrap gap-1.5 border-b border-border/60 pb-2">
+							{categoriasPrecios.map((cat) => (
+								<button
+									type="button"
+									key={cat}
+									onClick={() => {
+										setActiveCategoryTab(cat);
+										setEditingId(null);
+										setIsEditingCategory(false);
+									}}
+									className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+										currentCategory === cat
+											? "bg-primary text-primary-foreground shadow-sm font-black"
+											: "text-muted-foreground hover:text-foreground hover:bg-secondary/40 border border-transparent"
+									}`}
+								>
+									<Car className="h-3.5 w-3.5" />
+									{cat}
+								</button>
+							))}
+						</div>
 
-							{/* Category Rename/Delete Toolbar */}
-							{currentCategory && (
-								<div className="flex items-center justify-between bg-secondary/20 border border-border rounded-lg p-2.5 text-xs gap-3">
-									{isEditingCategory ? (
-										<div className="flex items-center gap-2 w-full">
-											<input
-												type="text"
-												value={editingCategoryName}
-												onChange={(e) => setEditingCategoryName(e.target.value)}
-												className="flex-1 rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none"
-											/>
-											<button
-												type="button"
-												onClick={handleSaveCategoryName}
-												className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
-												title="Guardar nombre"
-											>
-												<Check className="h-4 w-4" />
-											</button>
-											<button
-												type="button"
-												onClick={() => setIsEditingCategory(false)}
-												className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
-												title="Cancelar"
-											>
-												<X className="h-4 w-4" />
-											</button>
-										</div>
-									) : (
-										<>
-											<div className="font-semibold flex items-center gap-1 text-muted-foreground">
-												Categoría seleccionada:{" "}
-												<span className="text-foreground font-bold">
-													{currentCategory}
-												</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<button
-													type="button"
-													onClick={handleStartEditCategory}
-													className="flex items-center gap-1 text-[11px] font-semibold text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
-												>
-													<Edit2 className="h-3 w-3" />
-													Renombrar
-												</button>
-												<button
-													type="button"
-													onClick={handleDeleteCategoryClick}
-													className="flex items-center gap-1 text-[11px] font-semibold text-destructive border border-destructive/20 px-2 py-1 rounded hover:bg-destructive/10 transition-colors cursor-pointer"
-												>
-													<Trash2 className="h-3 w-3" />
-													Eliminar Categoría
-												</button>
-											</div>
-										</>
-									)}
-								</div>
-							)}
-
-							{/* Price list tables of selected Category */}
-							<div className="divide-y divide-border overflow-y-auto max-h-[220px] pr-1 space-y-1">
-								{filteredTemplates.map((tpl) => {
-									const isEditing = editingId === tpl.id;
-									return (
-										<div
-											key={tpl.id}
-											className="flex flex-col sm:flex-row sm:items-center justify-between py-2 px-2 hover:bg-secondary/20 rounded-lg transition-colors gap-3"
+						{/* Category Rename/Delete Toolbar */}
+						{currentCategory && (
+							<div className="flex items-center justify-between bg-secondary/20 border border-border rounded-lg p-2.5 text-xs gap-3">
+								{isEditingCategory ? (
+									<div className="flex items-center gap-2 w-full">
+										<input
+											type="text"
+											value={editingCategoryName}
+											onChange={(e) => setEditingCategoryName(e.target.value)}
+											className="flex-1 rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none"
+										/>
+										<button
+											type="button"
+											onClick={handleSaveCategoryName}
+											className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
+											title="Guardar nombre"
 										>
-											<div className="truncate pr-2 flex-1">
-												{isEditing ? (
-													<input
-														type="text"
-														value={editingConcepto}
-														onChange={(e) => setEditingConcepto(e.target.value)}
-														className="w-full rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:border-ring"
-														placeholder="Concepto del trabajo"
-													/>
-												) : (
-													<div className="font-semibold text-sm text-foreground truncate">
-														{tpl.concepto}
-													</div>
-												)}
-											</div>
-
-											<div className="flex items-center gap-3 justify-end shrink-0">
-												{isEditing ? (
-													<div className="flex items-center gap-1.5 animate-fade-in">
-														<span className="text-xs text-muted-foreground font-bold">
-															$
-														</span>
-														<input
-															type="number"
-															min="0"
-															value={editingPrice}
-															onChange={(e) =>
-																setEditingPrice(Number(e.target.value))
-															}
-															className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-foreground font-bold focus:outline-none focus:border-ring"
-														/>
-														<button
-															type="button"
-															onClick={() => handleSavePrice(tpl.id)}
-															className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
-															title="Guardar tarifa"
-														>
-															<Check className="h-4 w-4" />
-														</button>
-														<button
-															type="button"
-															onClick={handleCancelEdit}
-															className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
-															title="Cancelar"
-														>
-															<X className="h-4 w-4" />
-														</button>
-													</div>
-												) : (
-													<div className="flex items-center gap-3">
-														<span className="text-sm font-bold text-foreground">
-															${tpl.precioSugerido}
-														</span>
-														<button
-															type="button"
-															onClick={() => handleStartEdit(tpl)}
-															className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
-														>
-															<Edit2 className="h-3 w-3" />
-															Editar
-														</button>
-														<button
-															type="button"
-															onClick={() =>
-																handleDeleteJob(tpl.id, tpl.concepto)
-															}
-															className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
-															title="Eliminar tarifa"
-														>
-															<Trash2 className="h-3.5 w-3.5" />
-														</button>
-													</div>
-												)}
-											</div>
-										</div>
-									);
-								})}
-								{filteredTemplates.length === 0 && (
-									<div className="text-center py-8 text-muted-foreground text-sm">
-										No hay plantillas de tarifas sugeridas registradas para esta
-										categoría.
+											<Check className="h-4 w-4" />
+										</button>
+										<button
+											type="button"
+											onClick={() => setIsEditingCategory(false)}
+											className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
+											title="Cancelar"
+										>
+											<X className="h-4 w-4" />
+										</button>
 									</div>
+								) : (
+									<>
+										<div className="font-semibold flex items-center gap-1 text-muted-foreground">
+											Categoría seleccionada:{" "}
+											<span className="text-foreground font-bold">
+												{currentCategory}
+											</span>
+										</div>
+										<div className="flex items-center gap-2">
+											<button
+												type="button"
+												onClick={handleStartEditCategory}
+												className="flex items-center gap-1 text-[11px] font-semibold text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
+											>
+												<Edit2 className="h-3 w-3" />
+												Renombrar
+											</button>
+											<button
+												type="button"
+												onClick={handleDeleteCategoryClick}
+												className="flex items-center gap-1 text-[11px] font-semibold text-destructive border border-destructive/20 px-2 py-1 rounded hover:bg-destructive/10 transition-colors cursor-pointer"
+											>
+												<Trash2 className="h-3 w-3" />
+												Eliminar Categoría
+											</button>
+										</div>
+									</>
 								)}
 							</div>
+						)}
 
-							{/* Add pricing job inline form */}
-							{currentCategory && (
-								<form
-									onSubmit={handleAddJob}
-									className="border-t border-border pt-3.5 mt-2 space-y-3"
-								>
-									<div className="text-xs font-bold text-foreground">
-										Añadir Nuevo Trabajo/Precio a la Categoría:{" "}
-										{currentCategory}
-									</div>
-									<div className="grid gap-3 sm:grid-cols-3">
-										<div className="sm:col-span-2">
-											<input
-												type="text"
-												required
-												placeholder="Concepto (Ej. Rotulado Caja Delantera)"
-												value={newConcepto}
-												onChange={(e) => setNewConcepto(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
-											/>
-										</div>
-										<div>
-											<input
-												type="number"
-												required
-												min="0"
-												placeholder="Precio Sugerido ($)"
-												value={newPrecioSugerido || ""}
-												onChange={(e) =>
-													setNewPrecioSugerido(Number(e.target.value))
-												}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
-											/>
-										</div>
-									</div>
-									<button
-										type="submit"
-										className="w-full rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+						{/* Price list tables of selected Category */}
+						<div className="divide-y divide-border overflow-y-auto max-h-[220px] pr-1 space-y-1">
+							{filteredTemplates.map((tpl) => {
+								const isEditing = editingId === tpl.id;
+								return (
+									<div
+										key={tpl.id}
+										className="flex flex-col sm:flex-row sm:items-center justify-between py-2 px-2 hover:bg-secondary/20 rounded-lg transition-colors gap-3"
 									>
-										<Plus className="h-4.5 w-4.5" />
-										Agregar Tarifa de Referencia
-									</button>
-								</form>
+										<div className="truncate pr-2 flex-1">
+											{isEditing ? (
+												<input
+													type="text"
+													value={editingConcepto}
+													onChange={(e) => setEditingConcepto(e.target.value)}
+													className="w-full rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:border-ring"
+													placeholder="Concepto del trabajo"
+												/>
+											) : (
+												<div className="font-semibold text-sm text-foreground truncate">
+													{tpl.concepto}
+												</div>
+											)}
+										</div>
+
+										<div className="flex items-center gap-3 justify-end shrink-0">
+											{isEditing ? (
+												<div className="flex items-center gap-1.5 animate-fade-in">
+													<span className="text-xs text-muted-foreground font-bold">
+														$
+													</span>
+													<input
+														type="number"
+														min="0"
+														value={editingPrice}
+														onChange={(e) =>
+															setEditingPrice(Number(e.target.value))
+														}
+														className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-foreground font-bold focus:outline-none focus:border-ring"
+													/>
+													<button
+														type="button"
+														onClick={() => handleSavePrice(tpl.id)}
+														className="p-1 text-green-500 hover:bg-green-500/10 rounded transition-colors cursor-pointer"
+														title="Guardar tarifa"
+													>
+														<Check className="h-4 w-4" />
+													</button>
+													<button
+														type="button"
+														onClick={handleCancelEdit}
+														className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
+														title="Cancelar"
+													>
+														<X className="h-4 w-4" />
+													</button>
+												</div>
+											) : (
+												<div className="flex items-center gap-3">
+													<span className="text-sm font-bold text-foreground">
+														${tpl.precioSugerido}
+													</span>
+													<button
+														type="button"
+														onClick={() => handleStartEdit(tpl)}
+														className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
+													>
+														<Edit2 className="h-3 w-3" />
+														Editar
+													</button>
+													<button
+														type="button"
+														onClick={() =>
+															handleDeleteJob(tpl.id, tpl.concepto)
+														}
+														className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
+														title="Eliminar tarifa"
+													>
+														<Trash2 className="h-3.5 w-3.5" />
+													</button>
+												</div>
+											)}
+										</div>
+									</div>
+								);
+							})}
+							{filteredTemplates.length === 0 && (
+								<div className="text-center py-8 text-muted-foreground text-sm">
+									No hay plantillas de tarifas sugeridas registradas para esta
+									categoría.
+								</div>
 							)}
 						</div>
 
-						<div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-xs text-muted-foreground font-medium">
-							<TrendingUp className="h-4 w-4 text-purple-500" />
-							<span>
-								Las modificaciones de tarifas solo afectarán a las nuevas
-								cotizaciones y órdenes de trabajo creadas a futuro.
-							</span>
-						</div>
+						{/* Add pricing job inline form */}
+						{currentCategory && (
+							<form
+								onSubmit={handleAddJob}
+								className="border-t border-border pt-3.5 mt-2 space-y-3"
+							>
+								<div className="text-xs font-bold text-foreground">
+									Añadir Nuevo Trabajo/Precio a la Categoría: {currentCategory}
+								</div>
+								<div className="grid gap-3 sm:grid-cols-3">
+									<div className="sm:col-span-2">
+										<input
+											type="text"
+											required
+											placeholder="Concepto (Ej. Rotulado Caja Delantera)"
+											value={newConcepto}
+											onChange={(e) => setNewConcepto(e.target.value)}
+											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
+										/>
+									</div>
+									<div>
+										<input
+											type="number"
+											required
+											min="0"
+											placeholder="Precio Sugerido ($)"
+											value={newPrecioSugerido || ""}
+											onChange={(e) =>
+												setNewPrecioSugerido(Number(e.target.value))
+											}
+											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-ring focus:outline-none"
+										/>
+									</div>
+								</div>
+								<button
+									type="submit"
+									className="w-full rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+								>
+									<Plus className="h-4.5 w-4.5" />
+									Agregar Tarifa de Referencia
+								</button>
+							</form>
+						)}
 					</div>
+
+					<div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-xs text-muted-foreground font-medium">
+						<TrendingUp className="h-4 w-4 text-purple-500" />
+						<span>
+							Las modificaciones de tarifas solo afectarán a las nuevas
+							cotizaciones y órdenes de trabajo creadas a futuro.
+						</span>
+					</div>
+				</div>
 			)}
 			{/* CONFIRMATION OR SUCCESS OVERLAYS */}
 			<SuccessDialog

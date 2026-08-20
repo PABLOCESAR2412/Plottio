@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { getCurrentUserContext } from "./auth";
 
@@ -38,7 +38,7 @@ export const createCita = mutation({
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa || !userContext.sucursal) {
-      throw new Error("Usuario no configurado correctamente (faltan datos de sucursal o empresa).");
+      throw new ConvexError("Usuario no configurado correctamente (faltan datos de sucursal o empresa).");
     }
 
     const citaId = await ctx.db.insert("citas", {

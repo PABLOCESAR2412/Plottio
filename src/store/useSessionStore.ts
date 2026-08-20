@@ -89,7 +89,7 @@ export const useSessionStore = create<SessionStore>()(
 			toggleTheme: () => {
 				const state = get();
 				const next = state.theme === "light" ? "dark" : "light";
-				
+
 				const applyTheme = () => {
 					if (typeof window !== "undefined") {
 						const root = window.document.documentElement;
@@ -100,17 +100,7 @@ export const useSessionStore = create<SessionStore>()(
 					set({ theme: next });
 				};
 
-				if (typeof window !== "undefined" && (document as any).startViewTransition) {
-					try {
-						(document as any).startViewTransition(() => {
-							applyTheme();
-						});
-					} catch (e) {
-						applyTheme();
-					}
-				} else {
-					applyTheme();
-				}
+				applyTheme();
 			},
 
 			notificationsEnabled: true,

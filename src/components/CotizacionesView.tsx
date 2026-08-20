@@ -23,8 +23,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
-import { SuccessDialog } from "./SuccessDialog";
 import { TableSkeleton } from "./Skeleton";
+import { SuccessDialog } from "./SuccessDialog";
 
 interface CotizacionesViewProps {
 	onNavigate: (
@@ -131,12 +131,11 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 	// ── MUTATIONS (sustituyen a los setters de Zustand) ─────────────────────
 	const createCotizacionMut = useMutation(api.cotizaciones.createCotizacion);
-	const updateCotizacionMut = useMutation(api.cotizaciones.updateCotizacion);
+	const _updateCotizacionMut = useMutation(api.cotizaciones.updateCotizacion);
 	const deleteCotizacionMut = useMutation(api.cotizaciones.deleteCotizacion);
 	const createVehiculoMut = useMutation(api.vehiculos.createVehiculo);
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
 	const createClienteMut = useMutation(api.clientes.createCliente);
-
 
 	// ── ADAPTACIÓN: Convex devuelve _id; mapeamos a `id` para mantener la UI ──
 
@@ -559,11 +558,18 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 				clienteNombre: clienteNombre.trim(),
 				clienteTelefono: clienteTelefono.trim(),
 				vehiculoTipo,
+				vehiculoId:
+					currentVehiculoId && currentVehiculoId !== "nuevo"
+						? (currentVehiculoId as Id<"vehiculos">)
+						: undefined,
 				items: items.map((it) => ({
 					descripcion: it.descripcion,
 					cantidad: it.cantidad,
 					precioUnitario: it.precioUnitario,
-					vehiculoId: (currentVehiculoId && currentVehiculoId !== "nuevo") ? currentVehiculoId as Id<"vehiculos"> : undefined,
+					vehiculoId:
+						currentVehiculoId && currentVehiculoId !== "nuevo"
+							? (currentVehiculoId as Id<"vehiculos">)
+							: undefined,
 				})),
 				estado: "Pendiente",
 				fecha: new Date().toISOString().split("T")[0],
@@ -772,6 +778,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						clienteTelefono: cot.clienteTelefono,
 						placa: placa.toUpperCase() || "S/P",
 						vehiculoTipo: cot.vehiculoTipo,
+						vehiculoId: (cot as any).vehiculoId,
 						items: orderItems,
 						prioridad: "Media" as const,
 						estado: "Pendiente" as const,
@@ -924,7 +931,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 														: "bg-secondary text-foreground"
 												}`}
 											>
-												{cot._id.substring(0,4) + "..."}
+												{`${cot._id.substring(0, 4)}...`}
 											</span>
 											<span className="truncate">{cot.clienteNombre}</span>
 										</div>
@@ -974,9 +981,13 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											ID Cotización
 										</div>
 										<div className="flex items-center gap-2 text-lg font-bold text-primary">
-											<span>{activeCotizacion._id.substring(0,4) + "..."}</span>
+											<span>
+												{`${activeCotizacion._id.substring(0, 4)}...`}
+											</span>
 											<button
-												onClick={() => navigator.clipboard.writeText(activeCotizacion._id)}
+												onClick={() =>
+													navigator.clipboard.writeText(activeCotizacion._id)
+												}
 												className="p-1 rounded hover:bg-primary/20 text-primary transition-colors cursor-pointer"
 												title="Copiar ID completo"
 											>

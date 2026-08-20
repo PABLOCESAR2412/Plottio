@@ -1,5 +1,5 @@
 import { query } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { checkPermission, getCurrentUserContext, requirePermission } from "./auth";
 
@@ -25,7 +25,7 @@ export const getDashboardMatriz = query({
     await requirePermission(ctx, args.usuarioId, "ver_reportes");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.permisos.includes("ver_todas_sucursales")) {
-      throw new Error("Solo Super Admin puede ver dashboard matriz");
+      throw new ConvexError("Solo Super Admin puede ver dashboard matriz");
     }
 
     const empresaId = userContext.empresa!.id;
@@ -120,7 +120,7 @@ export const getDashboardSucursal = query({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "ver_reportes");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.sucursal) throw new Error("No tienes sucursal asignada");
+    if (!userContext.sucursal) throw new ConvexError("No tienes sucursal asignada");
 
     const empresaId = userContext.empresa!.id;
     const sucursalId = userContext.sucursal.id;
@@ -240,7 +240,7 @@ export const getReporteAuditoria = query({
     await requirePermission(ctx, args.usuarioId, "ver_auditoria");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.permisos.includes("ver_todas_sucursales")) {
-      throw new Error("Solo Super Admin puede ver auditoría");
+      throw new ConvexError("Solo Super Admin puede ver auditoría");
     }
 
     const records = await ctx.db

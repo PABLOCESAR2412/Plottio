@@ -1,5 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 
 export default defineSchema({
   empresas: defineTable({
@@ -90,6 +90,7 @@ export default defineSchema({
     clienteNombre: v.string(),
     clienteTelefono: v.string(),
     vehiculoTipo: v.string(),
+    vehiculoId: v.optional(v.id("vehiculos")),
     items: v.array(v.object({
       servicioId: v.optional(v.id("catalogoServicios")),
       descripcion: v.string(),
@@ -101,9 +102,9 @@ export default defineSchema({
         alto_cm: v.optional(v.number()),
         contenido_texto: v.optional(v.string()),
         ubicacion_instalacion: v.optional(v.string())
+        })),
+        vehiculoId: v.optional(v.id("vehiculos"))
       })),
-      vehiculoId: v.optional(v.id("vehiculos"))
-    })),
     total: v.number(),
     estado: v.string(),
     fecha: v.string(),
@@ -119,6 +120,7 @@ export default defineSchema({
     clienteTelefono: v.string(),
     placa: v.string(),
     vehiculoTipo: v.string(),
+    vehiculoId: v.optional(v.id("vehiculos")),
     items: v.array(v.object({
       descripcion: v.string(),
       cantidad: v.number(),
@@ -137,6 +139,7 @@ export default defineSchema({
     sucursalId: v.optional(v.id("sucursales")),
     pvOrigen: v.optional(v.string()),
     asignadoAUsuarioId: v.optional(v.id("usuarios")),
+    cotizacionId: v.optional(v.id("cotizaciones")),
   }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
 
   auditoria: defineTable({
@@ -347,3 +350,7 @@ export default defineSchema({
   }).index("by_nombre", ["nombre"]),
 
 });
+
+
+
+

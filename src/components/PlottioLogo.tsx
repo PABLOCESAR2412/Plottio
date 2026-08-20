@@ -16,7 +16,12 @@ function LogoMark({ iconClass }: { iconClass: string }) {
 			className={`shrink-0 rounded-[22%] bg-primary text-primary-foreground shadow-[0_8px_18px_-10px_color-mix(in_oklch,var(--primary),transparent_30%)] flex items-center justify-center ${iconClass}`}
 			aria-hidden="true"
 		>
-			<svg viewBox="0 0 64 64" className="h-full w-full p-[12%]" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<svg
+				viewBox="0 0 64 64"
+				className="h-full w-full p-[12%]"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
 				<title>Plottio</title>
 				<path
 					d="M 22 14 L 22 50"

@@ -64,8 +64,6 @@ export const AgendaView: React.FC = () => {
 		type: "success",
 	});
 
-
-
 	const citas = citasData;
 
 	const monthNames = [
@@ -382,7 +380,9 @@ export const AgendaView: React.FC = () => {
 							const isToday = cellDateStr === "2026-06-03";
 
 							// Count appointments for this cell
-							const dayAppts = (citas ?? []).filter((c) => c.fecha === cellDateStr);
+							const dayAppts = (citas ?? []).filter(
+								(c) => c.fecha === cellDateStr,
+							);
 
 							return (
 								<button
@@ -496,7 +496,7 @@ export const AgendaView: React.FC = () => {
 												<Check className="h-3 w-3" /> Confirmar
 											</button>
 										)}
-										
+
 										<button
 											type="button"
 											onClick={() => {
@@ -511,7 +511,6 @@ export const AgendaView: React.FC = () => {
 										<button
 											type="button"
 											onClick={() => handleOpenEdit(cita)}
-
 											className="p-1 text-muted-foreground hover:bg-card hover:text-foreground rounded transition-colors"
 											title="Editar cita"
 										>
@@ -690,7 +689,6 @@ export const AgendaView: React.FC = () => {
 				</div>
 			)}
 
-			
 			{/* DETAILS APPOINTMENT MODAL */}
 			{isDetailsOpen && detailsCita && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -707,27 +705,49 @@ export const AgendaView: React.FC = () => {
 						<div className="space-y-4">
 							<div className="grid grid-cols-2 gap-4">
 								<div>
-									<p className="text-xs font-semibold text-muted-foreground">Cliente</p>
-									<p className="text-sm font-medium text-foreground">{detailsCita.clienteNombre}</p>
+									<p className="text-xs font-semibold text-muted-foreground">
+										Cliente
+									</p>
+									<p className="text-sm font-medium text-foreground">
+										{detailsCita.clienteNombre}
+									</p>
 								</div>
 								<div>
-									<p className="text-xs font-semibold text-muted-foreground">Teléfono</p>
-									<p className="text-sm font-medium text-foreground">{detailsCita.clienteTelefono || "N/A"}</p>
+									<p className="text-xs font-semibold text-muted-foreground">
+										Teléfono
+									</p>
+									<p className="text-sm font-medium text-foreground">
+										{detailsCita.clienteTelefono || "N/A"}
+									</p>
 								</div>
 								<div>
-									<p className="text-xs font-semibold text-muted-foreground">Placa / Vehículo</p>
-									<p className="text-sm font-medium text-foreground">{detailsCita.vehiculoPlaca || "N/A"}</p>
+									<p className="text-xs font-semibold text-muted-foreground">
+										Placa / Vehículo
+									</p>
+									<p className="text-sm font-medium text-foreground">
+										{detailsCita.vehiculoPlaca || "N/A"}
+									</p>
 								</div>
 								<div>
-									<p className="text-xs font-semibold text-muted-foreground">Servicio</p>
-									<p className="text-sm font-medium text-foreground">{detailsCita.servicio}</p>
+									<p className="text-xs font-semibold text-muted-foreground">
+										Servicio
+									</p>
+									<p className="text-sm font-medium text-foreground">
+										{detailsCita.servicio}
+									</p>
 								</div>
 								<div>
-									<p className="text-xs font-semibold text-muted-foreground">Fecha y Hora</p>
-									<p className="text-sm font-medium text-foreground">{detailsCita.fecha} - {detailsCita.hora}</p>
+									<p className="text-xs font-semibold text-muted-foreground">
+										Fecha y Hora
+									</p>
+									<p className="text-sm font-medium text-foreground">
+										{detailsCita.fecha} - {detailsCita.hora}
+									</p>
 								</div>
 								<div>
-									<p className="text-xs font-semibold text-muted-foreground">Estado</p>
+									<p className="text-xs font-semibold text-muted-foreground">
+										Estado
+									</p>
 									<span
 										className={`inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded ${
 											detailsCita.estado === "Confirmada"
@@ -752,7 +772,6 @@ export const AgendaView: React.FC = () => {
 					</div>
 				</div>
 			)}
-
 
 			{/* EDIT APPOINTMENT MODAL */}
 			{isEditOpen && (

@@ -1,14 +1,22 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 
 // --- EMPRESAS ---
 export const getEmpresas = query({
   handler: async (ctx) => {
-    return await ctx.db
+    const empresas = await ctx.db
       .query("empresas")
       .filter((q) => q.eq(q.field("activa"), true))
       .collect();
+
+    return await Promise.all(empresas.map(async (emp) => {
+      let url = emp.logoUrl;
+      if (url && !/^https?:\/\//i.test(url)) {
+        url = (await ctx.storage.getUrl(url as Id<"_storage">)) || url;
+      }
+      return { ...emp, logoUrl: url };
+    }));
   }
 });
 
@@ -27,7 +35,7 @@ export const createEmpresa = mutation({
       .filter((q) => q.eq(q.field("ruc"), args.ruc))
       .first();
     if (existing) {
-      throw new Error(`Ya existe una empresa con el RUC ${args.ruc}`);
+      throw new ConvexError(`Ya existe una empresa con el RUC ${args.ruc}`);
     }
 
     return await ctx.db.insert("empresas", {
@@ -56,7 +64,7 @@ export const updateEmpresa = mutation({
         .filter((q) => q.eq(q.field("ruc"), args.ruc))
         .first();
       if (existing && existing._id !== args.id) {
-        throw new Error(`Ya existe una empresa con el RUC ${args.ruc}`);
+        throw new ConvexError(`Ya existe una empresa con el RUC ${args.ruc}`);
       }
     }
 
@@ -208,7 +216,7 @@ export const deleteEmpresa = mutation({
   args: { id: v.id("empresas") },
   handler: async (ctx, args) => {
     const empresa = await ctx.db.get(args.id);
-    if (!empresa) throw new Error("Empresa no encontrada");
+    if (!empresa) throw new ConvexError("Empresa no encontrada");
 
     // Una empresa puede tener sucursales, usuarios, vehículos y documentos
     // históricos. En vez de borrar el padre y dejar referencias inválidas,
@@ -223,7 +231,7 @@ export const deleteSucursal = mutation({
   args: { id: v.id("sucursales") },
   handler: async (ctx, args) => {
     const sucursal = await ctx.db.get(args.id);
-    if (!sucursal) throw new Error("Sucursal no encontrada");
+    if (!sucursal) throw new ConvexError("Sucursal no encontrada");
 
     // Verificar que no tenga puntos de venta
     const pvs = await ctx.db
@@ -231,7 +239,7 @@ export const deleteSucursal = mutation({
       .withIndex("by_sucursal", (q) => q.eq("sucursalId", args.id))
       .collect();
     if (pvs.length > 0) {
-      throw new Error(
+      throw new ConvexError(
         `No se puede eliminar: la sucursal tiene ${pvs.length} punto(s) de venta. Elimínelos primero.`,
       );
     }
@@ -242,7 +250,7 @@ export const deleteSucursal = mutation({
       .withIndex("by_sucursal", (q) => q.eq("sucursalId", args.id))
       .collect();
     if (usuariosAsignados.length > 0) {
-      throw new Error(
+      throw new ConvexError(
         `No se puede eliminar: la sucursal tiene ${usuariosAsignados.length} usuario(s) asignado(s). Reasígnelos primero.`,
       );
     }
@@ -256,7 +264,7 @@ export const deletePuntoVenta = mutation({
   args: { id: v.id("puntosVenta") },
   handler: async (ctx, args) => {
     const pv = await ctx.db.get(args.id);
-    if (!pv) throw new Error("Punto de venta no encontrado");
+    if (!pv) throw new ConvexError("Punto de venta no encontrado");
 
     // Verificar que no tenga cotizaciones u órdenes asociadas
     const cotizaciones = await ctx.db
@@ -264,7 +272,7 @@ export const deletePuntoVenta = mutation({
       .filter((q) => q.eq(q.field("pvId"), args.id))
       .first();
     if (cotizaciones) {
-      throw new Error(
+      throw new ConvexError(
         "No se puede eliminar: el punto de venta tiene cotizaciones asociadas.",
       );
     }
@@ -273,3 +281,4 @@ export const deletePuntoVenta = mutation({
     return { success: true };
   }
 });
+

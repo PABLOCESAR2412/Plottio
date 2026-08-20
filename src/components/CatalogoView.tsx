@@ -1,8 +1,13 @@
 import { useMutation, useQuery } from "convex/react";
-import { Layers, PlusCircle, Search, Settings2,
-	Tag,
+import {
 	Edit2,
-	Trash2 } from "lucide-react";
+	Layers,
+	PlusCircle,
+	Search,
+	Settings2,
+	Tag,
+	Trash2,
+} from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -24,20 +29,26 @@ export function CatalogoView() {
 	const deleteServicio = useMutation(api.catalogoServicios.deleteServicio);
 
 	const [searchTerm, setSearchTerm] = useState("");
+	const [showInactive, setShowInactive] = useState(false);
 	const [showModal, setShowModal] = useState(false);
-	const [showEditModal, setShowEditModal] = useState(false);
-	const [editingServicio, setEditingServicio] = useState<{ id: Id<"catalogoServicios">, nombre: string, categoria: string, precioBase: number } | null>(null);
+	const [_showEditModal, setShowEditModal] = useState(false);
+	const [editingServicio, setEditingServicio] = useState<{
+		id: Id<"catalogoServicios">;
+		nombre: string;
+		categoria: string;
+		precioBase: number;
+	} | null>(null);
 	const [formData, setFormData] = useState({
 		nombre: "",
 		categoria: "general",
 		precioBase: 0,
 	});
 
-
 	const filteredServicios = (servicios ?? []).filter(
 		(s) =>
-			s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			s.categoria.toLowerCase().includes(searchTerm.toLowerCase()),
+			s.activo === !showInactive &&
+			(s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				s.categoria.toLowerCase().includes(searchTerm.toLowerCase())),
 	);
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -58,8 +69,7 @@ export function CatalogoView() {
 		}
 	};
 
-	
-	const handleEdit = async (e: React.FormEvent) => {
+	const _handleEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!currentUser || !editingServicio) return;
 		try {
@@ -80,7 +90,8 @@ export function CatalogoView() {
 
 	const handleDelete = async (id: Id<"catalogoServicios">) => {
 		if (!currentUser) return;
-		if (!window.confirm("¿Está seguro de eliminar este servicio del catálogo?")) return;
+		if (!window.confirm("¿Está seguro de eliminar este servicio del catálogo?"))
+			return;
 		try {
 			await deleteServicio({
 				usuarioId: currentUser.id as Id<"usuarios">,
@@ -120,6 +131,15 @@ export function CatalogoView() {
 						Gestiona los servicios y placas base (Fase 9).
 					</p>
 				</div>
+				<button
+					type="button"
+					onClick={() => setShowInactive(!showInactive)}
+					className="flex items-center justify-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-xl transition-all shadow-sm active:scale-95"
+				>
+					<span className="font-medium">
+						{showInactive ? "Ocultar Inactivos" : "Ver Inactivos"}
+					</span>
+				</button>
 				<button
 					type="button"
 					onClick={() => setShowModal(true)}
@@ -178,12 +198,12 @@ export function CatalogoView() {
 									</td>
 									<td className="px-6 py-4">
 										<span
-											className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${s.activo ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
+											className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${s.activo ? "bg-green-500/15 text-green-700 font-bold dark:bg-green-500/20 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
 										>
 											{s.activo ? "Activo" : "Inactivo"}
 										</span>
 									</td>
-									
+
 									<td className="px-6 py-4 text-right">
 										<div className="flex justify-end gap-1">
 											<button
@@ -201,7 +221,7 @@ export function CatalogoView() {
 														id: s._id,
 														nombre: s.nombre,
 														categoria: s.categoria,
-														precioBase: s.precioBase
+														precioBase: s.precioBase,
 													});
 													setShowEditModal(true);
 												}}
@@ -220,7 +240,6 @@ export function CatalogoView() {
 											</button>
 										</div>
 									</td>
-
 								</tr>
 							))}
 						</tbody>

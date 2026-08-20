@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
@@ -22,7 +22,7 @@ export const createInventarioItems = mutation({
     let empresaIdToUse = userContext.empresa?.id;
     if (!empresaIdToUse) {
         const fallbackEmpresa = await ctx.db.query("empresas").first();
-        if (!fallbackEmpresa) throw new Error("No hay empresas registradas en el sistema");
+        if (!fallbackEmpresa) throw new ConvexError("No hay empresas registradas en el sistema");
         empresaIdToUse = fallbackEmpresa._id;
     }
 
@@ -140,7 +140,7 @@ export const transferirInventario = mutation({
     await requirePermission(ctx, args.usuarioId, "editar_inventario", args.desde);
     await requirePermission(ctx, args.usuarioId, "editar_inventario", args.hacia);
 
-    if (args.cantidad <= 0) throw new Error("La cantidad debe ser mayor a 0");
+    if (args.cantidad <= 0) throw new ConvexError("La cantidad debe ser mayor a 0");
 
     const stockOrigen = await ctx.db
       .query("inventarioSucursal")
@@ -148,7 +148,7 @@ export const transferirInventario = mutation({
       .first();
 
     if (!stockOrigen || stockOrigen.cantidad < args.cantidad) {
-      throw new Error("Stock insuficiente en sucursal origen");
+      throw new ConvexError("Stock insuficiente en sucursal origen");
     }
 
     // Restar de origen
@@ -229,7 +229,7 @@ export const registrarConsumoDeTrabajo = mutation({
         .first();
 
       if (!stock || stock.cantidad < item.cantidad) {
-        throw new Error(`Stock insuficiente para el item ${item.itemId}`);
+        throw new ConvexError(`Stock insuficiente para el item ${item.itemId}`);
       }
 
       await ctx.db.patch(stock._id, {

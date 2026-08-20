@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { actualizarEstadoLoteHelper } from "./lotesProduccion";
 
@@ -42,13 +42,13 @@ export const asignarPlacaStockAOrden = mutation({
     // Verificar que la placa esté disponible
     const placa = await ctx.db.get(args.placaStockId);
     if (!placa || placa.estado !== "Disponible") {
-      throw new Error("Placa no disponible o ya asignada");
+      throw new ConvexError("Placa no disponible o ya asignada");
     }
 
     // Verificar que la orden de trabajo existe
     const orden = await ctx.db.get(args.ordenTrabajoId);
     if (!orden || (userContext.empresa && orden.empresaId !== userContext.empresa.id)) {
-      throw new Error("Orden de trabajo no encontrada");
+      throw new ConvexError("Orden de trabajo no encontrada");
     }
 
     // Asignar placa a la orden y vehículo
@@ -80,7 +80,7 @@ export const marcarPlacaInstalada = mutation({
     
     const placa = await ctx.db.get(args.placaStockId);
     if (!placa || placa.estado !== "Asignada") {
-      throw new Error("Placa no está en estado Asignada");
+      throw new ConvexError("Placa no está en estado Asignada");
     }
 
     await ctx.db.patch(args.placaStockId, {
@@ -133,7 +133,7 @@ export const liberarPlacaAsignada = mutation({
 
     const placa = await ctx.db.get(args.placaStockId);
     if (!placa || placa.estado !== "Asignada") {
-      throw new Error("Placa no se puede liberar (no está en estado Asignada)");
+      throw new ConvexError("Placa no se puede liberar (no está en estado Asignada)");
     }
 
     await ctx.db.patch(args.placaStockId, {

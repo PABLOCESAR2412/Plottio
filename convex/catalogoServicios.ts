@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
 
@@ -35,7 +35,7 @@ export const createServicio = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const id = await ctx.db.insert("catalogoServicios", {
       empresaId: userContext.empresa.id,

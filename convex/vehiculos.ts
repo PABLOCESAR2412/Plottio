@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext } from "./auth";
 
 // 5.2 MODIFICAR FUNCIÓN: fetchVehiculos()
@@ -65,7 +65,7 @@ export const createVehiculo = mutation({
   },
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Sin permisos");
+    if (!userContext.empresa) throw new ConvexError("Sin permisos");
 
     let empId = userContext.empresa.id;
 
@@ -74,7 +74,7 @@ export const createVehiculo = mutation({
       .filter((q) => q.eq(q.field("placa"), args.placa))
       .first();
     if (existing) {
-      throw new Error(`Ya existe un vehículo con la placa ${args.placa}`);
+      throw new ConvexError(`Ya existe un vehículo con la placa ${args.placa}`);
     }
 
     const newId = await ctx.db.insert("vehiculos", {
@@ -115,7 +115,7 @@ export const updateVehiculo = mutation({
       .filter((q) => q.eq(q.field("placa"), args.placa))
       .first();
     if (existing && existing._id !== args.vehiculoId) {
-      throw new Error(`Ya existe un vehículo con la placa ${args.placa}`);
+      throw new ConvexError(`Ya existe un vehículo con la placa ${args.placa}`);
     }
 
     await ctx.db.patch(args.vehiculoId, {
@@ -153,7 +153,7 @@ export const addServicioVehiculo = mutation({
   },
   handler: async (ctx, args) => {
     const veh = await ctx.db.get(args.vehiculoId);
-    if (!veh) throw new Error("Vehiculo no encontrado");
+    if (!veh) throw new ConvexError("Vehiculo no encontrado");
     const newServicio = {
       id: "srv-" + Date.now().toString(),
       fecha: args.fecha,
@@ -179,7 +179,7 @@ export const updateServicioVehiculo = mutation({
   },
   handler: async (ctx, args) => {
     const veh = await ctx.db.get(args.vehiculoId);
-    if (!veh) throw new Error("Vehiculo no encontrado");
+    if (!veh) throw new ConvexError("Vehiculo no encontrado");
     const servicios = veh.servicios || [];
     const index = servicios.findIndex(s => s.id === args.servicioId);
     if (index > -1) {
@@ -203,7 +203,7 @@ export const deleteServicioVehiculo = mutation({
   },
   handler: async (ctx, args) => {
     const veh = await ctx.db.get(args.vehiculoId);
-    if (!veh) throw new Error("Vehiculo no encontrado");
+    if (!veh) throw new ConvexError("Vehiculo no encontrado");
     const servicios = (veh.servicios || []).filter(s => s.id !== args.servicioId);
     await ctx.db.patch(args.vehiculoId, { servicios });
   }

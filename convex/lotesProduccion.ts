@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
 // 10.3 FUNCIÓN: crearLoteProduccion()
@@ -20,10 +20,10 @@ export const crearLoteProduccion = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "producir_lotes");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) throw new Error("Usuario sin empresa asignada");
+    if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
     const sucursalId = args.sucursalId ?? userContext.sucursal?.id;
-    if (!sucursalId) throw new Error("Usuario sin sucursal asignada");
+    if (!sucursalId) throw new ConvexError("Usuario sin sucursal asignada");
 
     // Generar número de lote LOTE-XXXX
     const lotesEmpresa = await ctx.db
@@ -199,10 +199,10 @@ export const agregarComentarioLote = mutation({
   },
   handler: async (ctx, args) => {
     const usuario = await ctx.db.get(args.usuarioId);
-    if (!usuario) throw new Error("Usuario no encontrado");
+    if (!usuario) throw new ConvexError("Usuario no encontrado");
 
     const lote = await ctx.db.get(args.loteId);
-    if (!lote) throw new Error("Lote no encontrado");
+    if (!lote) throw new ConvexError("Lote no encontrado");
 
     const comentarios = lote.comentarios || [];
     comentarios.push({
