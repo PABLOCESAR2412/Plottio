@@ -295,7 +295,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			setAlertConfig({
 				isOpen: true,
 				title: "Vehículo Añadido",
-				message: El vehículo con placa "" se registró exitosamente.,
+				message: `El vehículo con placa "${placa.trim().toUpperCase()}" se registró exitosamente.`,
 				type: "success",
 			});
 		} catch (error: any) {
