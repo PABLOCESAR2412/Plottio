@@ -14,6 +14,7 @@ import type * as bugs from "../bugs.js";
 import type * as catalogoServicios from "../catalogoServicios.js";
 import type * as citas from "../citas.js";
 import type * as clientes from "../clientes.js";
+import type * as consultaIdentidad from "../consultaIdentidad.js";
 import type * as cotizaciones from "../cotizaciones.js";
 import type * as emails from "../emails.js";
 import type * as inventario from "../inventario.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   catalogoServicios: typeof catalogoServicios;
   citas: typeof citas;
   clientes: typeof clientes;
+  consultaIdentidad: typeof consultaIdentidad;
   cotizaciones: typeof cotizaciones;
   emails: typeof emails;
   inventario: typeof inventario;

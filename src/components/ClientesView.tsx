@@ -1,20 +1,23 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
 	Building,
 	Car,
 	ChevronRight,
 	Edit2,
 	Info,
+	Loader2,
 	Mail,
 	Phone,
 	Plus,
 	Search,
 	Trash2,
+	User,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { validarIdentificacion } from "../lib/identificacion";
 import { useSessionStore } from "../store/useSessionStore";
 import type { Cliente, Empresa, Vehiculo } from "../types/data";
 import { TableSkeleton } from "./Skeleton";
@@ -53,6 +56,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const createClienteMut = useMutation(api.clientes.createCliente);
 	const updateClienteMut = useMutation(api.clientes.updateCliente);
 	const deleteClienteMut = useMutation(api.clientes.deleteCliente);
+	const consultarIdentidadAction = useAction(
+		api.consultaIdentidad.consultarIdentidad,
+	);
 
 	const clientes = (rawClientes || []).map((c) => ({
 		...c,
@@ -105,6 +111,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const [identificacion, setIdentificacion] = useState("");
 	const [empresaId, setEmpresaId] = useState<string>("");
 
+	// Búsqueda de identificación (C.I. / RUC) al crear cliente
+	const [buscarIdentidadCargando, setBuscarIdentidadCargando] = useState(false);
+	const [resultadosBusqueda, setResultadosBusqueda] = useState<
+		{ nombres: string; identificacion: string; direccion: string }[]
+	>([]);
+	const [errorIdentificacion, setErrorIdentificacion] = useState("");
+	const [identificacionValida, setIdentificacionValida] = useState(false);
+	const [buscado, setBuscado] = useState(false);
+	const searchTimerRef = useRef<number | null>(null);
+
 	// Selected client for editing
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
 
@@ -145,18 +161,97 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		: [];
 
 	const handleOpenCreate = () => {
+		if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
 		setNombre("");
 		setTelefono("");
 		setEmail("");
 		setDireccion("");
 		setIdentificacion("");
 		setEmpresaId("");
+		setResultadosBusqueda([]);
+		setErrorIdentificacion("");
+		setIdentificacionValida(false);
+		setBuscado(false);
+		setBuscarIdentidadCargando(false);
 		setIsCreateOpen(true);
+	};
+
+	const buscarIdentidad = async (valor: string) => {
+		setBuscarIdentidadCargando(true);
+		setBuscado(true);
+		setErrorIdentificacion("");
+		setResultadosBusqueda([]);
+		try {
+			const res = await consultarIdentidadAction({ numero: valor });
+			if (res.encontrado) {
+				setResultadosBusqueda([
+					{
+						nombres: res.nombres,
+						identificacion: res.identificacion,
+						direccion: res.direccion,
+					},
+				]);
+				setNombre(res.nombres);
+				if (res.direccion) setDireccion(res.direccion);
+			} else {
+				setResultadosBusqueda([]);
+			}
+		} catch (err) {
+			setErrorIdentificacion(
+				err instanceof Error
+					? err.message
+					: "Error al consultar la identificación.",
+			);
+		} finally {
+			setBuscarIdentidadCargando(false);
+		}
+	};
+
+	const handleIdentificacionChange = (
+		e: React.ChangeEvent<HTMLInputElement>,
+	) => {
+		const soloNumeros = e.target.value.replace(/\D/g, "").slice(0, 13);
+		setIdentificacion(soloNumeros);
+
+		const { valida, mensaje } = validarIdentificacion(soloNumeros);
+		setErrorIdentificacion(soloNumeros && !valida ? mensaje : "");
+		setIdentificacionValida(valida);
+		setResultadosBusqueda([]);
+		setBuscado(false);
+
+		if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+
+		if (!valida || soloNumeros.length === 0) return;
+
+		searchTimerRef.current = window.setTimeout(() => {
+			void buscarIdentidad(soloNumeros);
+		}, 600);
+	};
+
+	const aplicarResultado = (r: {
+		nombres: string;
+		identificacion: string;
+		direccion: string;
+	}) => {
+		setNombre(r.nombres);
+		if (r.direccion) setDireccion(r.direccion);
+		setResultadosBusqueda([]);
+		setBuscado(false);
 	};
 
 	const handleCreate = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!nombre.trim() || !currentUser) return;
+
+		if (!identificacion.trim() || !identificacionValida) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: "El campo C.I. / RUC es obligatorio y debe ser válido.",
+				type: "error",
+			});
+			return;
+		}
 
 		const isDuplicate =
 			identificacion.trim() !== "" &&
@@ -586,6 +681,81 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 						<form onSubmit={handleCreate} className="space-y-4">
 							<div>
 								<label
+									htmlFor="cliente-identificacion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
+									C.I. / RUC *
+								</label>
+								<div className="flex gap-2">
+									<input
+										id="cliente-identificacion"
+										type="text"
+										inputMode="numeric"
+										required
+										maxLength={13}
+										value={identificacion}
+										onChange={handleIdentificacionChange}
+										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										placeholder="Ej. 1710034065"
+									/>
+									<button
+										type="button"
+										onClick={() => void buscarIdentidad(identificacion)}
+										disabled={buscarIdentidadCargando || !identificacionValida}
+										aria-label="Buscar por C.I. / RUC"
+										className="shrink-0 flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+									>
+										<Search className="h-4 w-4" />
+									</button>
+								</div>
+								{errorIdentificacion && (
+									<p className="mt-1 text-xs text-destructive">
+										{errorIdentificacion}
+									</p>
+								)}
+								{buscarIdentidadCargando && (
+									<div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+										<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+										<span className="text-xs text-muted-foreground">
+											Buscando cliente...
+										</span>
+									</div>
+								)}
+								{!buscarIdentidadCargando &&
+									buscado &&
+									resultadosBusqueda.length === 0 &&
+									!errorIdentificacion && (
+										<p className="mt-1 text-xs text-muted-foreground">
+											No se encontró un cliente con esa cédula/RUC.
+										</p>
+									)}
+								{!buscarIdentidadCargando && resultadosBusqueda.length > 0 && (
+									<ul className="mt-2 max-h-40 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-background">
+										{resultadosBusqueda.map((r) => (
+											<li key={r.identificacion}>
+												<button
+													type="button"
+													onClick={() => aplicarResultado(r)}
+													className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-secondary transition-colors cursor-pointer"
+												>
+													<User className="h-4 w-4 shrink-0 text-primary" />
+													<div className="min-w-0">
+														<p className="truncate text-sm font-medium text-foreground">
+															{r.nombres}
+														</p>
+														<p className="text-xs text-muted-foreground">
+															{r.identificacion}
+														</p>
+													</div>
+												</button>
+											</li>
+										))}
+									</ul>
+								)}
+							</div>
+
+							<div>
+								<label
 									htmlFor="cliente-nombre"
 									className="block text-xs font-semibold text-muted-foreground mb-1"
 								>
@@ -633,23 +803,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									onChange={(e) => setEmail(e.target.value)}
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. carlos@correo.com"
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="cliente-identificacion"
-									className="block text-xs font-semibold text-muted-foreground mb-1"
-								>
-									C.I. / RUC
-								</label>
-								<input
-									id="cliente-identificacion"
-									type="text"
-									value={identificacion}
-									onChange={(e) => setIdentificacion(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-									placeholder="Ej. 1234567890"
 								/>
 							</div>
 
