@@ -140,7 +140,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		isOpen: boolean;
 		title: string;
 		message: string;
-		type: "success" | "alert" | "delete";
+		type: "success" | "alert" | "delete" | "error";
 		onConfirm?: () => void;
 	}>({
 		isOpen: false,
@@ -245,10 +245,9 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		e.preventDefault();
 		if (!nombre.trim() || !ruc.trim()) return;
 
-
-		const isDuplicate = ruc.trim() !== "" && empresas.some(
-			(e) => e.ruc && e.ruc.trim() === ruc.trim()
-		);
+		const isDuplicate =
+			ruc.trim() !== "" &&
+			empresas.some((e) => e.ruc && e.ruc.trim() === ruc.trim());
 		if (isDuplicate) {
 			setAlertConfig({
 				isOpen: true,
@@ -259,7 +258,6 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			return;
 		}
 
-		
 		try {
 			const newEmp = (await createEmpresaMut({
 				nombre: nombre.trim(),
@@ -318,9 +316,14 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		if (!logoFile) return logoPreview;
 		setIsUploadingLogo(true);
 
-		const isDuplicate = ruc.trim() !== "" && empresas.some(
-			(e) => e.ruc && e.ruc.trim() === ruc.trim() && e.id !== editingEmpresa.id
-		);
+		const isDuplicate =
+			ruc.trim() !== "" &&
+			empresas.some(
+				(e) =>
+					e.ruc &&
+					e.ruc.trim() === ruc.trim() &&
+					(!editingEmpresa || e.id !== editingEmpresa.id),
+			);
 		if (isDuplicate) {
 			setAlertConfig({
 				isOpen: true,
@@ -328,7 +331,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 				message: `El RUC "${ruc.trim()}" ya está registrado en otra empresa.`,
 				type: "error",
 			});
-			return;
+			return "";
 		}
 
 		try {
@@ -350,10 +353,12 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		e.preventDefault();
 		if (!editingEmpresa || !nombre.trim() || !ruc.trim()) return;
 
-		
-		const isDuplicate = ruc.trim() !== "" && empresas.some(
-			(e) => e.ruc && e.ruc.trim() === ruc.trim() && e.id !== editingEmpresa.id
-		);
+		const isDuplicate =
+			ruc.trim() !== "" &&
+			empresas.some(
+				(e) =>
+					e.ruc && e.ruc.trim() === ruc.trim() && e.id !== editingEmpresa.id,
+			);
 		if (isDuplicate) {
 			setAlertConfig({
 				isOpen: true,

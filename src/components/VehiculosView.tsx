@@ -127,7 +127,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		isOpen: boolean;
 		title: string;
 		message: string;
-		type: "success" | "alert" | "delete";
+		type: "success" | "alert" | "delete" | "error";
 		onConfirm?: () => void;
 	}>({
 		isOpen: false,
@@ -216,7 +216,12 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			: null;
 
 	const selectedVehiculo = vehiculos.find((v) => v.id === activeVehiculoId);
-		const ordenesVehiculo = (todasOrdenes || []).filter(o => o.placa && selectedVehiculo && o.placa.toUpperCase() === selectedVehiculo.placa.toUpperCase());
+	const ordenesVehiculo = (todasOrdenes || []).filter(
+		(o) =>
+			o.placa &&
+			selectedVehiculo &&
+			o.placa.toUpperCase() === selectedVehiculo.placa.toUpperCase(),
+	);
 
 	// Sync category state when categoriesPrecios changes
 	useEffect(() => {
@@ -267,10 +272,11 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		e.preventDefault();
 		if (!placa.trim() || !currentUser) return;
 
-		
-		const isDuplicate = placa.trim() !== "" && vehiculos.some(
-			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase()
-		);
+		const isDuplicate =
+			placa.trim() !== "" &&
+			vehiculos.some(
+				(v) => v.placa.toUpperCase() === placa.trim().toUpperCase(),
+			);
 		if (isDuplicate) {
 			setAlertConfig({
 				isOpen: true,
@@ -281,7 +287,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			return;
 		}
 
-		
 		try {
 			const newVeh = await createVehiculoMut({
 				usuarioId: currentUser.id as any,
@@ -338,10 +343,13 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		e.preventDefault();
 		if (!selectedVehiculo || !placa.trim() || !currentUser) return;
 
-		
-		const isDuplicate = placa.trim() !== "" && vehiculos.some(
-			(v) => v.placa.toUpperCase() === placa.trim().toUpperCase() && v.id !== selectedVehiculo.id
-		);
+		const isDuplicate =
+			placa.trim() !== "" &&
+			vehiculos.some(
+				(v) =>
+					v.placa.toUpperCase() === placa.trim().toUpperCase() &&
+					v.id !== selectedVehiculo.id,
+			);
 		if (isDuplicate) {
 			setAlertConfig({
 				isOpen: true,
@@ -1690,5 +1698,3 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 		</div>
 	);
 };
-
-

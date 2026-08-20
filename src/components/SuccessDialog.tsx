@@ -7,7 +7,7 @@ interface SuccessDialogProps {
 	onClose: () => void;
 	title: string;
 	message: string;
-	type?: "success" | "alert" | "info" | "delete";
+	type?: "success" | "alert" | "info" | "delete" | "error";
 	confirmText?: string;
 	onConfirm?: () => void;
 }
@@ -61,6 +61,12 @@ export const SuccessDialog: React.FC<SuccessDialogProps> = ({
 						<Info className="h-7 w-7" />
 					</div>
 				);
+			case "error":
+				return (
+					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/15 text-destructive animate-pulse">
+						<AlertTriangle className="h-7 w-7" />
+					</div>
+				);
 			default:
 				return (
 					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/15 text-green-500">
@@ -112,7 +118,7 @@ export const SuccessDialog: React.FC<SuccessDialogProps> = ({
 						type="button"
 						onClick={handleConfirm}
 						className={`w-full rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-							type === "delete"
+							type === "delete" || type === "error"
 								? "bg-destructive text-white hover:bg-destructive/95"
 								: "bg-primary text-primary-foreground hover:opacity-90"
 						}`}

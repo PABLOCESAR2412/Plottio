@@ -374,7 +374,7 @@ export const AgendaView: React.FC = () => {
 								day,
 							);
 							const isSelected = selectedDate === cellDateStr;
-							const hasAppointments = citas.some(
+							const hasAppointments = (citas ?? []).some(
 								(c) => c.fecha === cellDateStr,
 							);
 							const isToday = cellDateStr === "2026-06-03";

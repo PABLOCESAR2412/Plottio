@@ -25,14 +25,13 @@ export function CatalogoView() {
 
 	const createServicio = useMutation(api.catalogoServicios.createServicio);
 	const toggleActivo = useMutation(api.catalogoServicios.toggleActivo);
-	const updateServicio = useMutation(api.catalogoServicios.updateServicio);
 	const deleteServicio = useMutation(api.catalogoServicios.deleteServicio);
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [showInactive, setShowInactive] = useState(false);
 	const [showModal, setShowModal] = useState(false);
 	const [_showEditModal, setShowEditModal] = useState(false);
-	const [editingServicio, setEditingServicio] = useState<{
+	const [_editingServicio, setEditingServicio] = useState<{
 		id: Id<"catalogoServicios">;
 		nombre: string;
 		categoria: string;
@@ -66,25 +65,6 @@ export function CatalogoView() {
 			setFormData({ nombre: "", categoria: "general", precioBase: 0 });
 		} catch (err) {
 			toast.error((err as Error).message || "Error al crear servicio");
-		}
-	};
-
-	const _handleEdit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!currentUser || !editingServicio) return;
-		try {
-			await updateServicio({
-				usuarioId: currentUser.id as Id<"usuarios">,
-				id: editingServicio.id,
-				nombre: editingServicio.nombre,
-				categoria: editingServicio.categoria,
-				precioBase: Number(editingServicio.precioBase),
-			});
-			toast.success("Servicio actualizado exitosamente");
-			setShowEditModal(false);
-			setEditingServicio(null);
-		} catch (err) {
-			toast.error((err as Error).message || "Error al actualizar servicio");
 		}
 	};
 

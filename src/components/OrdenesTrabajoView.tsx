@@ -27,22 +27,6 @@ interface OrdenesTrabajoViewProps {
 	clearPreselectedOrder?: () => void;
 }
 
-type LocalCliente = {
-	_id: string;
-	nombre: string;
-	telefono: string;
-	email: string;
-	empresaId: string | null;
-	direccion?: string;
-};
-
-type LocalEmpresa = {
-	_id: string;
-	nombre: string;
-	ruc: string;
-	direccion?: string;
-};
-
 type LocalVehiculo = {
 	_id: string;
 	placa: string;
@@ -69,7 +53,7 @@ interface OrdenTrabajo {
 	vehiculoTipo: string;
 	items: ItemOrdenTrabajo[];
 	total: number;
-	prioridad: string;
+	prioridad: "Alta" | "Media" | "Baja";
 	progreso: number;
 	estado: "Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado";
 	fechaInicio: string;
@@ -513,7 +497,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 
 	// Status changes from drop-down
 	const handleStatusChange = async (
-		newStatus: "Pendiente" | "En Progreso" | "Completado" | "Cancelado",
+		newStatus: "Pendiente" | "En Proceso" | "Listo" | "Entregado" | "Cancelado",
 	) => {
 		if (!selectedOrder || !usuarioId) return;
 		try {
@@ -536,7 +520,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 		}
 	};
 
-	const handleDeleteOrderClick = (ord: LocalOrden) => {
+	const handleDeleteOrderClick = (ord: { _id: string }) => {
 		setAlertConfig({
 			isOpen: true,
 			title: "¿Eliminar Orden de Trabajo?",
@@ -1818,4 +1802,3 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 		</div>
 	);
 };
-

@@ -78,16 +78,17 @@ interface ItemCotizacion {
 }
 
 interface Cotizacion {
-	id: string;
+	_id: string;
 	clienteNombre: string;
 	clienteTelefono: string;
 	vehiculoTipo: string;
 	items: ItemCotizacion[];
 	total: number;
-	estado: "Pendiente" | "Aceptada" | "Rechazada";
+	estado: string;
 	fecha: string;
 	sucursalId?: string;
 	pvId?: string;
+	vehiculoId?: string;
 }
 
 export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
@@ -131,7 +132,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 
 	// ── MUTATIONS (sustituyen a los setters de Zustand) ─────────────────────
 	const createCotizacionMut = useMutation(api.cotizaciones.createCotizacion);
-	
+
 	const deleteCotizacionMut = useMutation(api.cotizaciones.deleteCotizacion);
 	const createVehiculoMut = useMutation(api.vehiculos.createVehiculo);
 	const createOrdenMut = useMutation(api.ordenes.createOrdenTrabajo);
@@ -731,9 +732,9 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	};
 
 	// WhatsApp formatted message trigger
-	const handleSendWhatsApp = (cot: any) => {
+	const handleSendWhatsApp = (cot: Cotizacion) => {
 		let itemsStr = "";
-		cot.items.forEach((it: any, idx: number) => {
+		cot.items.forEach((it: ItemCotizacion, idx: number) => {
 			itemsStr += `${idx + 1}. ${it.descripcion} x${it.cantidad} - $${it.precioUnitario} c/u (%2A$${it.cantidad * it.precioUnitario}%2A)%0A`;
 		});
 
@@ -744,7 +745,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	};
 
 	// 6. CONVERT QUOTE TO WORK ORDER
-	const handleConvertToWorkOrder = (cot: any) => {
+	const handleConvertToWorkOrder = (cot: Cotizacion) => {
 		setAlertConfig({
 			isOpen: true,
 			title: "¿Convertir en Orden de Trabajo?",
@@ -761,7 +762,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					return;
 				}
 				try {
-					const orderItems = cot.items.map((it: any) => ({
+					const orderItems = cot.items.map((it: ItemCotizacion) => ({
 						descripcion: it.descripcion,
 						cantidad: it.cantidad,
 						precioUnitario: it.precioUnitario,
@@ -774,7 +775,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						clienteTelefono: cot.clienteTelefono,
 						placa: placa.toUpperCase() || "S/P",
 						vehiculoTipo: cot.vehiculoTipo,
-						vehiculoId: (cot as any).vehiculoId,
+						vehiculoId: cot.vehiculoId as Id<"vehiculos">,
 						items: orderItems,
 						prioridad: "Media" as const,
 						estado: "Pendiente" as const,

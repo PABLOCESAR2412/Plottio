@@ -148,13 +148,14 @@ export const InventarioView: React.FC = () => {
 		}
 	};
 
-	const handleDeleteItem = async () => {
-		if (!currentUser || !itemToDelete) return;
+	const handleDeleteItem = async (id?: Id<"inventarioItems">) => {
+		const target = id ?? itemToDelete;
+		if (!currentUser || !target) return;
 		setIsSubmitting(true);
 		try {
 			await deleteItemMutation({
 				usuarioId: currentUser.id as Id<"usuarios">,
-				itemId: itemToDelete,
+				itemId: target,
 			});
 			toast.success("Ítem eliminado exitosamente");
 			setShowDeleteModal(false);

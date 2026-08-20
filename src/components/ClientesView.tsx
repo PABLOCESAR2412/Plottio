@@ -83,7 +83,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		isOpen: boolean;
 		title: string;
 		message: string;
-		type: "success" | "alert" | "delete";
+		type: "success" | "alert" | "delete" | "error";
 		onConfirm?: () => void;
 	}>({
 		isOpen: false,
@@ -158,10 +158,12 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		e.preventDefault();
 		if (!nombre.trim() || !currentUser) return;
 
-		
-		const isDuplicate = identificacion.trim() !== "" && clientes.some(
-			(c) => c.identificacion && c.identificacion.trim() === identificacion.trim()
-		);
+		const isDuplicate =
+			identificacion.trim() !== "" &&
+			clientes.some(
+				(c) =>
+					c.identificacion && c.identificacion.trim() === identificacion.trim(),
+			);
 		if (isDuplicate) {
 			setAlertConfig({
 				isOpen: true,
@@ -210,10 +212,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		e.preventDefault();
 		if (!editingClient || !nombre.trim() || !currentUser) return;
 
-		
-		const isDuplicate = identificacion.trim() !== "" && clientes.some(
-			(c) => c.identificacion && c.identificacion.trim() === identificacion.trim() && c.id !== editingClient.id
-		);
+		const isDuplicate =
+			identificacion.trim() !== "" &&
+			clientes.some(
+				(c) =>
+					c.identificacion &&
+					c.identificacion.trim() === identificacion.trim() &&
+					c.id !== editingClient.id,
+			);
 		if (isDuplicate) {
 			setAlertConfig({
 				isOpen: true,
