@@ -111,7 +111,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			? { usuarioId: currentUser.id as any }
 			: "skip",
 	);
-	const ordenesVehiculo = (todasOrdenes || []).filter(o => o.placa && selectedVehiculo && o.placa.toUpperCase() === selectedVehiculo.placa.toUpperCase());
 
 	// Modals
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -217,6 +216,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			: null;
 
 	const selectedVehiculo = vehiculos.find((v) => v.id === activeVehiculoId);
+		const ordenesVehiculo = (todasOrdenes || []).filter(o => o.placa && selectedVehiculo && o.placa.toUpperCase() === selectedVehiculo.placa.toUpperCase());
 
 	// Sync category state when categoriesPrecios changes
 	useEffect(() => {
