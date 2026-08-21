@@ -6,6 +6,7 @@ export type ResultadoConsulta = {
 	nombres: string;
 	direccion: string;
 	identificacion: string;
+	nombreFantasiaComercial: string;
 	fuente: string;
 };
 

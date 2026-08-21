@@ -68,6 +68,7 @@ export const consultarIdentidad = action({
 		nombres: string;
 		direccion: string;
 		identificacion: string;
+		nombreFantasiaComercial: string;
 		fuente: string;
 	}> => {
 		const numero = args.numero.trim();
@@ -91,6 +92,7 @@ export const consultarIdentidad = action({
 
 		let nombres = "";
 		let direccion = "";
+		let nombreFantasiaComercial = "";
 
 		if (Array.isArray(consolidados) && consolidados.length > 0) {
 			const data = consolidados[0] as Record<string, unknown>;
@@ -111,6 +113,7 @@ export const consultarIdentidad = action({
 			) as Record<string, unknown> | undefined;
 			const escogido = matriz ?? (establecimientos[0] as Record<string, unknown>);
 			direccion = texto(escogido.direccionCompleta);
+			nombreFantasiaComercial = texto(escogido.nombreFantasiaComercial);
 		}
 
 		if (nombres) {
@@ -119,6 +122,7 @@ export const consultarIdentidad = action({
 				nombres,
 				direccion,
 				identificacion: numero,
+				nombreFantasiaComercial,
 				fuente: "SRI",
 			};
 		}
@@ -145,6 +149,7 @@ export const consultarIdentidad = action({
 						nombres: nombreCompleto,
 						direccion: "",
 						identificacion: numero,
+						nombreFantasiaComercial: "",
 						fuente: "tducargo",
 					};
 				}
@@ -156,6 +161,7 @@ export const consultarIdentidad = action({
 			nombres: "",
 			direccion: "",
 			identificacion: numero,
+			nombreFantasiaComercial: "",
 			fuente: "",
 		};
 	},

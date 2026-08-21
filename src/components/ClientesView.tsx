@@ -11,7 +11,6 @@ import {
 	Plus,
 	Search,
 	Trash2,
-	User,
 } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
@@ -60,6 +59,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const createClienteMut = useMutation(api.clientes.createCliente);
 	const updateClienteMut = useMutation(api.clientes.updateCliente);
 	const deleteClienteMut = useMutation(api.clientes.deleteCliente);
+	const createEmpresaMut = useMutation(api.organizacion.createEmpresa);
 	const consultarIdentidadAction = useAction(
 		api.consultaIdentidad.consultarIdentidad,
 	);
@@ -117,13 +117,37 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 	// Búsqueda de identificación (C.I. / RUC) al crear cliente
 	const [buscarIdentidadCargando, setBuscarIdentidadCargando] = useState(false);
-	const [resultadosBusqueda, setResultadosBusqueda] = useState<
-		{ nombres: string; identificacion: string; direccion: string }[]
-	>([]);
 	const [errorIdentificacion, setErrorIdentificacion] = useState("");
 	const [identificacionValida, setIdentificacionValida] = useState(false);
 	const [buscado, setBuscado] = useState(false);
 	const searchTimerRef = useRef<number | null>(null);
+
+	// Modal de resultado de consulta (reemplaza lista)
+	const [consultaData, setConsultaData] = useState<{
+		nombres: string;
+		identificacion: string;
+		direccion: string;
+		nombreFantasiaComercial: string;
+	} | null>(null);
+	const [isConsultaModalOpen, setIsConsultaModalOpen] = useState(false);
+
+	// Flujo cliente + empresa
+	const [pendienteEmpresa, setPendienteEmpresa] = useState(false);
+	const [pendingEmpresaData, setPendingEmpresaData] = useState<{
+		nombreFantasiaComercial: string;
+		direccion: string;
+		nombres: string;
+		identificacion: string;
+	} | null>(null);
+	const [isEmpresaCreateOpen, setIsEmpresaCreateOpen] = useState(false);
+	const [empresaNombre, setEmpresaNombre] = useState("");
+	const [empresaRuc, setEmpresaRuc] = useState("");
+	const [empresaContactoNombre, setEmpresaContactoNombre] = useState("");
+	const [empresaContactoTelefono, setEmpresaContactoTelefono] = useState("");
+	const [empresaDireccion, setEmpresaDireccion] = useState("");
+	const [lastCreatedClienteId, setLastCreatedClienteId] = useState<
+		string | null
+	>(null);
 
 	// Validación de campos del formulario de creación
 	const [errorNombre, setErrorNombre] = useState("");
@@ -176,7 +200,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		setDireccion("");
 		setIdentificacion("");
 		setEmpresaId("");
-		setResultadosBusqueda([]);
+		setConsultaData(null);
+		setIsConsultaModalOpen(false);
+		setIsEmpresaCreateOpen(false);
+		setPendienteEmpresa(false);
+		setPendingEmpresaData(null);
 		setErrorIdentificacion("");
 		setErrorNombre("");
 		setErrorTelefono("");
@@ -190,18 +218,19 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		setBuscarIdentidadCargando(true);
 		setBuscado(true);
 		setErrorIdentificacion("");
-		setResultadosBusqueda([]);
+		setConsultaData(null);
+		setIsConsultaModalOpen(false);
 
 		const cache = consultarCacheIdentidad(valor);
 		if (cache) {
 			if (cache.encontrado) {
-				setResultadosBusqueda([
-					{
-						nombres: cache.nombres,
-						identificacion: cache.identificacion,
-						direccion: cache.direccion,
-					},
-				]);
+				setConsultaData({
+					nombres: cache.nombres,
+					identificacion: cache.identificacion,
+					direccion: cache.direccion,
+					nombreFantasiaComercial: cache.nombreFantasiaComercial || "",
+				});
+				setIsConsultaModalOpen(true);
 			}
 			setBuscarIdentidadCargando(false);
 			return;
@@ -211,15 +240,13 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			const res = await consultarIdentidadAction({ numero: valor });
 			guardarCacheIdentidad(valor, res);
 			if (res.encontrado) {
-				setResultadosBusqueda([
-					{
-						nombres: res.nombres,
-						identificacion: res.identificacion,
-						direccion: res.direccion,
-					},
-				]);
-			} else {
-				setResultadosBusqueda([]);
+				setConsultaData({
+					nombres: res.nombres,
+					identificacion: res.identificacion,
+					direccion: res.direccion,
+					nombreFantasiaComercial: res.nombreFantasiaComercial || "",
+				});
+				setIsConsultaModalOpen(true);
 			}
 		} catch (err) {
 			setErrorIdentificacion(
@@ -265,7 +292,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		const { valida, mensaje } = validarIdentificacion(soloNumeros);
 		setErrorIdentificacion(soloNumeros && !valida ? mensaje : "");
 		setIdentificacionValida(valida);
-		setResultadosBusqueda([]);
+		setConsultaData(null);
+		setIsConsultaModalOpen(false);
 		setBuscado(false);
 
 		if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
@@ -277,15 +305,27 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		}, 600);
 	};
 
-	const aplicarResultado = (r: {
-		nombres: string;
-		identificacion: string;
-		direccion: string;
-	}) => {
-		setNombre(r.nombres);
-		if (r.direccion) setDireccion(r.direccion);
-		setResultadosBusqueda([]);
-		setBuscado(false);
+	const handleConsultaSoloCliente = () => {
+		if (!consultaData) return;
+		setNombre(consultaData.nombres);
+		if (consultaData.direccion) setDireccion(consultaData.direccion);
+		setPendienteEmpresa(false);
+		setPendingEmpresaData(null);
+		setIsConsultaModalOpen(false);
+	};
+
+	const handleConsultaClienteYEmpresa = () => {
+		if (!consultaData) return;
+		setNombre(consultaData.nombres);
+		if (consultaData.direccion) setDireccion(consultaData.direccion);
+		setPendienteEmpresa(true);
+		setPendingEmpresaData({
+			nombreFantasiaComercial: consultaData.nombreFantasiaComercial,
+			direccion: consultaData.direccion,
+			nombres: consultaData.nombres,
+			identificacion: consultaData.identificacion,
+		});
+		setIsConsultaModalOpen(false);
 	};
 
 	const handleCreate = async (e: React.FormEvent) => {
@@ -348,10 +388,34 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			identificacion: identificacion.trim(),
 		});
 
-		setIsCreateOpen(false);
 		if (newCli) {
 			setSelectedClientId(newCli._id);
+			setLastCreatedClienteId(newCli._id);
 		}
+
+		// Si viene del flujo cliente+empresa, abrir modal de empresa prellenado
+		if (pendienteEmpresa && pendingEmpresaData) {
+			const rucEmpresa =
+				pendingEmpresaData.identificacion.length === 13
+					? pendingEmpresaData.identificacion
+					: `${pendingEmpresaData.identificacion}001`;
+			setEmpresaNombre(
+				pendingEmpresaData.nombreFantasiaComercial ||
+					pendingEmpresaData.nombres,
+			);
+			setEmpresaRuc(rucEmpresa);
+			setEmpresaContactoNombre(pendingEmpresaData.nombres);
+			setEmpresaContactoTelefono(telefono.trim());
+			setEmpresaDireccion(pendingEmpresaData.direccion);
+			setIsCreateOpen(false);
+			setIsEmpresaCreateOpen(true);
+			setPendienteEmpresa(false);
+			return;
+		}
+
+		setIsCreateOpen(false);
+		setPendienteEmpresa(false);
+		setPendingEmpresaData(null);
 
 		setAlertConfig({
 			isOpen: true,
@@ -359,6 +423,72 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			message: `El cliente "${nombre.trim()}" ha sido registrado con éxito.`,
 			type: "success",
 		});
+	};
+
+	const handleCreateEmpresaFromConsulta = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!empresaNombre.trim() || !empresaRuc.trim() || !currentUser) return;
+
+		const isDuplicate = empresas.some(
+			(em) => em.ruc && em.ruc.trim() === empresaRuc.trim(),
+		);
+		if (isDuplicate) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error de Validación",
+				message: `El RUC "${empresaRuc.trim()}" ya está registrado en otra empresa.`,
+				type: "error",
+			});
+			return;
+		}
+
+		try {
+			const newEmp = (await createEmpresaMut({
+				nombre: empresaNombre.trim(),
+				ruc: empresaRuc.trim(),
+				razonSocial: empresaContactoNombre.trim() || empresaNombre.trim(),
+				email: "",
+				telefono: empresaContactoTelefono.trim() || "",
+				direccion: empresaDireccion.trim() || "",
+			})) as unknown as { _id: string };
+
+			// Vincular empresa al cliente recién creado si existe
+			if (lastCreatedClienteId) {
+				try {
+					await updateClienteMut({
+						usuarioId: currentUser?.id as Id<"usuarios">,
+						clienteId: lastCreatedClienteId as Id<"clientes">,
+						nombre: nombre.trim(),
+						telefono: telefono.trim() || "+593 ",
+						email:
+							email.trim() ||
+							`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
+						direccion: direccion.trim(),
+						identificacion: identificacion.trim(),
+						empresaId: newEmp._id as Id<"empresas">,
+					});
+				} catch {
+					// no bloquear si falla el vínculo
+				}
+			}
+
+			setIsEmpresaCreateOpen(false);
+			setPendingEmpresaData(null);
+			setLastCreatedClienteId(null);
+			setAlertConfig({
+				isOpen: true,
+				title: "Empresa Registrada",
+				message: `La empresa "${empresaNombre.trim()}" ha sido creada y vinculada al cliente.`,
+				type: "success",
+			});
+		} catch (err) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al registrar empresa",
+				message: err instanceof Error ? err.message : "Error desconocido",
+				type: "alert",
+			});
+		}
 	};
 
 	const handleOpenEdit = (client: Cliente) => {
@@ -792,35 +922,12 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								)}
 								{!buscarIdentidadCargando &&
 									buscado &&
-									resultadosBusqueda.length === 0 &&
+									!consultaData &&
 									!errorIdentificacion && (
 										<p className="mt-1 text-xs text-muted-foreground">
 											No se encontró un cliente con esa cédula/RUC.
 										</p>
 									)}
-								{!buscarIdentidadCargando && resultadosBusqueda.length > 0 && (
-									<ul className="mt-2 max-h-40 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-background">
-										{resultadosBusqueda.map((r) => (
-											<li key={r.identificacion}>
-												<button
-													type="button"
-													onClick={() => aplicarResultado(r)}
-													className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-secondary transition-colors cursor-pointer"
-												>
-													<User className="h-4 w-4 shrink-0 text-primary" />
-													<div className="min-w-0">
-														<p className="truncate text-sm font-medium text-foreground">
-															{r.nombres}
-														</p>
-														<p className="text-xs text-muted-foreground">
-															{r.identificacion}
-														</p>
-													</div>
-												</button>
-											</li>
-										))}
-									</ul>
-								)}
 							</div>
 
 							<div>
@@ -937,6 +1044,192 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
 								>
 									Registrar
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{/* CONSULTA RESULT MODAL */}
+			{isConsultaModalOpen && consultaData && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+					<button
+						type="button"
+						aria-label="Cerrar"
+						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+						onClick={() => setIsConsultaModalOpen(false)}
+					/>
+					<div className="relative w-full max-w-sm overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+						<h3 className="text-base font-bold text-foreground mb-4">
+							Datos encontrados
+						</h3>
+						<div className="space-y-3 rounded-lg border border-border bg-secondary/20 p-4">
+							<div>
+								<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+									C.I. / RUC
+								</p>
+								<p className="text-sm font-medium text-foreground">
+									{consultaData.identificacion}
+								</p>
+							</div>
+							<div>
+								<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+									Nombres completos
+								</p>
+								<p className="text-sm font-medium text-foreground">
+									{consultaData.nombres}
+								</p>
+							</div>
+							<div>
+								<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+									Dirección
+								</p>
+								<p className="text-sm font-medium text-foreground">
+									{consultaData.direccion || "No disponible"}
+								</p>
+							</div>
+							<div>
+								<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+									Nombre comercial
+								</p>
+								<p className="text-sm font-medium text-foreground">
+									{consultaData.nombreFantasiaComercial || "—"}
+								</p>
+							</div>
+						</div>
+						<div className="flex flex-col gap-2 pt-4">
+							<button
+								type="button"
+								onClick={handleConsultaClienteYEmpresa}
+								className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+							>
+								Crear cliente y empresa
+							</button>
+							<button
+								type="button"
+								onClick={handleConsultaSoloCliente}
+								className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+							>
+								Crear solo cliente
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* EMPRESA CREATE MODAL (flujo cliente+empresa) */}
+			{isEmpresaCreateOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+					<button
+						type="button"
+						aria-label="Cerrar"
+						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+						onClick={() => setIsEmpresaCreateOpen(false)}
+					/>
+					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+						<h3 className="text-lg font-bold text-foreground mb-4">
+							Registrar Empresa / Flota
+						</h3>
+						<form
+							onSubmit={handleCreateEmpresaFromConsulta}
+							className="space-y-4"
+						>
+							<div>
+								<label
+									htmlFor="empresa-consulta-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
+									Nombre Comercial *
+								</label>
+								<input
+									id="empresa-consulta-nombre"
+									type="text"
+									required
+									value={empresaNombre}
+									onChange={(e) => setEmpresaNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Cooperativa Quito Express"
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor="empresa-consulta-ruc"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
+									RUC *
+								</label>
+								<input
+									id="empresa-consulta-ruc"
+									type="text"
+									required
+									value={empresaRuc}
+									onChange={(e) => setEmpresaRuc(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. 1798765432001"
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor="empresa-consulta-contacto-nombre"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
+									Nombre del Contacto (Opcional)
+								</label>
+								<input
+									id="empresa-consulta-contacto-nombre"
+									type="text"
+									value={empresaContactoNombre}
+									onChange={(e) => setEmpresaContactoNombre(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Sofía Ramos"
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor="empresa-consulta-contacto-telefono"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
+									Teléfono del Contacto (Opcional)
+								</label>
+								<input
+									id="empresa-consulta-contacto-telefono"
+									type="text"
+									value={empresaContactoTelefono}
+									onChange={(e) => setEmpresaContactoTelefono(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. +593 96 345 6789"
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor="empresa-consulta-direccion"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
+									Dirección (Opcional)
+								</label>
+								<input
+									id="empresa-consulta-direccion"
+									type="text"
+									value={empresaDireccion}
+									onChange={(e) => setEmpresaDireccion(e.target.value)}
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									placeholder="Ej. Av. Amazonas N32-125 y La Niña"
+								/>
+							</div>
+							<div className="flex gap-3 justify-end pt-2">
+								<button
+									type="button"
+									onClick={() => setIsEmpresaCreateOpen(false)}
+									className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+								>
+									Registrar Empresa
 								</button>
 							</div>
 						</form>
