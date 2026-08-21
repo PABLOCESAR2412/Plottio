@@ -73,10 +73,15 @@ export const createCliente = mutation({
     if (args.identificacion && args.identificacion.trim() !== "") {
       const existing = await ctx.db
         .query("clientes")
-        .filter((q) => q.eq(q.field("identificacion"), args.identificacion))
-        .first();
+        .withIndex("by_empresa_sucursal", (q) =>
+          q.eq("empresaId", userContext.empresa!.id),
+        )
+        .collect()
+        .then((list) =>
+          list.find((c) => c.identificacion === args.identificacion?.trim()),
+        );
       if (existing) {
-        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
+        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion} en esta empresa`);
       }
     }
 
@@ -175,10 +180,15 @@ export const updateCliente = mutation({
     if (args.identificacion && args.identificacion.trim() !== "") {
       const existing = await ctx.db
         .query("clientes")
-        .filter((q) => q.eq(q.field("identificacion"), args.identificacion))
-        .first();
+        .withIndex("by_empresa_sucursal", (q) =>
+          q.eq("empresaId", userContext.empresa!.id),
+        )
+        .collect()
+        .then((list) =>
+          list.find((c) => c.identificacion === args.identificacion?.trim()),
+        );
       if (existing && existing._id !== args.clienteId) {
-        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
+        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion} en esta empresa`);
       }
     }
 
