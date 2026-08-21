@@ -137,7 +137,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 									required
 									value={titulo}
 									onChange={(e) => setTitulo(e.target.value)}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									placeholder="Ej. El botón de guardar no funciona"
 								/>
 							</div>
@@ -155,7 +155,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 									rows={3}
 									value={descripcion}
 									onChange={(e) => setDescripcion(e.target.value)}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none resize-none"
+									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none resize-none"
 									placeholder="Explica qué estabas haciendo y qué pasó..."
 								/>
 							</div>
@@ -174,7 +174,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 										onChange={(e) =>
 											setTipo(e.target.value as "Visual" | "Logica" | "Otro")
 										}
-										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+										className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									>
 										<option value="Visual">Visual (Interfaz)</option>
 										<option value="Logica">Lógica (Funcionalidad)</option>
@@ -196,7 +196,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 												e.target.value as "Baja" | "Media" | "Alta" | "Critica",
 											)
 										}
-										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+										className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									>
 										<option value="Baja">Baja</option>
 										<option value="Media">Media</option>

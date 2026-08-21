@@ -226,7 +226,8 @@ function AppLayout() {
 							<button
 								type="button"
 								onClick={() => setIsOpenMobile(true)}
-								className="lg:hidden p-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-secondary transition-colors cursor-pointer"
+								className="lg:hidden flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-secondary transition-colors cursor-pointer shrink-0"
+								aria-label="Abrir menú"
 							>
 								<Menu className="h-5 w-5" />
 							</button>
@@ -251,9 +252,9 @@ function AppLayout() {
 				</header>
 
 				{/* Scrollable Container spanning full width, placing scrollbar at the far right edge */}
-				<div className="flex-1 overflow-y-auto w-full">
+				<div className="flex-1 overflow-y-auto w-full overscroll-contain">
 					{/* Core Main Viewport content */}
-					<main className="p-3 sm:p-4 md:p-6 w-full max-w-7xl mx-auto">
+					<main className="p-4 sm:p-6 w-full max-w-7xl mx-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
 						<div className="animate-fade-in">{renderActiveView()}</div>
 					</main>
 				</div>

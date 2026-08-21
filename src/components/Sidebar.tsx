@@ -376,7 +376,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 			{/* Removed User Switcher */}
 
 			{/* 2. Navigation List in the middle */}
-			<nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
+			<nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto overscroll-contain">
 				{filteredMenuItems.map((item) => {
 					const Icon = item.icon;
 					const isActive = activeTab === item.id;
@@ -385,7 +385,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 							type="button"
 							key={item.id}
 							onClick={() => handleLinkClick(item.id)}
-							className={`w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold transition-all group cursor-pointer ${
+							className={`w-full flex items-center justify-between rounded-lg px-3 min-h-11 py-3 text-sm font-semibold transition-all group cursor-pointer ${
 								isActive
 									? "bg-primary text-primary-foreground shadow-sm"
 									: "hover:bg-accent text-foreground hover:text-foreground"
@@ -511,7 +511,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 				{/* Drawer panel: slides from right to left: starts at translate-x-full and transitions to translate-x-0 */}
 				<div
-					className={`fixed top-0 right-0 bottom-0 h-full w-64 bg-card shadow-2xl transition-transform duration-300 transform ${
+					className={`fixed top-0 right-0 bottom-0 h-full w-[85vw] max-w-[320px] bg-card shadow-2xl transition-transform duration-300 transform pb-[env(safe-area-inset-bottom)] ${
 						isOpenMobile ? "translate-x-0" : "translate-x-full"
 					}`}
 				>

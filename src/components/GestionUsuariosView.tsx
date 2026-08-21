@@ -300,7 +300,7 @@ export const GestionUsuariosView: React.FC = () => {
 				<button
 					type="button"
 					onClick={() => setIsInviteModalOpen(true)}
-					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
+					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-bold text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
 				>
 					<Plus className="h-4 w-4" />
 					Invitar Usuario
@@ -472,7 +472,7 @@ export const GestionUsuariosView: React.FC = () => {
 									id="usuario-editar-rol"
 									value={editRol}
 									onChange={(e) => setEditRol(e.target.value as RolUsuario)}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 								>
 									<option value="Cotizador">Cotizador</option>
 									<option value="Instalador">Instalador</option>
@@ -502,7 +502,7 @@ export const GestionUsuariosView: React.FC = () => {
 										setEditPvId(""); // Reset PV when sucursal changes
 									}}
 									disabled={currentUser.rol !== "SuperAdmin"}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none disabled:opacity-50"
+									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none disabled:opacity-50"
 								>
 									{currentUser.rol === "SuperAdmin" && (
 										<option value="">Todas (Matriz Global)</option>
@@ -527,7 +527,7 @@ export const GestionUsuariosView: React.FC = () => {
 										id="usuario-editar-pv"
 										value={editPvId}
 										onChange={(e) => setEditPvId(e.target.value)}
-										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+										className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									>
 										<option value="">
 											Ninguno (Aplica a toda la sucursal)
@@ -595,7 +595,7 @@ export const GestionUsuariosView: React.FC = () => {
 									required
 									value={inviteNombre}
 									onChange={(e) => setInviteNombre(e.target.value)}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									placeholder="Ej. Juan Pérez"
 								/>
 							</div>
@@ -613,7 +613,7 @@ export const GestionUsuariosView: React.FC = () => {
 									required
 									value={inviteEmail}
 									onChange={(e) => setInviteEmail(e.target.value)}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 									placeholder="juan@empresa.com"
 								/>
 							</div>
@@ -629,7 +629,7 @@ export const GestionUsuariosView: React.FC = () => {
 									id="invitacion-rol"
 									value={inviteRol}
 									onChange={(e) => setInviteRol(e.target.value as RolUsuario)}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 								>
 									<option value="Cotizador">Cotizador</option>
 									<option value="Instalador">Instalador</option>
@@ -657,7 +657,7 @@ export const GestionUsuariosView: React.FC = () => {
 											id="invitacion-sucursal"
 											value={inviteSucursalId}
 											onChange={(e) => setInviteSucursalId(e.target.value)}
-											className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
+											className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 										>
 											<option value="">Todas (Matriz Global)</option>
 											{sucursales.map((s) => (

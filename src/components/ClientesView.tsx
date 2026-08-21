@@ -645,7 +645,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 				<button
 					type="button"
 					onClick={handleOpenCreate}
-					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
+					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
 					<Plus className="h-4 w-4" />
 					Nuevo Cliente
@@ -653,9 +653,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			</div>
 
 			{/* Main split grid */}
-			<div className="grid gap-6 md:grid-cols-3">
+			<div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-3">
 				{/* Left col - Clients List */}
-				<div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
+				<div className="lg:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
 					<div className="relative">
 						<Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
 						<input
@@ -704,7 +704,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 				</div>
 
 				{/* Right col - Client Details */}
-				<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
+				<div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
 					{selectedClient ? (
 						<div className="space-y-6">
 							{/* Client Title and Header Actions */}
@@ -753,7 +753,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								<button
 									type="button"
 									onClick={() => setActiveSubTab("contacto")}
-									className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+									className={`border-b-2 px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-semibold transition-colors ${
 										activeSubTab === "contacto"
 											? "border-primary text-foreground"
 											: "border-transparent text-muted-foreground hover:text-foreground"
@@ -764,7 +764,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								<button
 									type="button"
 									onClick={() => setActiveSubTab("vehiculos")}
-									className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+									className={`border-b-2 px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-semibold transition-colors ${
 										activeSubTab === "vehiculos"
 											? "border-primary text-foreground"
 											: "border-transparent text-muted-foreground hover:text-foreground"
@@ -918,14 +918,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 			{/* CREATE MODAL */}
 			{isCreateOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Registrar Nuevo Cliente
 						</h3>
@@ -946,7 +946,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 										maxLength={13}
 										value={identificacion}
 										onChange={handleIdentificacionChange}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="Ej. 1710034065"
 									/>
 									<button
@@ -995,7 +995,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									required
 									value={nombre}
 									onChange={handleNombreChange}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Carlos Mendoza"
 								/>
 								{errorNombre && (
@@ -1017,7 +1017,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									maxLength={10}
 									value={telefono}
 									onChange={handleTelefonoChange}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. 0991234567"
 								/>
 								{errorTelefono && (
@@ -1039,7 +1039,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="email"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. carlos@correo.com"
 								/>
 							</div>
@@ -1056,7 +1056,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="text"
 									value={direccion}
 									onChange={(e) => setDireccion(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Av. Principal 123"
 								/>
 							</div>
@@ -1072,7 +1072,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									id="cliente-empresa"
 									value={empresaId}
 									onChange={(e) => setEmpresaId(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									<option value="">Ninguna (Particular)</option>
 									{empresas.map((emp) => (
@@ -1105,14 +1105,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 			{/* CONSULTA RESULT MODAL */}
 			{isConsultaModalOpen && consultaData && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsConsultaModalOpen(false)}
 					/>
-					<div className="relative w-full max-w-sm overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-base font-bold text-foreground mb-4">
 							Datos encontrados
 						</h3>
@@ -1154,14 +1154,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							<button
 								type="button"
 								onClick={handleConsultaClienteYEmpresa}
-								className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+								className="w-full rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
 							>
 								Crear cliente y empresa
 							</button>
 							<button
 								type="button"
 								onClick={handleConsultaSoloCliente}
-								className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+								className="w-full rounded-lg border border-border bg-background px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
 							>
 								Crear solo cliente
 							</button>
@@ -1172,14 +1172,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 			{/* EMPRESA CREATE MODAL (flujo cliente+empresa) */}
 			{isEmpresaCreateOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEmpresaCreateOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Registrar Empresa / Flota
 						</h3>
@@ -1200,7 +1200,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									required
 									value={empresaNombre}
 									onChange={(e) => setEmpresaNombre(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Cooperativa Quito Express"
 								/>
 							</div>
@@ -1217,7 +1217,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									required
 									value={empresaRuc}
 									onChange={(e) => setEmpresaRuc(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. 1798765432001"
 								/>
 							</div>
@@ -1233,7 +1233,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="text"
 									value={empresaContactoNombre}
 									onChange={(e) => setEmpresaContactoNombre(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Sofía Ramos"
 								/>
 							</div>
@@ -1249,7 +1249,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="text"
 									value={empresaContactoTelefono}
 									onChange={(e) => setEmpresaContactoTelefono(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. +593 96 345 6789"
 								/>
 							</div>
@@ -1265,7 +1265,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="text"
 									value={empresaDireccion}
 									onChange={(e) => setEmpresaDireccion(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Av. Amazonas N32-125 y La Niña"
 								/>
 							</div>
@@ -1291,14 +1291,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 			{/* EDIT MODAL */}
 			{isEditOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Editar Datos de Cliente
 						</h3>
@@ -1316,7 +1316,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									required
 									value={nombre}
 									onChange={(e) => setNombre(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								/>
 							</div>
 
@@ -1332,7 +1332,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="text"
 									value={telefono}
 									onChange={(e) => setTelefono(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								/>
 							</div>
 
@@ -1348,7 +1348,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="email"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								/>
 							</div>
 
@@ -1364,7 +1364,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									type="text"
 									value={direccion}
 									onChange={(e) => setDireccion(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								/>
 							</div>
 
@@ -1379,7 +1379,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									id="editar-cliente-empresa"
 									value={empresaId}
 									onChange={(e) => setEmpresaId(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									<option value="">Ninguna (Particular)</option>
 									{empresas.map((emp) => (

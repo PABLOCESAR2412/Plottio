@@ -722,7 +722,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 				<button
 					type="button"
 					onClick={handleOpenCreate}
-					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
+					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
 					<Plus className="h-4 w-4" />
 					Nueva Orden de Trabajo
@@ -757,9 +757,9 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 			</div>
 
 			{/* Split grid */}
-			<div className="grid gap-6 md:grid-cols-3">
+			<div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-3">
 				{/* Left Col: list of orders */}
-				<div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
+				<div className="lg:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
 					<div className="relative">
 						<Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
 						<input
@@ -830,7 +830,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 				</div>
 
 				{/* Right Col: Details workspace */}
-				<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
+				<div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
 					{isCreateOpen ? (
 						<div className="animate-fade-in space-y-6">
 							<h3 className="text-lg font-bold text-foreground mb-4">
@@ -861,7 +861,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												);
 												if (matched) setClienteTelefono(matched.telefono);
 											}}
-											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+											className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 											placeholder="Búsqueda / Creación inteligente"
 											list="ot-clientes-list"
 										/>
@@ -884,7 +884,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 											type="text"
 											value={clienteTelefono}
 											onChange={(e) => setClienteTelefono(e.target.value)}
-											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+											className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										/>
 									</div>
 
@@ -902,7 +902,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												required
 												value={placa}
 												onChange={(e) => setPlaca(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 												placeholder="PBA-0000"
 											/>
 										</div>
@@ -917,7 +917,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												value={vehiculoTipo}
 												id="ot-categoria"
 												onChange={(e) => setVehiculoTipo(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 											>
 												{categoriasPrecios.map((cat) => (
 													<option key={cat} value={cat}>
@@ -944,7 +944,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 														e.target.value as OrdenTrabajo["prioridad"],
 													)
 												}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 											>
 												<option value="Baja">Baja</option>
 												<option value="Media">Media</option>
@@ -964,7 +964,7 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 												required
 												value={fechaFin}
 												onChange={(e) => setFechaFin(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 											/>
 										</div>
 									</div>
@@ -1643,14 +1643,14 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 
 			{/* BILLING DATA MODAL ("Datos para la Factura") */}
 			{isInvoiceOpen && selectedOrder && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsInvoiceOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<div className="flex items-center justify-between pb-3 border-b border-border mb-4">
 							<h3 className="text-base font-bold text-foreground flex items-center gap-2">
 								<FileText className="h-5 w-5 text-muted-foreground" />

@@ -200,7 +200,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 					<button
 						type="button"
 						onClick={onAgendarCitaClick}
-						className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+						className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-medium text-foreground hover:bg-secondary transition-colors"
 					>
 						<CalendarDays className="h-4 w-4" />
 						Agendar una Cita
@@ -208,7 +208,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 					<button
 						type="button"
 						onClick={onCreateCotizacionClick}
-						className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors"
+						className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors"
 					>
 						<Plus className="h-4 w-4" />
 						Crear Nueva Cotización

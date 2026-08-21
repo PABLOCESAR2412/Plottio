@@ -572,7 +572,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 				<button
 					type="button"
 					onClick={handleOpenCreate}
-					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
+					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
 					<Plus className="h-4 w-4" />
 					Registrar Vehículo
@@ -598,9 +598,9 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 			</div>
 
 			{/* Main split grid */}
-			<div className="grid gap-6 md:grid-cols-3">
+			<div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-3">
 				{/* Left col - Grid list */}
-				<div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
+				<div className="lg:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
 					<div className="relative">
 						<Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
 						<input
@@ -660,7 +660,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 				</div>
 
 				{/* Right col - Vehicle Details and History */}
-				<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
+				<div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm">
 					{selectedVehiculo ? (
 						<div className="space-y-6">
 							{/* Card header */}
@@ -895,14 +895,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 			{/* CREATE VEHICLE MODAL */}
 			{isCreateOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Registrar Nuevo Vehículo
 						</h3>
@@ -921,7 +921,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										required
 										value={placa}
 										onChange={(e) => setPlaca(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="Ej. PBA-3421"
 									/>
 								</div>
@@ -936,7 +936,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										id="create-categoria"
 										value={categoria}
 										onChange={(e) => setCategoria(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									>
 										{categoriasPrecios.length === 0 && (
 											<option value="Bus Urbano">Bus Urbano</option>
@@ -963,7 +963,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										type="text"
 										value={marca}
 										onChange={(e) => setMarca(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="Ej. Hino"
 									/>
 								</div>
@@ -979,7 +979,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										type="text"
 										value={modelo}
 										onChange={(e) => setModelo(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="Ej. AK8J"
 									/>
 								</div>
@@ -998,7 +998,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										type="text"
 										value={año}
 										onChange={(e) => setAño(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="Ej. 2020"
 									/>
 								</div>
@@ -1047,7 +1047,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									required
 									value={propietarioId}
 									onChange={(e) => setPropietarioId(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									<option value="" disabled>
 										Seleccionar propietario...
@@ -1084,7 +1084,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 												| "Inactivo",
 										)
 									}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									<option value="Activo">Activo</option>
 									<option value="En Mantenimiento">En Mantenimiento</option>
@@ -1114,14 +1114,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 			{/* EDIT VEHICLE MODAL */}
 			{isEditOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Editar Datos de Vehículo
 						</h3>
@@ -1140,7 +1140,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										required
 										value={placa}
 										onChange={(e) => setPlaca(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 								<div>
@@ -1154,7 +1154,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										id="edit-categoria"
 										value={categoria}
 										onChange={(e) => setCategoria(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									>
 										{categoriasPrecios.length === 0 && (
 											<option value={categoria}>
@@ -1183,7 +1183,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										type="text"
 										value={marca}
 										onChange={(e) => setMarca(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 								<div>
@@ -1198,7 +1198,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										type="text"
 										value={modelo}
 										onChange={(e) => setModelo(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 							</div>
@@ -1216,7 +1216,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										type="text"
 										value={año}
 										onChange={(e) => setAño(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 							</div>
@@ -1264,7 +1264,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									required
 									value={propietarioId}
 									onChange={(e) => setPropietarioId(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									{propietarioTipo === "cliente"
 										? clientes.map((c) => (
@@ -1298,7 +1298,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 												| "Inactivo",
 										)
 									}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								>
 									<option value="Activo">Activo</option>
 									<option value="En Mantenimiento">En Mantenimiento</option>
@@ -1328,7 +1328,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 			{/* NEW SERVICE FLOW OVERLAY DIALOG */}
 			{isNewServiceFlowOpen && selectedVehiculo && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
@@ -1381,7 +1381,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						<button
 							type="button"
 							onClick={() => setIsNewServiceFlowOpen(false)}
-							className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+							className="mt-6 w-full rounded-lg border border-border px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
 						>
 							Cancelar
 						</button>
@@ -1391,14 +1391,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 			{/* HISTORIC SERVICE: ADD MODAL */}
 			{isAddHistoryServiceOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsAddHistoryServiceOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Agregar Servicio Histórico
 						</h3>
@@ -1416,7 +1416,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									required
 									value={srvDescripcion}
 									onChange={(e) => setSrvDescripcion(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Rotulado de franja de seguridad lateral"
 								/>
 							</div>
@@ -1436,7 +1436,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										min="0"
 										value={srvCosto}
 										onChange={(e) => setSrvCosto(Number(e.target.value))}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 								<div>
@@ -1452,7 +1452,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										required
 										value={srvFecha}
 										onChange={(e) => setSrvFecha(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 							</div>
@@ -1495,14 +1495,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 			{/* HISTORIC SERVICE: EDIT MODAL */}
 			{isEditHistoryServiceOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditHistoryServiceOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Editar Entrada Histórica
 						</h3>
@@ -1520,7 +1520,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 									required
 									value={srvDescripcion}
 									onChange={(e) => setSrvDescripcion(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								/>
 							</div>
 
@@ -1539,7 +1539,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										min="0"
 										value={srvCosto}
 										onChange={(e) => setSrvCosto(Number(e.target.value))}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 								<div>
@@ -1555,7 +1555,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 										required
 										value={srvFecha}
 										onChange={(e) => setSrvFecha(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 							</div>
@@ -1582,14 +1582,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 			{/* DETALLE DE SERVICIO MODAL */}
 			{selectedDetailService && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setSelectedDetailService(null)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<div className="flex items-center justify-between pb-3 border-b border-border mb-4">
 							<h3 className="text-lg font-bold text-foreground flex items-center gap-2">
 								<Wrench className="h-5 w-5 text-primary" />
@@ -1677,7 +1677,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 						<button
 							type="button"
 							onClick={() => setSelectedDetailService(null)}
-							className="mt-6 w-full rounded-lg bg-secondary hover:bg-secondary/80 py-2.5 text-sm font-semibold text-foreground transition-colors"
+							className="mt-6 w-full rounded-lg bg-secondary hover:bg-secondary/80 py-3 sm:py-2.5 text-[16px] sm:text-sm font-semibold text-foreground transition-colors"
 						>
 							Cerrar
 						</button>

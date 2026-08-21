@@ -957,12 +957,12 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
              PREVIEW MODE: Sidebar list (1 col) + Detail Panel (2 cols)
              ============================================================== */
 					return (
-						<div className="grid gap-6 md:grid-cols-3">
+						<div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-3">
 							{/* Left Column: Quotes List */}
 							{quoteListMarkup}
 
 							{/* Right Columns: Quote Details preview */}
-							<div className="md:col-span-2 rounded-xl border border-border bg-card text-foreground p-6 shadow-sm space-y-6">
+							<div className="lg:col-span-2 rounded-xl border border-border bg-card text-foreground p-6 shadow-sm space-y-6">
 								{/* Invoice Layout Header */}
 								<div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-border pb-5">
 									<div>
@@ -1167,7 +1167,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 												required
 												value={clienteNombre}
 												onChange={(e) => handleClientNameChange(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 												placeholder="Busca o escribe nombre..."
 												list="clientes-autocomp"
 											/>
@@ -1202,7 +1202,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 													id="cot-vehiculos-cliente"
 													value={selectedVehiculoId}
 													onChange={(e) => handleVehicleSelect(e.target.value)}
-													className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+													className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 												>
 													<option value="" disabled>
 														-- Selecciona un vehículo --
@@ -1377,7 +1377,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 												type="text"
 												value={clienteTelefono}
 												onChange={(e) => setClienteTelefono(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 												placeholder="+593 "
 											/>
 										</div>
@@ -1641,7 +1641,7 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 										<button
 											type="button"
 											onClick={handleSaveQuote}
-											className="w-full sm:w-auto rounded-lg bg-primary text-primary-foreground hover:opacity-95 px-6 py-2.5 text-sm font-semibold shadow-sm transition-colors cursor-pointer"
+											className="w-full sm:w-auto rounded-lg bg-primary text-primary-foreground hover:opacity-95 px-6 py-3 sm:py-2.5 text-[16px] sm:text-sm font-semibold shadow-sm transition-colors cursor-pointer"
 										>
 											Guardar Cotización
 										</button>

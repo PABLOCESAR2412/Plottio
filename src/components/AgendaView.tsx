@@ -310,7 +310,7 @@ export const AgendaView: React.FC = () => {
 				<button
 					type="button"
 					onClick={() => handleOpenCreate()}
-					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
+					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
 					<Plus className="h-4 w-4" />
 					Agendar una Cita
@@ -318,9 +318,9 @@ export const AgendaView: React.FC = () => {
 			</div>
 
 			{/* Main split grid */}
-			<div className="grid gap-6 md:grid-cols-3">
+			<div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-3">
 				{/* Visual Calendar Grid (2 Cols Wide in desktop) */}
-				<div className="md:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col gap-4">
+				<div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col gap-4">
 					<div className="flex items-center justify-between">
 						<h2 className="text-lg font-bold text-foreground flex items-center gap-2">
 							<CalendarDays className="h-5 w-5 text-muted-foreground" />
@@ -439,7 +439,7 @@ export const AgendaView: React.FC = () => {
 				</div>
 
 				{/* Lateral Sidebar Appointments List */}
-				<div className="md:col-span-1 rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between">
+				<div className="lg:col-span-1 rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between">
 					<div className="space-y-4">
 						<div className="pb-3 border-b border-border">
 							<h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
@@ -551,14 +551,14 @@ export const AgendaView: React.FC = () => {
 
 			{/* CREATE APPOINTMENT MODAL */}
 			{isCreateOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsCreateOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Programar Nueva Cita
 						</h3>
@@ -576,7 +576,7 @@ export const AgendaView: React.FC = () => {
 									required
 									value={clienteNombre}
 									onChange={(e) => setClienteNombre(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Carlos Mendoza"
 								/>
 							</div>
@@ -593,7 +593,7 @@ export const AgendaView: React.FC = () => {
 									type="text"
 									value={clienteTelefono}
 									onChange={(e) => setClienteTelefono(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="+593 "
 								/>
 							</div>
@@ -611,7 +611,7 @@ export const AgendaView: React.FC = () => {
 										type="text"
 										value={vehiculoPlaca}
 										onChange={(e) => setVehiculoPlaca(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="PBA-3421"
 									/>
 								</div>
@@ -628,7 +628,7 @@ export const AgendaView: React.FC = () => {
 										required
 										value={servicio}
 										onChange={(e) => setServicio(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 										placeholder="Ej. Visera de parabrisas"
 									/>
 								</div>
@@ -648,7 +648,7 @@ export const AgendaView: React.FC = () => {
 										required
 										value={fecha}
 										onChange={(e) => setFecha(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 								<div>
@@ -664,7 +664,7 @@ export const AgendaView: React.FC = () => {
 										required
 										value={hora}
 										onChange={(e) => setHora(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 							</div>
@@ -691,14 +691,14 @@ export const AgendaView: React.FC = () => {
 
 			{/* DETAILS APPOINTMENT MODAL */}
 			{isDetailsOpen && detailsCita && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsDetailsOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4 border-b border-border pb-2 flex items-center gap-2">
 							<Info className="h-5 w-5 text-primary" /> Detalles de la Cita
 						</h3>
@@ -775,14 +775,14 @@ export const AgendaView: React.FC = () => {
 
 			{/* EDIT APPOINTMENT MODAL */}
 			{isEditOpen && (
-				<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
 					<button
 						type="button"
 						aria-label="Cerrar modal"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
 						onClick={() => setIsEditOpen(false)}
 					/>
-					<div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-6 shadow-xl animate-slide-in">
+					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
 							Editar Cita Reservada
 						</h3>
@@ -800,7 +800,7 @@ export const AgendaView: React.FC = () => {
 									required
 									value={clienteNombre}
 									onChange={(e) => setClienteNombre(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								/>
 							</div>
 
@@ -816,7 +816,7 @@ export const AgendaView: React.FC = () => {
 									type="text"
 									value={clienteTelefono}
 									onChange={(e) => setClienteTelefono(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 								/>
 							</div>
 
@@ -833,7 +833,7 @@ export const AgendaView: React.FC = () => {
 										type="text"
 										value={vehiculoPlaca}
 										onChange={(e) => setVehiculoPlaca(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 								<div>
@@ -849,7 +849,7 @@ export const AgendaView: React.FC = () => {
 										required
 										value={servicio}
 										onChange={(e) => setServicio(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 							</div>
@@ -868,7 +868,7 @@ export const AgendaView: React.FC = () => {
 										required
 										value={fecha}
 										onChange={(e) => setFecha(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 								<div>
@@ -884,7 +884,7 @@ export const AgendaView: React.FC = () => {
 										required
 										value={hora}
 										onChange={(e) => setHora(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									/>
 								</div>
 							</div>
