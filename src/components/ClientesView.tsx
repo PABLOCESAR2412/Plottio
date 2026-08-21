@@ -740,7 +740,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									<button
 										type="button"
 										onClick={() => handleDeleteClick(selectedClient)}
-										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
+										className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 border border-destructive shadow-sm transition-colors"
 										title="Eliminar Cliente"
 									>
 										<Trash2 className="h-4 w-4" />

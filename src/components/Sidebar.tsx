@@ -244,7 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 	};
 
 	const content = (
-		<div className="flex h-full flex-col justify-between bg-card text-foreground border-r border-border w-64 shrink-0">
+		<div className="flex h-full flex-col justify-between bg-card text-foreground w-64 shrink-0 border-0 shadow-none dark:border-r dark:border-border">
 			{/* 1. Centered Title / Logo with border-b */}
 			<div className="flex items-center justify-between h-14 border-b border-border px-5 py-4 shrink-0">
 				{branding?.logoUrl ? (
