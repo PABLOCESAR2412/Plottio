@@ -1,4 +1,4 @@
-const CACHE_KEY = "plottio.consultaIdentidad.v1";
+const CACHE_KEY = "plottio.consultaIdentidad.v2";
 const MAX_ENTRIES = 200;
 
 export type ResultadoConsulta = {

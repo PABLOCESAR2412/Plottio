@@ -224,16 +224,24 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		const cache = consultarCacheIdentidad(valor);
 		if (cache) {
 			if (cache.encontrado) {
-				setConsultaData({
-					nombres: cache.nombres,
-					identificacion: cache.identificacion,
-					direccion: cache.direccion,
-					nombreFantasiaComercial: cache.nombreFantasiaComercial || "",
-				});
-				setIsConsultaModalOpen(true);
+				// Si el cache es antiguo (SRI sin nombreFantasiaComercial), refrescar
+				if (cache.fuente === "SRI" && !cache.nombreFantasiaComercial) {
+					// seguir al fetch para obtener dato completo
+				} else {
+					setConsultaData({
+						nombres: cache.nombres,
+						identificacion: cache.identificacion,
+						direccion: cache.direccion,
+						nombreFantasiaComercial: cache.nombreFantasiaComercial || "",
+					});
+					setIsConsultaModalOpen(true);
+					setBuscarIdentidadCargando(false);
+					return;
+				}
+			} else {
+				setBuscarIdentidadCargando(false);
+				return;
 			}
-			setBuscarIdentidadCargando(false);
-			return;
 		}
 
 		try {
@@ -377,16 +385,60 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			});
 			return;
 		}
-		const newCli = await createClienteMut({
-			usuarioId: currentUser.id as Id<"usuarios">,
-			nombre: nombre.trim(),
-			telefono: telefono.trim() || "+593 ",
-			email:
-				email.trim() ||
-				`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
-			direccion: direccion.trim(),
-			identificacion: identificacion.trim(),
-		});
+		let newCli: { _id: string } | null = null;
+		try {
+			newCli = (await createClienteMut({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				nombre: nombre.trim(),
+				telefono: telefono.trim() || "+593 ",
+				email:
+					email.trim() ||
+					`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
+				direccion: direccion.trim(),
+				identificacion: identificacion.trim(),
+			})) as unknown as { _id: string };
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			if (msg.includes("Ya existe un cliente")) {
+				const existing = clientes.find(
+					(c) => c.identificacion?.trim() === identificacion.trim(),
+				);
+				if (existing && pendienteEmpresa && pendingEmpresaData) {
+					setSelectedClientId(existing.id);
+					setLastCreatedClienteId(existing.id);
+					const rucEmpresa =
+						pendingEmpresaData.identificacion.length === 13
+							? pendingEmpresaData.identificacion
+							: `${pendingEmpresaData.identificacion}001`;
+					setEmpresaNombre(
+						pendingEmpresaData.nombreFantasiaComercial ||
+							pendingEmpresaData.nombres,
+					);
+					setEmpresaRuc(rucEmpresa);
+					setEmpresaContactoNombre(pendingEmpresaData.nombres);
+					setEmpresaContactoTelefono(telefono.trim());
+					setEmpresaDireccion(pendingEmpresaData.direccion);
+					setIsCreateOpen(false);
+					setIsEmpresaCreateOpen(true);
+					setPendienteEmpresa(false);
+					return;
+				}
+				setAlertConfig({
+					isOpen: true,
+					title: "Error de Validación",
+					message: `La identificación "${identificacion.trim()}" ya está registrada.`,
+					type: "error",
+				});
+				return;
+			}
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al crear cliente",
+				message: msg,
+				type: "error",
+			});
+			return;
+		}
 
 		if (newCli) {
 			setSelectedClientId(newCli._id);
