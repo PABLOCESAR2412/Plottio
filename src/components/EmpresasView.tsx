@@ -1,10 +1,12 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
 	AlertCircle,
 	Building2,
 	Car,
+	CheckCircle,
 	ChevronRight,
 	Edit2,
+	Loader2,
 	Phone,
 	Plus,
 	Search,
@@ -14,9 +16,14 @@ import {
 	Wrench,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import {
+	consultarCacheIdentidad,
+	guardarCacheIdentidad,
+} from "../lib/consultaIdentidadCache";
+import { validarIdentificacion } from "../lib/identificacion";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
@@ -77,8 +84,15 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		api.vehiculos.fetchVehiculos,
 		currentUser?.id ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	) as Array<LocalVehiculo & { _id: string }> | undefined;
+	const rawClientes = useQuery(
+		api.clientes.fetchClientes,
+		currentUser?.id ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
 
-	// ── MUTATIONS ────────────────────────────────────────────────────────────
+	// ── ACTIONS / MUTATIONS ──────────────────────────────────────────────────
+	const consultarIdentidadAction = useAction(
+		api.consultaIdentidad.consultarIdentidad,
+	);
 	const createEmpresaMut = useMutation(api.organizacion.createEmpresa);
 	const updateEmpresaMut = useMutation(api.organizacion.updateEmpresa);
 	const deleteEmpresaMut = useMutation(api.organizacion.deleteEmpresa);
@@ -105,6 +119,18 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 				logoUrl: (e as { logoUrl?: string }).logoUrl,
 			})),
 		[rawEmpresas],
+	);
+
+	const clientes = useMemo(
+		() =>
+			(rawClientes ?? []).map((c) => ({
+				id: c._id,
+				nombre: c.nombre ?? "",
+				identificacion: c.identificacion ?? "",
+				telefono: c.telefono ?? "",
+				direccion: c.direccion ?? "",
+			})),
+		[rawClientes],
 	);
 
 	const vehiculos: LocalVehiculo[] = useMemo(
@@ -158,6 +184,24 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	const [logoPreview, setLogoPreview] = useState<string>("");
 	const [logoFile, setLogoFile] = useState<File | null>(null);
 	const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+	// Búsqueda automática de RUC e identidad (Clientes existentes + SRI / TDU Cargo)
+	const [buscarRucCargando, setBuscarRucCargando] = useState(false);
+	const [errorRuc, setErrorRuc] = useState("");
+	const [rucValido, setRucValido] = useState(false);
+	const [buscado, setBuscado] = useState(false);
+	const [clienteEncontrado, setClienteEncontrado] = useState<{
+		nombre: string;
+		telefono: string;
+		direccion: string;
+	} | null>(null);
+	const [consultaData, setConsultaData] = useState<{
+		nombres: string;
+		identificacion: string;
+		direccion: string;
+		nombreFantasiaComercial: string;
+	} | null>(null);
+	const searchTimerRef = useRef<number | null>(null);
 
 	// Selected company for editing
 	const [editingEmpresa, setEditingEmpresa] = useState<LocalEmpresa | null>(
@@ -233,12 +277,120 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	}, 0);
 
 	const handleOpenCreate = () => {
-		setNombre("");
+		if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
 		setRuc("");
+		setNombre("");
 		setContactoNombre("");
 		setContactoTelefono("");
 		setDireccion("");
+		setErrorRuc("");
+		setRucValido(false);
+		setBuscado(false);
+		setBuscarRucCargando(false);
+		setClienteEncontrado(null);
+		setConsultaData(null);
 		setIsCreateOpen(true);
+	};
+
+	const buscarIdentidadEmpresa = async (valor: string) => {
+		setBuscarRucCargando(true);
+		setBuscado(true);
+		setErrorRuc("");
+
+		// 1. Primero buscar en clientes registrados en el sistema
+		const matchedCli = clientes.find(
+			(c) =>
+				c.identificacion &&
+				(c.identificacion.trim() === valor.trim() ||
+					valor.trim().startsWith(c.identificacion.trim()) ||
+					c.identificacion.trim().startsWith(valor.trim())),
+		);
+
+		if (matchedCli) {
+			setClienteEncontrado({
+				nombre: matchedCli.nombre,
+				telefono: matchedCli.telefono,
+				direccion: matchedCli.direccion || "",
+			});
+			setContactoNombre((prev) => prev || matchedCli.nombre);
+			setContactoTelefono((prev) => prev || matchedCli.telefono);
+			setDireccion((prev) => prev || matchedCli.direccion || "");
+		} else {
+			setClienteEncontrado(null);
+		}
+
+		// 2. Revisar caché de SRI / TDU Cargo
+		const cache = consultarCacheIdentidad(valor);
+		if (cache) {
+			if (cache.encontrado) {
+				setConsultaData({
+					nombres: cache.nombres,
+					identificacion: cache.identificacion,
+					direccion: cache.direccion,
+					nombreFantasiaComercial: cache.nombreFantasiaComercial || "",
+				});
+				setNombre(
+					(prev) => prev || cache.nombreFantasiaComercial || cache.nombres,
+				);
+				setContactoNombre((prev) => prev || cache.nombres);
+				if (cache.direccion) {
+					setDireccion((prev) => prev || cache.direccion);
+				}
+				setBuscarRucCargando(false);
+				return;
+			}
+			setBuscarRucCargando(false);
+			return;
+		}
+
+		// 3. Consultar SRI / TDU Cargo vía action
+		try {
+			const res = await consultarIdentidadAction({ numero: valor });
+			guardarCacheIdentidad(valor, res);
+			if (res.encontrado) {
+				setConsultaData({
+					nombres: res.nombres,
+					identificacion: res.identificacion,
+					direccion: res.direccion,
+					nombreFantasiaComercial: res.nombreFantasiaComercial || "",
+				});
+				setNombre((prev) => prev || res.nombreFantasiaComercial || res.nombres);
+				setContactoNombre((prev) => prev || res.nombres);
+				if (res.direccion) {
+					setDireccion((prev) => prev || res.direccion);
+				}
+			}
+		} catch (err) {
+			setErrorRuc(
+				err instanceof Error
+					? err.message
+					: "Error al consultar RUC en el SRI.",
+			);
+		} finally {
+			setBuscarRucCargando(false);
+		}
+	};
+
+	const handleRucChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const soloNumeros = e.target.value.replace(/\D/g, "").slice(0, 13);
+		setRuc(soloNumeros);
+
+		const { valida, mensaje } = validarIdentificacion(soloNumeros);
+		setErrorRuc(soloNumeros && !valida ? mensaje : "");
+		setRucValido(valida);
+		setBuscado(false);
+
+		if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+
+		if (!valida || soloNumeros.length === 0) {
+			setClienteEncontrado(null);
+			setConsultaData(null);
+			return;
+		}
+
+		searchTimerRef.current = window.setTimeout(() => {
+			void buscarIdentidadEmpresa(soloNumeros);
+		}, 600);
 	};
 
 	const handleCreate = async (e: React.FormEvent) => {
@@ -723,12 +875,88 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 							Registrar Nueva Empresa / Flota
 						</h3>
 						<form onSubmit={handleCreate} className="space-y-4">
+							{/* 1. RUC (PRIMER CAMPO) */}
+							<div>
+								<label
+									htmlFor="empresa-ruc"
+									className="block text-xs font-semibold text-muted-foreground mb-1"
+								>
+									RUC *
+								</label>
+								<div className="flex gap-2">
+									<input
+										id="empresa-ruc"
+										type="text"
+										inputMode="numeric"
+										required
+										maxLength={13}
+										value={ruc}
+										onChange={handleRucChange}
+										className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none font-mono"
+										placeholder="Ej. 1798765432001"
+									/>
+									<button
+										type="button"
+										onClick={() => void buscarIdentidadEmpresa(ruc)}
+										disabled={buscarRucCargando || !rucValido}
+										aria-label="Buscar RUC"
+										className="shrink-0 flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+									>
+										<Search className="h-4 w-4" />
+									</button>
+								</div>
+								{errorRuc && (
+									<p className="mt-1 text-xs text-destructive">{errorRuc}</p>
+								)}
+								{buscarRucCargando && (
+									<div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+										<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+										<span className="text-xs text-muted-foreground">
+											Buscando en clientes y SRI...
+										</span>
+									</div>
+								)}
+								{clienteEncontrado && !buscarRucCargando && (
+									<div className="mt-2 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-foreground">
+										<CheckCircle className="h-4 w-4 text-primary shrink-0" />
+										<span>
+											Cliente encontrado:{" "}
+											<strong>{clienteEncontrado.nombre}</strong> (datos de
+											contacto vinculados).
+										</span>
+									</div>
+								)}
+								{consultaData && !clienteEncontrado && !buscarRucCargando && (
+									<div className="mt-2 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-xs text-foreground">
+										<CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+										<span>
+											Datos SRI:{" "}
+											<strong>
+												{consultaData.nombreFantasiaComercial ||
+													consultaData.nombres}
+											</strong>
+										</span>
+									</div>
+								)}
+								{!buscarRucCargando &&
+									buscado &&
+									!clienteEncontrado &&
+									!consultaData &&
+									!errorRuc && (
+										<p className="mt-1 text-xs text-muted-foreground">
+											No se encontraron datos automáticos (puedes ingresarlos
+											manualmente).
+										</p>
+									)}
+							</div>
+
+							{/* 2. Nombre Comercial */}
 							<div>
 								<label
 									htmlFor="empresa-nombre"
 									className="block text-xs font-semibold text-muted-foreground mb-1"
 								>
-									Nombre Comercial de la Flota *
+									Nombre Comercial de la Flota / Empresa *
 								</label>
 								<input
 									id="empresa-nombre"
@@ -738,24 +966,6 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 									onChange={(e) => setNombre(e.target.value)}
 									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
 									placeholder="Ej. Cooperativa Quito Express"
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="empresa-ruc"
-									className="block text-xs font-semibold text-muted-foreground mb-1"
-								>
-									RUC *
-								</label>
-								<input
-									id="empresa-ruc"
-									type="text"
-									required
-									value={ruc}
-									onChange={(e) => setRuc(e.target.value)}
-									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
-									placeholder="Ej. 1798765432001"
 								/>
 							</div>
 
