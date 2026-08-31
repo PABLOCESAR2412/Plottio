@@ -346,8 +346,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 															{orden.clienteNombre}
 														</div>
 														<div className="text-xs text-muted-foreground flex items-center gap-2">
-															<span className="font-medium text-foreground">
-																{orden.id}
+															<span
+																className="font-medium font-mono text-foreground"
+																title={orden.id}
+															>
+																{orden.id
+																	? orden.id.length > 6
+																		? `${orden.id.substring(0, 4)}...`
+																		: orden.id
+																	: ""}
 															</span>
 															<span>•</span>
 															<span>{orden.vehiculoTipo}</span>

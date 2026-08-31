@@ -98,6 +98,11 @@ export const useSessionStore = create<SessionStore>()(
 
 				if (typeof window !== "undefined") {
 					window.localStorage.setItem("theme", next);
+					if (next === "dark") {
+						document.documentElement.classList.add("dark");
+					} else {
+						document.documentElement.classList.remove("dark");
+					}
 				}
 				set({ theme: next });
 			},
