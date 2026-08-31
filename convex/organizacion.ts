@@ -35,7 +35,15 @@ export const createEmpresa = mutation({
       .filter((q) => q.eq(q.field("ruc"), args.ruc))
       .first();
     if (existing) {
-      throw new ConvexError(`Ya existe una empresa con el RUC ${args.ruc}`);
+      if (existing.activa) {
+        throw new ConvexError(`Ya existe una empresa activa con el RUC ${args.ruc}`);
+      }
+      // Si la empresa existía pero estaba desactivada (archivada), la reactivamos y actualizamos sus datos
+      await ctx.db.patch(existing._id, {
+        ...args,
+        activa: true,
+      });
+      return existing._id;
     }
 
     return await ctx.db.insert("empresas", {
@@ -63,8 +71,8 @@ export const updateEmpresa = mutation({
         .query("empresas")
         .filter((q) => q.eq(q.field("ruc"), args.ruc))
         .first();
-      if (existing && existing._id !== args.id) {
-        throw new ConvexError(`Ya existe una empresa con el RUC ${args.ruc}`);
+      if (existing && existing._id !== args.id && existing.activa) {
+        throw new ConvexError(`Ya existe una empresa activa con el RUC ${args.ruc}`);
       }
     }
 
