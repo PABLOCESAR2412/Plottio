@@ -1,4 +1,4 @@
-import { Check, Mail, Send, X } from "lucide-react";
+import { BookOpen, Check, Mail, Send, X } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { useIntegrationsStore } from "../store/useIntegrationsStore";
@@ -23,6 +23,7 @@ export const EmailIntegrationModal: React.FC<EmailIntegrationModalProps> = ({
 		email.provider,
 	);
 	const [testEmail, setTestEmail] = useState("");
+	const [showGuide, setShowGuide] = useState(false);
 	const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success">(
 		"idle",
 	);
@@ -85,14 +86,101 @@ export const EmailIntegrationModal: React.FC<EmailIntegrationModalProps> = ({
 							</p>
 						</div>
 					</div>
-					<button
-						type="button"
-						onClick={onClose}
-						className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-					>
-						<X className="h-5 w-5" />
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => setShowGuide((v) => !v)}
+							className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+								showGuide
+									? "border-primary bg-primary/10 text-primary"
+									: "border-border bg-background text-muted-foreground hover:bg-secondary"
+							}`}
+						>
+							<BookOpen className="h-3.5 w-3.5" />
+							<span className="hidden sm:inline">Guía OAuth2 & SMTP</span>
+						</button>
+						<button
+							type="button"
+							onClick={onClose}
+							className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+						>
+							<X className="h-5 w-5" />
+						</button>
+					</div>
 				</div>
+
+				{/* Collapsible Email Setup Guide */}
+				{showGuide && (
+					<div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3.5 animate-fade-in text-xs max-h-56 overflow-y-auto">
+						<div className="flex items-center justify-between font-bold text-foreground">
+							<span>Guía Oficial: Configurar Correo Corporativo</span>
+							<button
+								type="button"
+								onClick={() => setShowGuide(false)}
+								className="text-muted-foreground hover:text-foreground cursor-pointer"
+							>
+								✕
+							</button>
+						</div>
+
+						<div className="space-y-3 text-muted-foreground">
+							{/* Option A: Google Workspace */}
+							<div className="p-2.5 rounded-lg bg-card border border-border space-y-1">
+								<strong className="text-foreground text-[11px]">
+									Opción A: Google Workspace / Gmail (OAuth2)
+								</strong>
+								<p className="text-[10px] leading-relaxed">
+									1. Entra a <strong>console.cloud.google.com</strong> y
+									habilita la <strong>Gmail API</strong>.<br />
+									2. En OAuth consent screen agrega scopes:{" "}
+									<code>gmail.modify</code> y <code>gmail.send</code>.<br />
+									3. Crea credenciales OAuth Web application con URI de
+									callback:
+									<br />
+									<code className="text-primary font-mono select-all">
+										https://tudominio.com/api/email/oauth/google/callback
+									</code>
+								</p>
+							</div>
+
+							{/* Option B: Microsoft 365 */}
+							<div className="p-2.5 rounded-lg bg-card border border-border space-y-1">
+								<strong className="text-foreground text-[11px]">
+									Opción B: Microsoft 365 / Outlook (OAuth2)
+								</strong>
+								<p className="text-[10px] leading-relaxed">
+									1. Entra a <strong>portal.azure.com</strong> → Microsoft Entra
+									ID → App registrations.
+									<br />
+									2. Redirect URI:{" "}
+									<code className="text-primary font-mono select-all">
+										https://tudominio.com/api/email/oauth/microsoft/callback
+									</code>
+									<br />
+									3. Permisos Graph: <code>Mail.ReadWrite</code>,{" "}
+									<code>Mail.Send</code>, <code>offline_access</code>.
+								</p>
+							</div>
+
+							{/* Option C: SMTP Gmail Clásico */}
+							<div className="p-2.5 rounded-lg bg-card border border-border space-y-1">
+								<strong className="text-foreground text-[11px]">
+									Opción C: SMTP Gmail Clásico (Contraseña de Aplicación)
+								</strong>
+								<p className="text-[10px] leading-relaxed">
+									1. En tu cuenta Google activa Verificación en 2 pasos.
+									<br />
+									2. Busca <strong>Contraseñas de aplicaciones</strong> y genera
+									una para <em>APEX Suite</em> (16 letras).
+									<br />
+									3. Usa host <code className="font-mono">smtp.gmail.com</code>,
+									puerto <code className="font-mono">465</code> y pega esa
+									contraseña en el campo clave.
+								</p>
+							</div>
+						</div>
+					</div>
+				)}
 
 				<form onSubmit={handleSave} className="space-y-4 text-xs sm:text-sm">
 					{/* Provider tabs */}

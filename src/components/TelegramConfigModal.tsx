@@ -1,4 +1,4 @@
-import { Bot, Check, Code, Send, Terminal, X } from "lucide-react";
+import { BookOpen, Bot, Check, Code, Send, Terminal, X } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { useIntegrationsStore } from "../store/useIntegrationsStore";
@@ -20,6 +20,7 @@ export const TelegramConfigModal: React.FC<TelegramConfigModalProps> = ({
 	const [username, setUsername] = useState(telegram.botUsername);
 	const [webhook, setWebhook] = useState(telegram.webhookUrl);
 	const [chatOps, setChatOps] = useState(telegram.enableChatOps);
+	const [showGuide, setShowGuide] = useState(false);
 	const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success">(
 		"idle",
 	);
@@ -101,14 +102,90 @@ export const TelegramConfigModal: React.FC<TelegramConfigModalProps> = ({
 							</p>
 						</div>
 					</div>
-					<button
-						type="button"
-						onClick={onClose}
-						className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-					>
-						<X className="h-5 w-5" />
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => setShowGuide((v) => !v)}
+							className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+								showGuide
+									? "border-primary bg-primary/10 text-primary"
+									: "border-border bg-background text-muted-foreground hover:bg-secondary"
+							}`}
+						>
+							<BookOpen className="h-3.5 w-3.5" />
+							<span className="hidden sm:inline">Guía @BotFather</span>
+						</button>
+						<button
+							type="button"
+							onClick={onClose}
+							className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+						>
+							<X className="h-5 w-5" />
+						</button>
+					</div>
 				</div>
+
+				{/* Collapsible Step-by-Step Telegram Guide */}
+				{showGuide && (
+					<div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3 animate-fade-in text-xs leading-relaxed">
+						<div className="flex items-center justify-between font-bold text-foreground">
+							<span>Paso a Paso Oficial: Crear Bot de Telegram</span>
+							<button
+								type="button"
+								onClick={() => setShowGuide(false)}
+								className="text-muted-foreground hover:text-foreground cursor-pointer"
+							>
+								✕
+							</button>
+						</div>
+						<div className="space-y-2 text-muted-foreground">
+							<div>
+								<strong className="text-foreground">
+									1. Crear Bot con @BotFather:
+								</strong>
+								<p className="ml-2">
+									Abre Telegram y busca{" "}
+									<code className="text-primary font-bold">@BotFather</code>.
+									Envía{" "}
+									<code className="bg-background px-1 py-0.5 rounded border border-border">
+										/newbot
+									</code>
+									. Escribe el nombre del bot y un usuario único que termine en{" "}
+									<code>bot</code> (ej. <code>PlottioOps_bot</code>). Copia el{" "}
+									<strong>HTTP API Token</strong> generado.
+								</p>
+							</div>
+							<div>
+								<strong className="text-foreground">
+									2. Obtener tu Chat ID:
+								</strong>
+								<p className="ml-2">
+									• <em>Para tu chat personal:</em> Inicia conversación con{" "}
+									<code className="text-primary">@userinfobot</code> y pulsa
+									Start para obtener tu ID numérico.
+									<br />• <em>Para un grupo de trabajo:</em> Añade tu bot al
+									grupo y añade temporalmente a{" "}
+									<code className="text-primary">@RawDataBot</code>. Busca el
+									campo{" "}
+									<code className="bg-background px-1 py-0.5 rounded border border-border">
+										"id": -100...
+									</code>{" "}
+									(con el signo menos).
+								</p>
+							</div>
+							<div>
+								<strong className="text-foreground">
+									3. Guardar y Probar:
+								</strong>
+								<p className="ml-2">
+									Pega el <strong>Bot Token</strong> y el{" "}
+									<strong>Chat ID</strong> en este formulario y pulsa{" "}
+									<em>Probar Alerta Instantánea</em>.
+								</p>
+							</div>
+						</div>
+					</div>
+				)}
 
 				{/* Configuration Form */}
 				<form onSubmit={handleSave} className="space-y-4 text-xs sm:text-sm">

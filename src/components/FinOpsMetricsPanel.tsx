@@ -1,10 +1,14 @@
 import {
 	Activity,
+	BookOpen,
+	Check,
 	Coins,
+	Copy,
 	DollarSign,
 	Gauge,
 	Key,
 	Save,
+	Sparkles,
 	Zap,
 } from "lucide-react";
 import type React from "react";
@@ -21,6 +25,14 @@ export const FinOpsMetricsPanel: React.FC = () => {
 	const [activeModel, setActiveModel] = useState(ai.activeModel);
 	const [budgetUSD, setBudgetUSD] = useState(ai.monthlyBudgetUSD);
 	const [savedNotification, setSavedNotification] = useState(false);
+	const [showAiGuide, setShowAiGuide] = useState(false);
+	const [copiedGuideKey, setCopiedGuideKey] = useState<string | null>(null);
+
+	const handleCopyGuide = (text: string, id: string) => {
+		navigator.clipboard.writeText(text);
+		setCopiedGuideKey(id);
+		setTimeout(() => setCopiedGuideKey(null), 2000);
+	};
 
 	const handleSave = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -43,6 +55,168 @@ export const FinOpsMetricsPanel: React.FC = () => {
 
 	return (
 		<div className="space-y-6">
+			{/* Top Panel Banner with pgvector 768d Badge */}
+			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card shadow-xs">
+				<div className="space-y-1">
+					<div className="flex items-center gap-2.5">
+						<h3 className="text-lg font-bold text-foreground">
+							Panel de Control FinOps & Modelos IA
+						</h3>
+						<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 shadow-xs">
+							<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+							Activo (pgvector 768d)
+						</span>
+					</div>
+					<p className="text-xs text-muted-foreground">
+						Monitoreo en tiempo real de inferencias, presupuestos y latencia
+						operacional.
+					</p>
+				</div>
+
+				<button
+					type="button"
+					onClick={() => setShowAiGuide((v) => !v)}
+					className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-auto ${
+						showAiGuide
+							? "border-primary bg-primary/10 text-primary"
+							: "border-border bg-background text-muted-foreground hover:bg-secondary"
+					}`}
+				>
+					<BookOpen className="h-3.5 w-3.5" />
+					<span>Guía de Conexión IA & pgvector</span>
+				</button>
+			</div>
+
+			{/* Collapsible Step-by-Step Guide for AI & pgvector */}
+			{showAiGuide && (
+				<div className="rounded-xl border border-border bg-secondary/15 p-5 space-y-4 animate-fade-in text-xs sm:text-sm">
+					<div className="flex items-center justify-between font-bold text-foreground border-b border-border/60 pb-3">
+						<span className="flex items-center gap-2">
+							<Sparkles className="h-4 w-4 text-primary" />
+							Guía Paso a Paso: Modelos IA & Base Vectorial pgvector
+						</span>
+						<button
+							type="button"
+							onClick={() => setShowAiGuide(false)}
+							className="text-muted-foreground hover:text-foreground cursor-pointer"
+						>
+							✕
+						</button>
+					</div>
+
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+						{/* Google Gemini */}
+						<div className="rounded-lg border border-border bg-card p-3.5 space-y-2">
+							<div className="font-bold text-foreground flex items-center justify-between">
+								<span className="text-primary font-semibold">
+									1. Google Gemini API (Recomendado)
+								</span>
+								<a
+									href="https://aistudio.google.com/"
+									target="_blank"
+									rel="noreferrer"
+									className="text-[10px] text-primary underline"
+								>
+									AI Studio ↗
+								</a>
+							</div>
+							<ol className="list-decimal list-inside space-y-1 text-muted-foreground leading-relaxed text-[11px]">
+								<li>
+									Entra a <strong>aistudio.google.com</strong> con tu cuenta
+									Google.
+								</li>
+								<li>
+									Haz clic en el botón azul <strong>Get API Key</strong>.
+								</li>
+								<li>
+									Pulsa <strong>Create API Key</strong> y selecciona tu
+									proyecto.
+								</li>
+								<li>
+									Copia la clave (AIzaSy...) y pégala en el campo Gemini API
+									Key.
+								</li>
+							</ol>
+						</div>
+
+						{/* OpenAI */}
+						<div className="rounded-lg border border-border bg-card p-3.5 space-y-2">
+							<div className="font-bold text-foreground flex items-center justify-between">
+								<span className="text-foreground font-semibold">
+									2. OpenAI API (GPT-4o / Mini)
+								</span>
+								<a
+									href="https://platform.openai.com/"
+									target="_blank"
+									rel="noreferrer"
+									className="text-[10px] text-primary underline"
+								>
+									Platform ↗
+								</a>
+							</div>
+							<ol className="list-decimal list-inside space-y-1 text-muted-foreground leading-relaxed text-[11px]">
+								<li>
+									Entra a <strong>platform.openai.com</strong> → API Keys.
+								</li>
+								<li>
+									Pulsa <strong>+ Create new secret key</strong>.
+								</li>
+								<li>Copia el token generado (sk-proj-...) y pégalo abajo.</li>
+							</ol>
+						</div>
+
+						{/* Groq / Ollama */}
+						<div className="rounded-lg border border-border bg-card p-3.5 space-y-2">
+							<div className="font-bold text-foreground">
+								<span>3. Groq & Ollama (Local / Ultra-rápido)</span>
+							</div>
+							<p className="text-[11px] text-muted-foreground leading-relaxed">
+								• <strong>Groq:</strong> console.groq.com → API Keys (inferencia
+								ultra-rápida Llama 3).
+								<br />• <strong>Ollama Local:</strong> URL base{" "}
+								<code className="px-1 py-0.5 rounded bg-secondary font-mono">
+									http://localhost:11434/v1
+								</code>
+								.
+							</p>
+						</div>
+
+						{/* Supabase & Docker pgvector */}
+						<div className="rounded-lg border border-border bg-card p-3.5 space-y-2">
+							<div className="font-bold text-foreground flex items-center justify-between">
+								<span>4. PostgreSQL con pgvector (RAG)</span>
+								<button
+									type="button"
+									onClick={() =>
+										handleCopyGuide(
+											"CREATE EXTENSION IF NOT EXISTS vector;",
+											"sqlvec",
+										)
+									}
+									className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer"
+									title="Copiar SQL"
+								>
+									{copiedGuideKey === "sqlvec" ? (
+										<Check className="h-3 w-3 text-emerald-500" />
+									) : (
+										<Copy className="h-3 w-3" />
+									)}
+								</button>
+							</div>
+							<p className="text-[11px] text-muted-foreground leading-relaxed">
+								• <strong>Supabase:</strong> En el SQL Editor corre:{" "}
+								<code className="text-primary font-mono font-bold">
+									CREATE EXTENSION IF NOT EXISTS vector;
+								</code>
+								<br />• <strong>Docker VPS:</strong>{" "}
+								<code className="font-mono text-[10px]">
+									pgvector/pgvector:pg16
+								</code>
+							</p>
+						</div>
+					</div>
+				</div>
+			)}
 			{/* Top FinOps Metrics Cards */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				<div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2">

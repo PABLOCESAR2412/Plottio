@@ -48,6 +48,19 @@ export interface InboundWebhookLog {
 	receivedAt: string;
 	status: "success" | "error";
 	responseCode: number;
+	source?:
+		| "Meta Lead Ads"
+		| "TikTok Ads"
+		| "Zapier"
+		| "Make"
+		| "Webhook Genérico";
+	ip?: string;
+	hmacSignature?: string;
+	hmacValid?: boolean;
+	leadName?: string;
+	leadPhone?: string;
+	leadCompany?: string;
+	crmCreated?: boolean;
 }
 
 interface IntegrationsState {
@@ -143,23 +156,38 @@ interface IntegrationsState {
 	rag: {
 		similarityThreshold: number;
 		maxContextChunks: number;
+		maxTokens: number;
 		temperature: number;
 		indexedDocumentsCount: number;
 		lastCalibrationDate: string;
+		isIndexing?: boolean;
 	};
 	updateRagConfig: (config: Partial<IntegrationsState["rag"]>) => void;
+	indexKnowledgeBase: () => Promise<void>;
+	clearKnowledgeIndex: () => void;
 
 	// 7. Central Webhooks Hub
 	webhooks: WebhookConfig[];
+	inboundEndpoint: string;
+	inboundSecret: string;
 	inboundLogs: InboundWebhookLog[];
 	addWebhook: (name: string, url: string, events: string[]) => void;
 	toggleWebhook: (id: string) => void;
 	deleteWebhook: (id: string) => void;
+	regenerateInboundSecret: () => void;
+	clearInboundLogs: () => void;
 	simulateInboundLead: (lead: {
 		nombre: string;
 		telefono: string;
 		servicio: string;
 		vehiculo: string;
+		plataforma?:
+			| "Meta Lead Ads"
+			| "TikTok Ads"
+			| "Zapier"
+			| "Make"
+			| "Webhook Genérico";
+		empresa?: string;
 	}) => void;
 }
 
@@ -434,13 +462,35 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			rag: {
 				similarityThreshold: 0.78,
 				maxContextChunks: 6,
+				maxTokens: 1024,
 				temperature: 0.2,
 				indexedDocumentsCount: 489,
 				lastCalibrationDate: "Hoy, 04:00 AM",
+				isIndexing: false,
 			},
 			updateRagConfig: (config) =>
 				set((state) => ({
 					rag: { ...state.rag, ...config },
+				})),
+			indexKnowledgeBase: async () => {
+				set((state) => ({ rag: { ...state.rag, isIndexing: true } }));
+				await new Promise((resolve) => setTimeout(resolve, 1400));
+				set((state) => ({
+					rag: {
+						...state.rag,
+						indexedDocumentsCount: 524,
+						lastCalibrationDate: "Justo ahora (pgvector 768d)",
+						isIndexing: false,
+					},
+				}));
+			},
+			clearKnowledgeIndex: () =>
+				set((state) => ({
+					rag: {
+						...state.rag,
+						indexedDocumentsCount: 0,
+						lastCalibrationDate: "Sin registros indexados",
+					},
 				})),
 
 			// 7. Webhooks
@@ -464,27 +514,60 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					createdAt: "2026-05-20",
 				},
 			],
+			inboundEndpoint:
+				"https://plottio.app/api/webhooks/inbound?workspaceId=ws_prod_apex_2026",
+			inboundSecret: "whsec_b8e391df7a64c205",
 			inboundLogs: [
 				{
 					id: "log-1",
-					event: "lead.facebook_ads",
-					payload: JSON.stringify({
-						nombre: "Mario Andrade",
-						telefono: "0991234567",
-						interes: "Rotulado Taxi",
-					}),
+					event: "lead.meta_ads",
+					source: "Meta Lead Ads",
+					ip: "69.171.250.35",
+					hmacSignature: "sha256=9f83a02b1c4e7d5...",
+					hmacValid: true,
+					leadName: "Mario Andrade",
+					leadPhone: "+593991234567",
+					leadCompany: "Transportes Andrade & Hijos",
+					crmCreated: true,
+					payload: JSON.stringify(
+						{
+							leadgen_id: "meta_lead_9812481",
+							name: "Mario Andrade",
+							phone: "+593991234567",
+							company: "Transportes Andrade & Hijos",
+							ad_name: "Campaña Flotas 2026 - Rotulado",
+							created_time: "2026-06-08T10:14:00Z",
+						},
+						null,
+						2,
+					),
 					receivedAt: "10:14 AM",
 					status: "success",
 					responseCode: 200,
 				},
 				{
 					id: "log-2",
-					event: "landing.cotizador_web",
-					payload: JSON.stringify({
-						nombre: "Logística Express",
-						ruc: "1792983192001",
-						flota: 4,
-					}),
+					event: "lead.zapier",
+					source: "Zapier",
+					ip: "34.201.12.8",
+					hmacSignature: "sha256=1a2b3c4d5e6f7g8...",
+					hmacValid: true,
+					leadName: "Carlos Mendoza",
+					leadPhone: "+593987654321",
+					leadCompany: "Andes Tech Logistics",
+					crmCreated: true,
+					payload: JSON.stringify(
+						{
+							source: "Zapier Catch Hook",
+							name: "Carlos Mendoza",
+							email: "carlos@andestech.com",
+							phone: "+593987654321",
+							company: "Andes Tech Logistics",
+							fleet_size: "12 furgonetas",
+						},
+						null,
+						2,
+					),
 					receivedAt: "09:45 AM",
 					status: "success",
 					responseCode: 200,
@@ -515,24 +598,65 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				set((state) => ({
 					webhooks: state.webhooks.filter((w) => w.id !== id),
 				})),
-			simulateInboundLead: (lead) =>
-				set((state) => ({
-					inboundLogs: [
-						{
-							id: `log-${Date.now()}`,
-							event: "lead.simulado_test",
-							payload: JSON.stringify(lead, null, 2),
-							receivedAt: new Date().toLocaleTimeString([], {
-								hour: "2-digit",
-								minute: "2-digit",
-								second: "2-digit",
-							}),
-							status: "success",
-							responseCode: 200,
-						},
-						...state.inboundLogs,
-					],
+			regenerateInboundSecret: () =>
+				set(() => ({
+					inboundSecret: `whsec_${Array.from({ length: 16 }, () =>
+						Math.floor(Math.random() * 16).toString(16),
+					).join("")}`,
 				})),
+			clearInboundLogs: () => set(() => ({ inboundLogs: [] })),
+			simulateInboundLead: (lead) =>
+				set((state) => {
+					const platform = lead.plataforma || "Meta Lead Ads";
+					const ipMap: Record<string, string> = {
+						"Meta Lead Ads": "69.171.250.35",
+						"TikTok Ads": "161.117.70.12",
+						Zapier: "34.201.12.8",
+						Make: "54.216.14.90",
+						"Webhook Genérico": "186.101.45.22",
+					};
+					const newLog: InboundWebhookLog = {
+						id: `log-${Date.now()}`,
+						event: `lead.${platform.toLowerCase().replace(/\s+/g, "_")}`,
+						source: platform,
+						ip: ipMap[platform] || "192.168.1.100",
+						hmacSignature: `sha256=${Array.from({ length: 24 }, () =>
+							Math.floor(Math.random() * 16).toString(16),
+						).join("")}`,
+						hmacValid: true,
+						leadName: lead.nombre,
+						leadPhone: lead.telefono,
+						leadCompany: lead.empresa || lead.vehiculo,
+						crmCreated: true,
+						payload: JSON.stringify(
+							{
+								event_type: "leadgen",
+								platform,
+								lead_data: {
+									full_name: lead.nombre,
+									phone_number: lead.telefono,
+									company_or_vehicle: lead.empresa || lead.vehiculo,
+									service_interest: lead.servicio,
+									status: "auto_created_crm_lead",
+								},
+								verified_hmac_sha256: true,
+								timestamp: new Date().toISOString(),
+							},
+							null,
+							2,
+						),
+						receivedAt: new Date().toLocaleTimeString([], {
+							hour: "2-digit",
+							minute: "2-digit",
+							second: "2-digit",
+						}),
+						status: "success",
+						responseCode: 200,
+					};
+					return {
+						inboundLogs: [newLog, ...state.inboundLogs],
+					};
+				}),
 		}),
 		{
 			name: "plottio_integrations_store_v1",
