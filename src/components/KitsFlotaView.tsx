@@ -379,8 +379,8 @@ export function KitsFlotaView() {
 								<div className="space-y-3">
 									{formData.items.map((item, index) => (
 										<div
-											// biome-ignore lint/suspicious/noArrayIndexKey: filas de formulario controladas por índice
-											key={crypto.randomUUID()}
+											// biome-ignore lint/suspicious/noArrayIndexKey: filas de formulario controladas por indice
+											key={index}
 											className="flex flex-col sm:flex-row gap-3 items-center bg-background p-3 rounded-xl border border-border"
 										>
 											<div className="flex-1 font-medium text-foreground text-sm">

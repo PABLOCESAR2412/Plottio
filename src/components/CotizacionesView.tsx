@@ -89,6 +89,7 @@ interface Cotizacion {
 	sucursalId?: string;
 	pvId?: string;
 	vehiculoId?: string;
+	placa?: string;
 }
 
 export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
@@ -512,14 +513,15 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 		}
 
 		try {
-			// Save inline vehicle if new user registered it details manually
+			// Save inline vehicle if new user registered details manually
 			let clienteIdParaVehiculo = matchedCliente?.id;
 			let currentVehiculoId = selectedVehiculoId;
+			const effectivePlaca = newPlaca.trim() || placa.trim();
+
 			if (
-				selectedVehiculoId === "nuevo" &&
-				newPlaca.trim() &&
-				newMarca.trim() &&
-				newModelo.trim()
+				(selectedVehiculoId === "nuevo" ||
+					(!selectedVehiculoId && effectivePlaca)) &&
+				effectivePlaca
 			) {
 				// Si no hay cliente matcheado, crearlo primero (reemplaza getOrCreateClienteByName)
 				if (!clienteIdParaVehiculo) {
@@ -534,39 +536,49 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					})) as unknown as { _id: string };
 					clienteIdParaVehiculo = nuevoCliente._id;
 				}
-				const inlineVeh = (await createVehiculoMut({
-					usuarioId: usuarioId as Id<"usuarios">,
-					placa: newPlaca.trim().toUpperCase(),
-					marca: newMarca.trim(),
-					modelo: newModelo.trim(),
-					anio: newAño.trim() || "2025",
-					categoria: vehiculoTipo,
-					numeroSerie:
-						newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
-					propietarioId: clienteIdParaVehiculo,
-					propietarioTipo: "cliente",
-					estado: "Activo",
-					sucursalId: currentUser?.sucursalId
-						? (currentUser.sucursalId as Id<"sucursales">)
-						: undefined,
-				})) as unknown as { _id: string; placa: string };
-				setPlaca(inlineVeh.placa);
-				currentVehiculoId = inlineVeh._id;
+				try {
+					const inlineVeh = (await createVehiculoMut({
+						usuarioId: usuarioId as Id<"usuarios">,
+						placa: effectivePlaca.toUpperCase(),
+						marca: newMarca.trim() || "General",
+						modelo: newModelo.trim() || "Vehículo",
+						anio: newAño.trim() || "2025",
+						categoria: vehiculoTipo,
+						numeroSerie:
+							newSerie.trim() || `S/N-${Date.now().toString().slice(-6)}`,
+						propietarioId: clienteIdParaVehiculo,
+						propietarioTipo: "cliente",
+						estado: "Activo",
+						sucursalId: currentUser?.sucursalId
+							? (currentUser.sucursalId as Id<"sucursales">)
+							: undefined,
+					})) as unknown as { _id: string; placa: string };
+					setPlaca(inlineVeh.placa);
+					currentVehiculoId = inlineVeh._id;
+				} catch {
+					// Si ya existía un vehículo con esa placa, continuar sin bloquear cotización
+				}
 			}
+
+			const finalPlaca =
+				(effectivePlaca || placa).trim().toUpperCase() || undefined;
+			const finalVehId =
+				currentVehiculoId && currentVehiculoId !== "nuevo"
+					? (currentVehiculoId as Id<"vehiculos">)
+					: undefined;
 
 			const savedCot = (await createCotizacionMut({
 				usuarioId: usuarioId as Id<"usuarios">,
 				clienteNombre: clienteNombre.trim(),
 				clienteTelefono: clienteTelefono.trim(),
 				vehiculoTipo,
+				vehiculoId: finalVehId,
+				placa: finalPlaca,
 				items: items.map((it) => ({
 					descripcion: it.descripcion,
 					cantidad: it.cantidad,
 					precioUnitario: it.precioUnitario,
-					vehiculoId:
-						currentVehiculoId && currentVehiculoId !== "nuevo"
-							? (currentVehiculoId as Id<"vehiculos">)
-							: undefined,
+					vehiculoId: finalVehId,
 				})),
 				estado: "Pendiente",
 				fecha: new Date().toISOString().split("T")[0],
@@ -662,7 +674,11 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 		doc.text(`Cliente: ${cot.clienteNombre}`, 20, 55);
 		doc.text(`Teléfono: ${cot.clienteTelefono || "Sin registrar"}`, 20, 61);
 
-		doc.text(`Tipo de Vehículo: ${cot.vehiculoTipo}`, 110, 55);
+		doc.text(
+			`Tipo de Vehículo: ${cot.vehiculoTipo}${cot.placa ? ` (${cot.placa})` : ""}`,
+			110,
+			55,
+		);
 		doc.text(`Moneda: USD ($)`, 110, 61);
 
 		// Table Header
@@ -933,7 +949,10 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											<span className="truncate">{cot.clienteNombre}</span>
 										</div>
 										<div className="mt-1 flex items-center gap-2 text-xs">
-											<span className="opacity-85">{cot.vehiculoTipo}</span>
+											<span className="opacity-85">
+												{cot.vehiculoTipo}
+												{cot.placa ? ` • ${cot.placa}` : ""}
+											</span>
 											<span className="opacity-50">•</span>
 											<span className="font-bold">
 												${cot.total.toLocaleString("en-US")}
@@ -1023,8 +1042,13 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 											<div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
 												Vehículo & Servicio
 											</div>
-											<div className="text-sm font-semibold text-foreground">
-												{activeCotizacion.vehiculoTipo}
+											<div className="text-sm font-semibold text-foreground flex items-center gap-2 flex-wrap">
+												<span>{activeCotizacion.vehiculoTipo}</span>
+												{activeCotizacion.placa && (
+													<span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">
+														{activeCotizacion.placa}
+													</span>
+												)}
 											</div>
 											<div className="text-xs text-muted-foreground mt-0.5">
 												Moneda: Dólar (USD)

@@ -7,12 +7,15 @@ import {
 	ChevronRight,
 	ClipboardCheck,
 	Copy,
+	ExternalLink,
 	FileText,
 	Image as ImageIcon,
+	Maximize2,
 	Plus,
 	Search,
 	Square,
 	Trash2,
+	X,
 } from "lucide-react";
 import type React from "react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
@@ -241,6 +244,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 	const [showTimeline, setShowTimeline] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isUploading, setIsUploading] = useState(false);
+	const [previewImage, setPreviewImage] = useState<string | null>(null);
 
 	// Filter orders
 	const filteredOrders = (ordenesTrabajo ?? []).filter((o) => {
@@ -1550,17 +1554,24 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 											{/* Photo Gallery Grid */}
 											<div className="grid gap-3 grid-cols-3 sm:grid-cols-4 mb-4">
 												{selectedOrder.fotos.map((ph, idx) => (
-													<div
+													<button
 														// biome-ignore lint/suspicious/noArrayIndexKey: galería de fotos estática
 														key={idx}
-														className="relative aspect-video rounded-lg overflow-hidden border border-border group bg-secondary"
+														type="button"
+														onClick={() => setPreviewImage(ph)}
+														className="relative aspect-video rounded-lg overflow-hidden border border-border group bg-secondary cursor-pointer hover:border-primary/50 transition-all text-left"
+														title="Click para agrandar imagen"
 													>
 														<img
 															src={ph}
 															alt="Wrapping sticker installation process"
-															className="object-cover w-full h-full"
+															className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
 														/>
-													</div>
+														<div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1.5 backdrop-blur-[1px]">
+															<Maximize2 className="h-4 w-4" />
+															<span>Agrandar</span>
+														</div>
+													</button>
 												))}
 
 												{!isLocked && (
@@ -1785,6 +1796,50 @@ Fecha de Emisión: ${selectedOrder.fechaInicio}
 								)}
 							</button>
 						</div>
+					</div>
+				</div>
+			)}
+
+			{/* LIGHTBOX MODAL PARA FOTO DE ORDEN DE TRABAJO */}
+			{previewImage && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+					<button
+						type="button"
+						className="fixed inset-0 w-full h-full cursor-default"
+						onClick={() => setPreviewImage(null)}
+						aria-label="Cerrar imagen"
+					/>
+					<div className="relative max-w-4xl max-h-[90vh] z-10 flex flex-col items-center">
+						<div className="flex items-center justify-between w-full pb-2 text-white">
+							<span className="text-xs font-semibold tracking-wider uppercase opacity-80">
+								Fotografía de Orden #{selectedOrder?._id.slice(0, 8)}
+							</span>
+							<div className="flex items-center gap-2">
+								<a
+									href={previewImage}
+									target="_blank"
+									rel="noreferrer"
+									className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1 text-xs"
+									title="Abrir original en pestaña nueva"
+								>
+									<ExternalLink className="h-4 w-4" />
+									<span>Original</span>
+								</a>
+								<button
+									type="button"
+									onClick={() => setPreviewImage(null)}
+									className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+									title="Cerrar"
+								>
+									<X className="h-5 w-5" />
+								</button>
+							</div>
+						</div>
+						<img
+							src={previewImage}
+							alt="Foto ampliada de la orden de trabajo"
+							className="max-h-[80vh] max-w-full rounded-xl border border-white/20 shadow-2xl object-contain"
+						/>
 					</div>
 				</div>
 			)}

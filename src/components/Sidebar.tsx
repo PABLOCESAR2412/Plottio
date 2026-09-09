@@ -15,6 +15,7 @@ import {
 	Moon,
 	PackageSearch,
 	Settings,
+	Share2,
 	Sun,
 	Users,
 	X,
@@ -39,7 +40,8 @@ interface SidebarProps {
 		| "inventario"
 		| "catalogo"
 		| "lotes"
-		| "kits";
+		| "kits"
+		| "contenidos";
 	onNavigate: (
 		tab:
 			| "dashboard"
@@ -53,7 +55,8 @@ interface SidebarProps {
 			| "inventario"
 			| "catalogo"
 			| "lotes"
-			| "kits",
+			| "kits"
+			| "contenidos",
 	) => void;
 	isOpenMobile: boolean;
 	onCloseMobile: () => void;
@@ -174,7 +177,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 			| "inventario"
 			| "catalogo"
 			| "lotes"
-			| "kits";
+			| "kits"
+			| "contenidos";
 		label: string;
 		icon: React.ComponentType<{ className?: string }>;
 		badge?: number;
@@ -219,6 +223,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 			label: "Kits de Flota",
 			icon: Component,
 			roles: ["SuperAdmin"],
+		},
+		{
+			id: "contenidos",
+			label: "Contenidos",
+			icon: Share2,
 		},
 		{
 			id: "configuracion",

@@ -182,6 +182,7 @@ export const createCotizacion = mutation({
     // anterior cacheado. La tabla siempre recibe un string más abajo.
     vehiculoTipo: v.optional(v.string()),
     vehiculoId: v.optional(v.id("vehiculos")),
+    placa: v.optional(v.string()),
     items: v.array(v.object({
       servicioId: v.optional(v.id("catalogoServicios")),
       descripcion: v.string(),
@@ -218,6 +219,7 @@ export const createCotizacion = mutation({
       clienteTelefono: args.clienteTelefono,
       vehiculoTipo: args.vehiculoTipo?.trim() || "Vehículo sin especificar",
       vehiculoId: args.vehiculoId,
+      placa: args.placa,
       items: args.items,
       total: args.total ?? totalCalculado,
       estado: args.estado ?? "Pendiente",
@@ -252,6 +254,7 @@ export const updateCotizacion = mutation({
     clienteTelefono: v.optional(v.string()),
     vehiculoTipo: v.optional(v.string()),
     vehiculoId: v.optional(v.id("vehiculos")),
+    placa: v.optional(v.string()),
     items: v.optional(v.array(v.object({
       servicioId: v.optional(v.id("catalogoServicios")),
       descripcion: v.string(),

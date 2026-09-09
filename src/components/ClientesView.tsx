@@ -7,6 +7,7 @@ import {
 	Info,
 	Loader2,
 	Mail,
+	MessageSquare,
 	Phone,
 	Plus,
 	Search,
@@ -23,8 +24,10 @@ import {
 import { validarIdentificacion } from "../lib/identificacion";
 import { useSessionStore } from "../store/useSessionStore";
 import type { Cliente, Empresa, Vehiculo } from "../types/data";
+import { ClientEmailThreadModal } from "./ClientEmailThreadModal";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
+import { WhatsAppClientChatModal } from "./WhatsAppClientChatModal";
 
 interface ClientesViewProps {
 	onNavigate: (
@@ -155,6 +158,10 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 	// Selected client for editing
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
+
+	// Modals para integraciones (WhatsApp & Email)
+	const [chatClient, setChatClient] = useState<Cliente | null>(null);
+	const [emailClient, setEmailClient] = useState<Cliente | null>(null);
 
 	// Filter clients by Role and Search Term
 	const filteredClientes = clientes.filter((c) => {
@@ -731,8 +738,24 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								<div className="flex gap-2">
 									<button
 										type="button"
+										onClick={() => setChatClient(selectedClient)}
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-green-500/30 bg-green-500/10 text-green-600 hover:bg-green-500 hover:text-white transition-colors cursor-pointer shadow-xs"
+										title="Chat de WhatsApp (Evolution API)"
+									>
+										<MessageSquare className="h-4 w-4" />
+									</button>
+									<button
+										type="button"
+										onClick={() => setEmailClient(selectedClient)}
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors cursor-pointer shadow-xs"
+										title="Bandeja de Correo Corporativo"
+									>
+										<Mail className="h-4 w-4" />
+									</button>
+									<button
+										type="button"
 										onClick={() => handleOpenEdit(selectedClient)}
-										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors"
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors cursor-pointer"
 										title="Editar Cliente"
 									>
 										<Edit2 className="h-4 w-4" />
@@ -740,7 +763,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									<button
 										type="button"
 										onClick={() => handleDeleteClick(selectedClient)}
-										className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 border border-destructive shadow-sm transition-colors"
+										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/30 bg-card text-destructive hover:bg-destructive hover:text-white transition-colors cursor-pointer shadow-sm"
 										title="Eliminar Cliente"
 									>
 										<Trash2 className="h-4 w-4" />
@@ -1419,6 +1442,20 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 				type={alertConfig.type}
 				onConfirm={alertConfig.onConfirm}
 				confirmText={alertConfig.onConfirm ? "Eliminar" : "Entendido"}
+			/>
+
+			{/* WHATSAPP CLIENT CHAT MODAL (EVOLUTION API) */}
+			<WhatsAppClientChatModal
+				isOpen={Boolean(chatClient)}
+				onClose={() => setChatClient(null)}
+				cliente={chatClient}
+			/>
+
+			{/* CORPORATE EMAIL CLIENT THREAD MODAL */}
+			<ClientEmailThreadModal
+				isOpen={Boolean(emailClient)}
+				onClose={() => setEmailClient(null)}
+				cliente={emailClient}
 			/>
 		</div>
 	);

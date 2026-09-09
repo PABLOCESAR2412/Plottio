@@ -59,6 +59,7 @@ export default defineSchema({
     telefono: v.string(),
     email: v.string(),
     empresaId: v.optional(v.id("empresas")),
+    empresaVinculadaId: v.optional(v.id("empresas")),
     sucursalId: v.optional(v.id("sucursales")),
     esClienteGlobal: v.boolean(),
     direccion: v.optional(v.string()),
@@ -91,6 +92,7 @@ export default defineSchema({
     clienteTelefono: v.string(),
     vehiculoTipo: v.string(),
     vehiculoId: v.optional(v.id("vehiculos")),
+    placa: v.optional(v.string()),
     items: v.array(v.object({
       servicioId: v.optional(v.id("catalogoServicios")),
       descripcion: v.string(),

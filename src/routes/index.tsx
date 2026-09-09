@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Menu } from "lucide-react";
+import { Mail, Menu, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AceptarInvitacionView } from "../components/AceptarInvitacionView";
 import { AgendaView } from "../components/AgendaView";
+import { ApexBrainModal } from "../components/ApexBrainModal";
 import { BugReporter } from "../components/BugReporter";
 import { CatalogoView } from "../components/CatalogoView";
 import { ClientesView } from "../components/ClientesView";
 import { ConfiguracionView } from "../components/ConfiguracionView";
+import { ContenidosView } from "../components/ContenidosView";
 import { CotizacionesView } from "../components/CotizacionesView";
 import { DashboardView } from "../components/DashboardView";
+import { EmailIntegrationModal } from "../components/EmailIntegrationModal";
 import { EmpresasView } from "../components/EmpresasView";
 import { InventarioView } from "../components/InventarioView";
 import { KitsFlotaView } from "../components/KitsFlotaView";
@@ -42,13 +45,16 @@ type TabId =
 	| "inventario"
 	| "catalogo"
 	| "lotes"
-	| "kits";
+	| "kits"
+	| "contenidos";
 
 function AppLayout() {
 	const currentUser = useSessionStore((s) => s.currentUser);
 	const [activeTab, setActiveTab] = useState<TabId>("dashboard");
 	const [isOpenMobile, setIsOpenMobile] = useState(false);
 	const [loading, setLoading] = useState(true);
+	const [isApexBrainOpen, setIsApexBrainOpen] = useState(false);
+	const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 	const [preselectedVehicleId, setPreselectedVehicleId] = useState<
 		string | null
 	>(null);
@@ -119,6 +125,8 @@ function AppLayout() {
 				return <LotesProduccionView />;
 			case "kits":
 				return <KitsFlotaView />;
+			case "contenidos":
+				return <ContenidosView />;
 			default:
 				return (
 					<DashboardView
@@ -148,6 +156,14 @@ function AppLayout() {
 				return "Configuración";
 			case "inventario":
 				return "Inventario Distribuido";
+			case "catalogo":
+				return "Catálogo de Servicios";
+			case "lotes":
+				return "Lotes de Producción";
+			case "kits":
+				return "Kits de Flota";
+			case "contenidos":
+				return "Contenidos & Redes Sociales";
 			default:
 				return "Panel de Control";
 		}
@@ -237,7 +253,31 @@ function AppLayout() {
 						</div>
 
 						{/* Top Right Controls */}
-						<div className="flex items-center gap-4">
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => setIsApexBrainOpen(true)}
+								className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-xs text-muted-foreground transition-colors cursor-pointer shadow-xs"
+								title="Buscar semánticamente con APEX Brain (Cmd+K)"
+							>
+								<Sparkles className="h-3.5 w-3.5 text-primary" />
+								<span className="font-semibold text-foreground">
+									APEX Brain
+								</span>
+								<kbd className="px-1.5 py-0.5 rounded bg-secondary text-[10px] font-mono border border-border">
+									⌘K
+								</kbd>
+							</button>
+
+							<button
+								type="button"
+								onClick={() => setIsEmailModalOpen(true)}
+								className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background hover:bg-secondary text-foreground transition-colors cursor-pointer shrink-0 shadow-xs"
+								title="Configurar Correo Corporativo (SMTP/OAuth2)"
+							>
+								<Mail className="h-4 w-4" />
+							</button>
+
 							<div className="hidden sm:block">
 								<SucursalSelector />
 							</div>
@@ -262,6 +302,19 @@ function AppLayout() {
 
 			{/* Global Floating Actions */}
 			<BugReporter currentSection={getPageTitle()} />
+
+			{/* APEX BRAIN GLOBAL SEARCH MODAL */}
+			<ApexBrainModal
+				isOpen={isApexBrainOpen}
+				onClose={() => setIsApexBrainOpen(false)}
+				onNavigate={setActiveTab}
+			/>
+
+			{/* CORPORATE EMAIL GLOBAL MODAL */}
+			<EmailIntegrationModal
+				isOpen={isEmailModalOpen}
+				onClose={() => setIsEmailModalOpen(false)}
+			/>
 		</div>
 	);
 }

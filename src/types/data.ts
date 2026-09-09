@@ -77,6 +77,8 @@ export interface Cotizacion {
 	clienteNombre: string;
 	clienteTelefono: string;
 	vehiculoTipo: string;
+	vehiculoId?: string;
+	placa?: string;
 	items: ItemCotizacion[];
 	total: number;
 	estado: "Pendiente" | "Aceptada" | "Rechazada";

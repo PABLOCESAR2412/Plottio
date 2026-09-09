@@ -12,7 +12,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
@@ -24,6 +24,10 @@ export const AgendaView: React.FC = () => {
 
 	const citasData = useQuery(
 		api.citas.fetchCitas,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
+	const rawClientes = useQuery(
+		api.clientes.fetchClientes,
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
 	const createCitaMutation = useMutation(api.citas.createCita);
@@ -49,6 +53,14 @@ export const AgendaView: React.FC = () => {
 	const [fecha, setFecha] = useState("2026-06-03");
 	const [hora, setHora] = useState("10:00");
 	const [selectedCitaId, setSelectedCitaId] = useState<string | null>(null);
+
+	const matchedCliente = useMemo(() => {
+		if (!clienteNombre.trim() || !rawClientes) return null;
+		return (rawClientes as any[]).find(
+			(c) =>
+				c.nombre.trim().toLowerCase() === clienteNombre.trim().toLowerCase(),
+		);
+	}, [clienteNombre, rawClientes]);
 
 	// Notification overlays
 	const [alertConfig, setAlertConfig] = useState<{
@@ -568,17 +580,49 @@ export const AgendaView: React.FC = () => {
 									htmlFor="clienteNombre"
 									className="block text-xs font-semibold text-muted-foreground mb-1"
 								>
-									Nombre del Cliente *
+									Nombre del Cliente o Contacto *
 								</label>
 								<input
 									id="clienteNombre"
 									type="text"
 									required
+									list="agenda-clientes-datalist"
 									value={clienteNombre}
-									onChange={(e) => setClienteNombre(e.target.value)}
+									onChange={(e) => {
+										const val = e.target.value;
+										setClienteNombre(val);
+										const found = (rawClientes as any[])?.find(
+											(c) =>
+												c.nombre.trim().toLowerCase() ===
+												val.trim().toLowerCase(),
+										);
+										if (found && found.telefono && !clienteTelefono) {
+											setClienteTelefono(found.telefono);
+										}
+									}}
 									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"
-									placeholder="Ej. Carlos Mendoza"
+									placeholder="Buscar cliente existente o escribir nombre libre..."
 								/>
+								<datalist id="agenda-clientes-datalist">
+									{((rawClientes as any[]) ?? []).map((c) => (
+										<option key={c._id} value={c.nombre}>
+											{c.telefono ? `Tel: ${c.telefono}` : ""}
+										</option>
+									))}
+								</datalist>
+								{matchedCliente ? (
+									<p className="text-[11px] text-green-500 font-semibold mt-1 flex items-center gap-1">
+										<Check className="h-3.5 w-3.5" /> Cliente registrado
+										seleccionado
+									</p>
+								) : (
+									clienteNombre.trim() && (
+										<p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+											<span className="h-1.5 w-1.5 rounded-full bg-yellow-500 inline-block" />
+											Contacto prospecto (no creará cliente en la base de datos)
+										</p>
+									)
+								)}
 							</div>
 
 							<div>
@@ -792,12 +836,13 @@ export const AgendaView: React.FC = () => {
 									htmlFor="editClienteNombre"
 									className="block text-xs font-semibold text-muted-foreground mb-1"
 								>
-									Nombre del Cliente *
+									Nombre del Cliente o Contacto *
 								</label>
 								<input
 									id="editClienteNombre"
 									type="text"
 									required
+									list="agenda-clientes-datalist"
 									value={clienteNombre}
 									onChange={(e) => setClienteNombre(e.target.value)}
 									className="w-full rounded-lg border border-border bg-background px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:border-ring focus:outline-none"

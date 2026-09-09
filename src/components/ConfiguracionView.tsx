@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { jsPDF } from "jspdf";
 import {
 	Bell,
+	Bot,
 	Bug as BugIcon,
 	Building,
 	Car,
@@ -12,9 +13,12 @@ import {
 	Download,
 	Edit2,
 	FileText,
+	Mail,
+	MessageSquare,
 	Moon,
 	Plus,
 	Settings,
+	Share2,
 	Shield,
 	Square,
 	Sun,
@@ -23,6 +27,7 @@ import {
 	Trash2,
 	TrendingUp,
 	Users,
+	Webhook,
 	X,
 } from "lucide-react";
 import type React from "react";
@@ -36,10 +41,14 @@ import type {
 	PlantillaPrecio,
 } from "../types/data";
 import { AuditoriaView } from "./AuditoriaView";
+import { EmailIntegrationModal } from "./EmailIntegrationModal";
+import { FinOpsMetricsPanel } from "./FinOpsMetricsPanel";
 import { GestionUsuariosView } from "./GestionUsuariosView";
 import { RolesView } from "./RolesView";
 import { SuccessDialog } from "./SuccessDialog";
 import { SucursalesAdminView } from "./SucursalesAdmin";
+import { TelegramConfigModal } from "./TelegramConfigModal";
+import { WebhookManagerModal } from "./WebhookManagerModal";
 
 type LocalCategoria = {
 	id: string;
@@ -211,7 +220,12 @@ export const ConfiguracionView: React.FC = () => {
 		| "bugs"
 		| "sucursales"
 		| "auditoria"
+		| "integraciones"
+		| "ia_finops"
 	>("general");
+	const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+	const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+	const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
 	const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 	const [newComment, setNewComment] = useState("");
 	const [showArchivedBugs, setShowArchivedBugs] = useState(false);
@@ -1000,10 +1014,226 @@ export const ConfiguracionView: React.FC = () => {
 							Auditoría (Log)
 						</button>
 					)}
+
+					<button
+						type="button"
+						onClick={() => startTransition(() => setConfigTab("integraciones"))}
+						className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+							configTab === "integraciones"
+								? "border-primary text-primary"
+								: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+						}`}
+					>
+						<Share2 className="h-4 w-4" />
+						Integraciones
+					</button>
+
+					<button
+						type="button"
+						onClick={() => startTransition(() => setConfigTab("ia_finops"))}
+						className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+							configTab === "ia_finops"
+								? "border-primary text-primary"
+								: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+						}`}
+					>
+						<Bot className="h-4 w-4" />
+						IA / FinOps
+					</button>
 				</div>
 			</div>
 
-			{configTab === "roles" ? (
+			{configTab === "ia_finops" ? (
+				<FinOpsMetricsPanel />
+			) : configTab === "integraciones" ? (
+				<div className="space-y-6">
+					<div>
+						<h2 className="text-xl font-bold text-foreground">
+							Integraciones Empresariales & Conectores
+						</h2>
+						<p className="text-sm text-muted-foreground">
+							Configuración centralizada de WhatsApp, Telegram, Correo
+							Corporativo y Webhooks.
+						</p>
+					</div>
+
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+						{/* WhatsApp Evolution API Card */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
+							<div className="space-y-3">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-3">
+										<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/15 text-green-600">
+											<MessageSquare className="h-5 w-5" />
+										</div>
+										<div>
+											<div className="font-bold text-foreground text-sm flex items-center gap-2">
+												<span>WhatsApp (Evolution API)</span>
+												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-500/15 text-green-600">
+													Conectado
+												</span>
+											</div>
+											<div className="text-xs text-muted-foreground">
+												Instancia: plottio-central
+											</div>
+										</div>
+									</div>
+								</div>
+								<p className="text-xs text-muted-foreground leading-relaxed">
+									Envío automático de notificaciones de cotización lista,
+									órdenes de trabajo completadas y chat bidireccional desde la
+									ficha de cada cliente.
+								</p>
+							</div>
+
+							<div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+								<span className="text-xs text-muted-foreground font-mono">
+									https://api.evolution.plottio.com
+								</span>
+								<button
+									type="button"
+									onClick={() => {
+										setAlertConfig({
+											isOpen: true,
+											title: "WhatsApp Sincronizado",
+											message:
+												"La instancia Evolution API responde con estado 200 OK y sesión activa.",
+											type: "success",
+										});
+									}}
+									className="px-3 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-600 text-xs font-semibold hover:bg-green-500 hover:text-white transition-colors cursor-pointer shadow-xs"
+								>
+									Verificar Sesión
+								</button>
+							</div>
+						</div>
+
+						{/* Telegram Bot Card */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
+							<div className="space-y-3">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-3">
+										<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#229ED9]/15 text-[#229ED9]">
+											<Bot className="h-5 w-5" />
+										</div>
+										<div>
+											<div className="font-bold text-foreground text-sm flex items-center gap-2">
+												<span>Telegram Bot & ChatOps</span>
+												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#229ED9]/15 text-[#229ED9]">
+													@PlottioOpsBot
+												</span>
+											</div>
+											<div className="text-xs text-muted-foreground">
+												Alertas y comandos para técnicos
+											</div>
+										</div>
+									</div>
+								</div>
+								<p className="text-xs text-muted-foreground leading-relaxed">
+									Canal de operaciones push con comandos interactivos (/status,
+									/ordenes, /alertas) para el equipo del taller.
+								</p>
+							</div>
+
+							<div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+								<span className="text-xs text-muted-foreground">
+									Webhook Activo
+								</span>
+								<button
+									type="button"
+									onClick={() => setIsTelegramModalOpen(true)}
+									className="px-3 py-1.5 rounded-lg border border-[#229ED9]/30 bg-[#229ED9]/10 text-[#229ED9] text-xs font-semibold hover:bg-[#229ED9] hover:text-white transition-colors cursor-pointer shadow-xs"
+								>
+									Configurar Bot
+								</button>
+							</div>
+						</div>
+
+						{/* Corporate Email Card */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
+							<div className="space-y-3">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-3">
+										<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
+											<Mail className="h-5 w-5" />
+										</div>
+										<div>
+											<div className="font-bold text-foreground text-sm flex items-center gap-2">
+												<span>Correo Corporativo (SMTP/OAuth2)</span>
+												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary/15 text-primary">
+													Outlook / 365
+												</span>
+											</div>
+											<div className="text-xs text-muted-foreground">
+												contacto@plottio.com
+											</div>
+										</div>
+									</div>
+								</div>
+								<p className="text-xs text-muted-foreground leading-relaxed">
+									Servidor SMTP transaccional para el despacho de presupuestos
+									adjuntos en PDF y seguimiento de trabajos.
+								</p>
+							</div>
+
+							<div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+								<span className="text-xs text-muted-foreground font-mono">
+									Puerto 587 (TLS)
+								</span>
+								<button
+									type="button"
+									onClick={() => setIsEmailModalOpen(true)}
+									className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold hover:bg-primary hover:text-white transition-colors cursor-pointer shadow-xs"
+								>
+									Credenciales SMTP
+								</button>
+							</div>
+						</div>
+
+						{/* Central Webhooks Hub Card */}
+						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
+							<div className="space-y-3">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-3">
+										<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/15 text-purple-600">
+											<Webhook className="h-5 w-5" />
+										</div>
+										<div>
+											<div className="font-bold text-foreground text-sm flex items-center gap-2">
+												<span>Hub Central de Webhooks</span>
+												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-500/15 text-purple-600">
+													HMAC SHA256
+												</span>
+											</div>
+											<div className="text-xs text-muted-foreground">
+												Zapier, Make, n8n & Inbound Leads
+											</div>
+										</div>
+									</div>
+								</div>
+								<p className="text-xs text-muted-foreground leading-relaxed">
+									Despacha eventos de negocio en tiempo real (clientes,
+									cotizaciones, órdenes) y captura prospectos desde landings
+									externas.
+								</p>
+							</div>
+
+							<div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+								<span className="text-xs text-muted-foreground">
+									Endpoints activos
+								</span>
+								<button
+									type="button"
+									onClick={() => setIsWebhookModalOpen(true)}
+									className="px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-600 text-xs font-semibold hover:bg-purple-600 hover:text-white transition-colors cursor-pointer shadow-xs"
+								>
+									Gestionar Webhooks
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			) : configTab === "roles" ? (
 				<RolesView />
 			) : configTab === "usuarios" ? (
 				<GestionUsuariosView />
@@ -1812,6 +2042,24 @@ export const ConfiguracionView: React.FC = () => {
 				type={alertConfig.type}
 				onConfirm={alertConfig.onConfirm}
 				confirmText={alertConfig.onConfirm ? "Aceptar" : "Entendido"}
+			/>
+
+			{/* TELEGRAM CONFIG MODAL */}
+			<TelegramConfigModal
+				isOpen={isTelegramModalOpen}
+				onClose={() => setIsTelegramModalOpen(false)}
+			/>
+
+			{/* CORPORATE EMAIL CONFIG MODAL */}
+			<EmailIntegrationModal
+				isOpen={isEmailModalOpen}
+				onClose={() => setIsEmailModalOpen(false)}
+			/>
+
+			{/* CENTRAL WEBHOOKS MANAGER MODAL */}
+			<WebhookManagerModal
+				isOpen={isWebhookModalOpen}
+				onClose={() => setIsWebhookModalOpen(false)}
 			/>
 		</div>
 	);

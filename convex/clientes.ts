@@ -22,12 +22,27 @@ export const fetchClientes = query({
       .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
+    // Si tiene permiso de ver todas las sucursales o es SuperAdmin, también incluir clientes sin empresaId asignado
+    if (userContext.permisos.includes("ver_todas_sucursales")) {
+      const huerfanos = await ctx.db.query("clientes").collect();
+      const idsExistentes = new Set(allClientes.map((c) => c._id));
+      for (const h of huerfanos) {
+        if (!idsExistentes.has(h._id) && (!h.empresaId || h.empresaId === userContext.empresa!.id)) {
+          allClientes.push(h);
+        }
+      }
+    }
+
     // 4. Filtrar granularmente dependiendo del nivel de acceso y enriquecer
     const clientesFiltrados = [];
     
     for (const c of allClientes) {
       const tipoCliente = c.sucursalId === userContext.sucursal?.id ? 'Local' : 'Global';
-      const clienteEnriquecido = { ...c, tipo_cliente: tipoCliente };
+      const clienteEnriquecido = {
+        ...c,
+        tipo_cliente: tipoCliente,
+        empresaId: c.empresaVinculadaId || c.empresaId, // retrocompatibilidad para mostrar empresa vinculada en UI
+      };
 
       // Super Admin ve todo
       if (userContext.permisos.includes("ver_todas_sucursales")) {
@@ -61,6 +76,7 @@ export const createCliente = mutation({
     email: v.string(),
     direccion: v.optional(v.string()),
     identificacion: v.optional(v.string()),
+    empresaVinculadaId: v.optional(v.id("empresas")),
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "crear_cliente");
@@ -71,17 +87,15 @@ export const createCliente = mutation({
     }
 
     if (args.identificacion && args.identificacion.trim() !== "") {
-      const existing = await ctx.db
-        .query("clientes")
-        .withIndex("by_empresa_sucursal", (q) =>
-          q.eq("empresaId", userContext.empresa!.id),
-        )
-        .collect()
-        .then((list) =>
-          list.find((c) => c.identificacion === args.identificacion?.trim()),
-        );
+      const allCli = await ctx.db.query("clientes").collect();
+      const existing = allCli.find(
+        (c) =>
+          c.identificacion &&
+          c.identificacion.trim() === args.identificacion?.trim() &&
+          (c.empresaId === userContext.empresa!.id || !c.empresaId),
+      );
       if (existing) {
-        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion} en esta empresa`);
+        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
       }
     }
 
@@ -92,6 +106,7 @@ export const createCliente = mutation({
       direccion: args.direccion,
       identificacion: args.identificacion,
       empresaId: userContext.empresa.id,
+      empresaVinculadaId: args.empresaVinculadaId,
       sucursalId: userContext.sucursal.id,
       esClienteGlobal: false
     });
@@ -200,7 +215,9 @@ export const updateCliente = mutation({
       email: args.email,
       direccion: args.direccion,
       identificacion: args.identificacion,
-      empresaId: empId,
+      empresaVinculadaId: empId,
+      // Conservar empresaId original (tenant workspace) para que nunca se desvincule ni desaparezca
+      ...(userContext.empresa ? { empresaId: userContext.empresa.id } : {}),
     });
   }
 });
@@ -217,3 +234,56 @@ export const deleteCliente = mutation({
     await ctx.db.delete(args.clienteId);
   }
 });
+
+export const repararClientesHuerfanos = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const emp = await ctx.db.query("empresas").filter((q) => q.eq(q.field("activa"), true)).first();
+    const suc = emp ? await ctx.db.query("sucursales").withIndex("by_empresa", (q) => q.eq("empresaId", emp._id)).first() : null;
+    
+    // Buscar si existe empresa P&T Publicidad
+    const pyTPublicidad = await ctx.db.query("empresas").filter((q) => q.eq(q.field("ruc"), "1710459908001")).first();
+
+    const clientes = await ctx.db.query("clientes").collect();
+    const vistos = new Set<string>();
+    let reparados = 0;
+    let eliminados = 0;
+
+    for (const c of clientes) {
+      if (c.identificacion) {
+        if (vistos.has(c.identificacion) && (!c.telefono || c.telefono === "+593 ")) {
+          await ctx.db.delete(c._id);
+          eliminados++;
+          continue;
+        }
+        vistos.add(c.identificacion);
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (!c.empresaId && emp) {
+        updates.empresaId = emp._id;
+      }
+      if (!c.sucursalId && suc) {
+        updates.sucursalId = suc._id;
+      }
+      if (c.identificacion === "1710459908001" && pyTPublicidad) {
+        updates.empresaVinculadaId = pyTPublicidad._id;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(c._id, updates);
+        reparados++;
+      }
+    }
+
+    return { reparados, eliminados, total: clientes.length };
+  }
+});
+
+export const debugAllClientes = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("clientes").collect();
+  }
+});
+
