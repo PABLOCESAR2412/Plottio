@@ -9,17 +9,6 @@ export interface WhatsAppMessage {
 	status: "sent" | "delivered" | "read";
 }
 
-export interface SocialPost {
-	id: string;
-	content: string;
-	channels: ("tiktok" | "instagram" | "linkedin" | "youtube")[];
-	mediaUrl?: string;
-	scheduledFor?: string;
-	status: "published" | "scheduled" | "draft";
-	tags: string[];
-	createdAt: string;
-}
-
 export interface EmailMessage {
 	id: string;
 	subject: string;
@@ -49,10 +38,10 @@ export interface InboundWebhookLog {
 	status: "success" | "error";
 	responseCode: number;
 	source?:
-		| "Meta Lead Ads"
-		| "TikTok Ads"
 		| "Zapier"
 		| "Make"
+		| "Formulario Web"
+		| "CRM / ERP Externo"
 		| "Webhook Genérico";
 	ip?: string;
 	hmacSignature?: string;
@@ -98,24 +87,7 @@ interface IntegrationsState {
 	) => void;
 	testTelegramAlert: (message?: string) => Promise<boolean>;
 
-	// 3. Buffer GraphQL / APEX Sync
-	buffer: {
-		connected: boolean;
-		channels: {
-			id: "tiktok" | "instagram" | "linkedin" | "youtube";
-			name: string;
-			handle: string;
-			active: boolean;
-		}[];
-		posts: SocialPost[];
-	};
-	toggleSocialChannel: (
-		id: "tiktok" | "instagram" | "linkedin" | "youtube",
-	) => void;
-	addSocialPost: (post: Omit<SocialPost, "id" | "createdAt">) => void;
-	deleteSocialPost: (id: string) => void;
-
-	// 4. Correo Corporativo
+	// 3. Correo Corporativo
 	email: {
 		smtpHost: string;
 		smtpPort: number;
@@ -134,7 +106,7 @@ interface IntegrationsState {
 		attachmentName?: string,
 	) => void;
 
-	// 5. Modelos de IA & FinOps
+	// 4. Modelos de IA & FinOps
 	ai: {
 		provider: "gemini" | "openai" | "custom";
 		geminiApiKey: string;
@@ -152,7 +124,7 @@ interface IntegrationsState {
 	updateAiConfig: (config: Partial<IntegrationsState["ai"]>) => void;
 	recordAiUsage: (tokens: number, costUSD: number) => void;
 
-	// 6. APEX Brain (RAG / pgvector)
+	// 4.1 APEX Brain (RAG / pgvector)
 	rag: {
 		similarityThreshold: number;
 		maxContextChunks: number;
@@ -166,7 +138,7 @@ interface IntegrationsState {
 	indexKnowledgeBase: () => Promise<void>;
 	clearKnowledgeIndex: () => void;
 
-	// 7. Central Webhooks Hub
+	// 5. Hub Centralizado de Webhooks
 	webhooks: WebhookConfig[];
 	inboundEndpoint: string;
 	inboundSecret: string;
@@ -182,10 +154,10 @@ interface IntegrationsState {
 		servicio: string;
 		vehiculo: string;
 		plataforma?:
-			| "Meta Lead Ads"
-			| "TikTok Ads"
 			| "Zapier"
 			| "Make"
+			| "Formulario Web"
+			| "CRM / ERP Externo"
 			| "Webhook Genérico";
 		empresa?: string;
 	}) => void;
@@ -292,89 +264,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				return true;
 			},
 
-			// 3. Buffer
-			buffer: {
-				connected: true,
-				channels: [
-					{
-						id: "instagram",
-						name: "Instagram",
-						handle: "@plottio.wrapping",
-						active: true,
-					},
-					{
-						id: "tiktok",
-						name: "TikTok",
-						handle: "@plottio_oficial",
-						active: true,
-					},
-					{
-						id: "linkedin",
-						name: "LinkedIn",
-						handle: "Plottio Vehicle Branding",
-						active: false,
-					},
-					{
-						id: "youtube",
-						name: "YouTube",
-						handle: "Plottio TV",
-						active: true,
-					},
-				],
-				posts: [
-					{
-						id: "post-1",
-						content:
-							"Transformación total de este Chevrolet D-Max con vinilo mate satinado y corte computarizado. ¡Listo para rodar! 🔥🚗 #wrapping #carwrap #tuning #plottio",
-						channels: ["instagram", "tiktok"],
-						status: "published",
-						tags: ["#wrapping", "#chevrolet", "#dmax"],
-						createdAt: "Ayer 18:30",
-					},
-					{
-						id: "post-2",
-						content:
-							"Rotulación de flota comercial de 5 furgonetas Hyundai H1 entregadas en tiempo récord. Calidad que resiste todo clima.",
-						channels: ["linkedin", "instagram"],
-						status: "scheduled",
-						scheduledFor: "Mañana 10:00 AM",
-						tags: ["#flotas", "#branding", "#empresas"],
-						createdAt: "Hoy 09:00",
-					},
-				],
-			},
-			toggleSocialChannel: (id) =>
-				set((state) => ({
-					buffer: {
-						...state.buffer,
-						channels: state.buffer.channels.map((c) =>
-							c.id === id ? { ...c, active: !c.active } : c,
-						),
-					},
-				})),
-			addSocialPost: (post) =>
-				set((state) => ({
-					buffer: {
-						...state.buffer,
-						posts: [
-							{
-								...post,
-								id: `post-${Date.now()}`,
-								createdAt: "Justo ahora",
-							},
-							...state.buffer.posts,
-						],
-					},
-				})),
-			deleteSocialPost: (id) =>
-				set((state) => ({
-					buffer: {
-						...state.buffer,
-						posts: state.buffer.posts.filter((p) => p.id !== id),
-					},
-				})),
-
-			// 4. Correo Corporativo
+			// 3. Correo Corporativo
 			email: {
 				smtpHost: "smtp.office365.com",
 				smtpPort: 587,
@@ -520,9 +410,9 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			inboundLogs: [
 				{
 					id: "log-1",
-					event: "lead.meta_ads",
-					source: "Meta Lead Ads",
-					ip: "69.171.250.35",
+					event: "lead.formulario_web",
+					source: "Formulario Web",
+					ip: "190.152.88.14",
 					hmacSignature: "sha256=9f83a02b1c4e7d5...",
 					hmacValid: true,
 					leadName: "Mario Andrade",
@@ -531,11 +421,11 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					crmCreated: true,
 					payload: JSON.stringify(
 						{
-							leadgen_id: "meta_lead_9812481",
+							form_id: "cotizador_web_plottio",
 							name: "Mario Andrade",
 							phone: "+593991234567",
 							company: "Transportes Andrade & Hijos",
-							ad_name: "Campaña Flotas 2026 - Rotulado",
+							service: "Rotulado de Flotas 2026",
 							created_time: "2026-06-08T10:14:00Z",
 						},
 						null,
@@ -607,12 +497,12 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			clearInboundLogs: () => set(() => ({ inboundLogs: [] })),
 			simulateInboundLead: (lead) =>
 				set((state) => {
-					const platform = lead.plataforma || "Meta Lead Ads";
+					const platform = lead.plataforma || "Zapier";
 					const ipMap: Record<string, string> = {
-						"Meta Lead Ads": "69.171.250.35",
-						"TikTok Ads": "161.117.70.12",
 						Zapier: "34.201.12.8",
 						Make: "54.216.14.90",
+						"Formulario Web": "190.152.88.14",
+						"CRM / ERP Externo": "45.33.32.156",
 						"Webhook Genérico": "186.101.45.22",
 					};
 					const newLog: InboundWebhookLog = {

@@ -25,10 +25,10 @@ interface WebhookManagerModalProps {
 }
 
 type PlatformType =
-	| "Meta Lead Ads"
-	| "TikTok Ads"
 	| "Zapier"
 	| "Make"
+	| "Formulario Web"
+	| "CRM / ERP Externo"
 	| "Webhook Genérico";
 
 export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
@@ -53,7 +53,7 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 	>("inbound");
 
 	const [selectedPlatform, setSelectedPlatform] =
-		useState<PlatformType>("Meta Lead Ads");
+		useState<PlatformType>("Zapier");
 
 	const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -84,52 +84,6 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 	// Expected Payload example per platform
 	const getPayloadExample = (platform: PlatformType) => {
 		switch (platform) {
-			case "Meta Lead Ads":
-				return JSON.stringify(
-					{
-						object: "page",
-						entry: [
-							{
-								id: "1092837465",
-								time: 1770547200,
-								changes: [
-									{
-										field: "leadgen",
-										value: {
-											form_id: "form_rotulado_flotas_2026",
-											leadgen_id: "lead_meta_8849201",
-											created_time: 1770547200,
-											page_id: "page_plottio_oficial",
-											ad_name: "Campaña Flotas Comerciales",
-											full_name: "Mario Andrade",
-											phone_number: "+593991234567",
-											company: "Transportes Andrade & Hijos",
-										},
-									},
-								],
-							},
-						],
-					},
-					null,
-					2,
-				);
-			case "TikTok Ads":
-				return JSON.stringify(
-					{
-						event: "lead_submitted",
-						advertiser_id: "tiktok_adv_91823",
-						campaign_name: "Tuning & Car Wrap TikTok",
-						lead_id: "tt_lead_448102",
-						fields: {
-							name: "Kevin Salazar",
-							phone: "+593984123890",
-							vehicle: "Chevrolet D-Max 2024",
-							wrap_color: "Negro Satinado",
-						},
-					},
-					null,
-					2,
-				);
 			case "Zapier":
 				return JSON.stringify(
 					{
@@ -152,6 +106,42 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 						phone: "+593976543210",
 						company_name: "Distribuidora Express",
 						interest: "Rotulado Frigorífico Hino",
+					},
+					null,
+					2,
+				);
+			case "Formulario Web":
+				return JSON.stringify(
+					{
+						form_id: "cotizador_web_plottio",
+						submitted_at: 1770547200,
+						lead: {
+							full_name: "Mario Andrade",
+							phone: "+593991234567",
+							email: "mario@transandrade.ec",
+							company: "Transportes Andrade & Hijos",
+							vehicle: "Hino 500 Furgón",
+							service: "Branding de Flota",
+						},
+					},
+					null,
+					2,
+				);
+			case "CRM / ERP Externo":
+				return JSON.stringify(
+					{
+						event: "deal.won_or_qualified",
+						contact: {
+							name: "Kevin Salazar",
+							phone: "+593984123890",
+							tax_id: "1792348590001",
+							company: "Logística Ecuatoriana S.A.",
+						},
+						deal: {
+							vehicle: "Chevrolet D-Max 2025",
+							budget: 2400.0,
+							service: "Wrap Completo Comercial",
+						},
 					},
 					null,
 					2,
@@ -225,8 +215,8 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 								</span>
 							</div>
 							<p className="text-xs text-muted-foreground">
-								Captura prospectos de Meta Ads, TikTok, Zapier y sincroniza con
-								el CRM de PLOTTIO
+								Captura prospectos de Zapier, Make, Formularios Web y sincroniza
+								con el CRM de PLOTTIO
 							</p>
 						</div>
 					</div>
@@ -433,10 +423,10 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 								<div className="flex flex-wrap gap-2 pt-1">
 									{(
 										[
-											"Meta Lead Ads",
-											"TikTok Ads",
 											"Zapier",
 											"Make",
+											"Formulario Web",
+											"CRM / ERP Externo",
 											"Webhook Genérico",
 										] as PlatformType[]
 									).map((plat) => (
@@ -522,12 +512,12 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 										}
 										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:border-primary"
 									>
-										<option value="Meta Lead Ads">
-											Meta Lead Ads (Facebook / Instagram)
-										</option>
-										<option value="TikTok Ads">TikTok Ads</option>
 										<option value="Zapier">Zapier Catch Hook</option>
 										<option value="Make">Make (Integromat)</option>
+										<option value="Formulario Web">
+											Formulario Web / Landing Page
+										</option>
+										<option value="CRM / ERP Externo">CRM / ERP Externo</option>
 										<option value="Webhook Genérico">Webhook Genérico</option>
 									</select>
 								</div>
@@ -937,42 +927,43 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 							<div className="rounded-xl border border-border bg-secondary/15 p-4 space-y-3">
 								<h4 className="text-sm font-bold text-foreground flex items-center gap-2">
 									<Zap className="h-4 w-4 text-primary" />
-									<span>Meta Lead Ads (Facebook & Instagram Ads)</span>
+									<span>
+										Formularios Web, Landing Pages o Typeform (HTTP POST)
+									</span>
 								</h4>
 								<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
 									<li>
-										Entra a{" "}
-										<a
-											href="https://developers.facebook.com/"
-											target="_blank"
-											rel="noreferrer"
-											className="text-primary underline"
-										>
-											Meta for Developers
-										</a>{" "}
-										y selecciona tu App Business.
+										En tu formulario de contacto web, landing page o Typeform
+										configura un envío <strong>HTTP POST</strong> hacia:
+										<div className="mt-1 font-mono text-[11px] text-primary bg-background p-1.5 rounded border border-border">
+											{inboundEndpoint}
+										</div>
 									</li>
 									<li>
-										En el panel de productos agrega <strong>Webhooks</strong> y
-										selecciona el objeto <strong>Page</strong> o{" "}
-										<strong>Leadgen</strong>.
+										Envía los campos del prospecto en formato JSON:
+										<pre className="p-2.5 mt-1 rounded bg-background border border-border font-mono text-[10px] text-foreground">
+											{JSON.stringify(
+												{
+													name: "Mario Andrade",
+													phone: "+593991234567",
+													email: "mario@empresa.com",
+													company: "Transportes Andrade",
+													service: "Rotulado Integral de Flotas",
+													vehicle: "Hino 500",
+												},
+												null,
+												2,
+											)}
+										</pre>
 									</li>
 									<li>
-										Configura el Webhook:
-										<ul className="list-disc list-inside ml-4 mt-1 space-y-1 font-mono text-[11px]">
-											<li>
-												Callback URL:{" "}
-												<span className="text-primary">{inboundEndpoint}</span>
-											</li>
-											<li>
-												Verify Token: Escribe tu secreto HMAC o frase segura
-											</li>
-										</ul>
+										(Opcional para seguridad máxima): Envía la cabecera{" "}
+										<code>X-Hub-Signature-256: sha256=...</code> firmando el
+										cuerpo con tu secreto HMAC.
 									</li>
 									<li>
-										Suscríbete al campo <strong>leadgen</strong>. Cada vez que
-										un usuario llene un formulario en tus anuncios de Facebook o
-										Instagram, entrará automáticamente al CRM de PLOTTIO.
+										El prospecto se registrará de inmediato en el CRM comercial
+										de PLOTTIO.
 									</li>
 								</ol>
 							</div>

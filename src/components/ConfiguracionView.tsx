@@ -11,7 +11,6 @@ import {
 	Check,
 	CheckSquare,
 	ClipboardList,
-	Copy,
 	DollarSign,
 	Download,
 	Edit2,
@@ -21,7 +20,6 @@ import {
 	Moon,
 	Plus,
 	Settings,
-	Share2,
 	Shield,
 	Square,
 	Sun,
@@ -234,23 +232,9 @@ export const ConfiguracionView: React.FC = () => {
 	const [isApexBrainModalOpen, setIsApexBrainModalOpen] = useState(false);
 	const [showGuidesSection, setShowGuidesSection] = useState(false);
 	const [selectedGuideTab, setSelectedGuideTab] = useState<
-		| "whatsapp"
-		| "telegram"
-		| "buffer"
-		| "email"
-		| "ai"
-		| "pgvector"
-		| "webhooks"
+		"whatsapp" | "telegram" | "email" | "ai" | "pgvector" | "webhooks"
 	>("whatsapp");
-	const [copiedGuideId, setCopiedGuideId] = useState<string | null>(null);
-
-	const { rag, buffer } = useIntegrationsStore();
-
-	const handleCopySnippet = (text: string, id: string) => {
-		navigator.clipboard.writeText(text);
-		setCopiedGuideId(id);
-		setTimeout(() => setCopiedGuideId(null), 2000);
-	};
+	const { rag } = useIntegrationsStore();
 
 	const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 	const [newComment, setNewComment] = useState("");
@@ -1054,7 +1038,7 @@ export const ConfiguracionView: React.FC = () => {
 								: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
 						}`}
 					>
-						<Share2 className="h-4 w-4" />
+						<Webhook className="h-4 w-4" />
 						Integraciones
 					</button>
 
@@ -1307,56 +1291,6 @@ export const ConfiguracionView: React.FC = () => {
 								</button>
 							</div>
 						</div>
-
-						{/* Buffer GraphQL Card */}
-						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
-							<div className="space-y-3">
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/15 text-sky-600">
-											<Share2 className="h-5 w-5" />
-										</div>
-										<div>
-											<div className="font-bold text-foreground text-sm flex items-center gap-2">
-												<span>Buffer GraphQL (APEX Sync)</span>
-												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-sky-500/15 text-sky-600">
-													{buffer.channels.filter((c) => c.active).length}{" "}
-													Canales Activos
-												</span>
-											</div>
-											<div className="text-xs text-muted-foreground">
-												TikTok, Instagram, LinkedIn, YouTube
-											</div>
-										</div>
-									</div>
-								</div>
-								<p className="text-xs text-muted-foreground leading-relaxed">
-									Publicación y programación multicanal de casos de éxito y
-									rotulados finalizados sin riesgo de bloqueos de cuenta.
-								</p>
-							</div>
-
-							<div className="pt-3 border-t border-border flex items-center justify-between gap-2">
-								<span className="text-xs text-muted-foreground">
-									{buffer.posts.length} publicaciones sincronizadas
-								</span>
-								<button
-									type="button"
-									onClick={() => {
-										setAlertConfig({
-											isOpen: true,
-											title: "Buffer GraphQL Sincronizado",
-											message:
-												"Los canales oficiales de TikTok, Instagram, LinkedIn y YouTube se encuentran activos y vinculados a Buffer.",
-											type: "success",
-										});
-									}}
-									className="px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-600 text-xs font-semibold hover:bg-sky-600 hover:text-white transition-colors cursor-pointer shadow-xs"
-								>
-									Sincronizar Canales
-								</button>
-							</div>
-						</div>
 					</div>
 
 					{/* STEP-BY-STEP OFFICIAL GUIDES SECTION */}
@@ -1389,11 +1323,10 @@ export const ConfiguracionView: React.FC = () => {
 									{[
 										{ id: "whatsapp", label: "1. WhatsApp (Evolution)" },
 										{ id: "telegram", label: "2. Telegram Bot" },
-										{ id: "buffer", label: "3. Buffer GraphQL" },
-										{ id: "email", label: "4. Correo Corporativo" },
-										{ id: "ai", label: "5. Modelos IA" },
-										{ id: "pgvector", label: "6. pgvector (RAG)" },
-										{ id: "webhooks", label: "7. Hub Webhooks" },
+										{ id: "email", label: "3. Correo Corporativo" },
+										{ id: "ai", label: "4. Modelos IA & FinOps" },
+										{ id: "pgvector", label: "5. pgvector (RAG)" },
+										{ id: "webhooks", label: "6. Hub Webhooks" },
 									].map((tab) => (
 										<button
 											key={tab.id}
@@ -1420,58 +1353,36 @@ export const ConfiguracionView: React.FC = () => {
 											Evolution API es un servidor open source para automatizar
 											WhatsApp sin suscripciones por mensaje.
 										</p>
-										<div className="p-3 rounded-lg bg-card border border-border space-y-1.5">
-											<div className="flex justify-between items-center font-bold text-foreground">
-												<span>
-													Comando Docker para tu VPS (DigitalOcean / Hetzner /
-													AWS):
-												</span>
-												<button
-													type="button"
-													onClick={() =>
-														handleCopySnippet(
-															"docker run -d --name evolution-api -p 8080:8080 -e AUTHENTICATION_API_KEY=tu_clave_secreta_aqui_123456 -e SERVER_URL=https://evolution.tudominio.com atendai/evolution-api:v2.1.0",
-															"dockerevo",
-														)
-													}
-													className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer"
-													title="Copiar comando"
-												>
-													{copiedGuideId === "dockerevo" ? (
-														<Check className="h-3 w-3 text-emerald-500" />
-													) : (
-														<Copy className="h-3 w-3" />
-													)}
-												</button>
-											</div>
-											<pre className="p-2.5 rounded bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto">
-												docker run -d --name evolution-api -p 8080:8080 \<br />
-												&nbsp;&nbsp;-e
-												AUTHENTICATION_API_KEY=tu_clave_secreta_aqui_123456 \
-												<br />
-												&nbsp;&nbsp;-e
-												SERVER_URL=https://evolution.tudominio.com \<br />
-												&nbsp;&nbsp;atendai/evolution-api:v2.1.0
-											</pre>
-										</div>
-										<ol className="list-decimal list-inside space-y-1 text-muted-foreground text-[11px]">
+										<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
 											<li>
-												<strong>apiUrl:</strong> La URL de tu servidor (ej.{" "}
-												<code>https://evolution.tudominio.com</code> o{" "}
-												<code>http://tu-ip:8080</code>).
+												Levanta el contenedor de Evolution API en tu servidor
+												VPS:
+												<pre className="p-2 mt-1 rounded bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto">
+													docker run -d --name evolution-api -p 8080:8080 \
+													<br />
+													&nbsp;&nbsp;-e
+													AUTHENTICATION_API_KEY=tu_clave_super_secreta \<br />
+													&nbsp;&nbsp;atendai/evolution-api:latest
+												</pre>
 											</li>
 											<li>
-												<strong>apiKey:</strong> La clave que definiste en{" "}
-												<code>AUTHENTICATION_API_KEY</code>.
+												Crea la instancia vinculando el número de la empresa:
+												<pre className="p-2 mt-1 rounded bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto">
+													curl -X POST http://tu-servidor:8080/instance/create \
+													<br />
+													&nbsp;&nbsp;-H "apikey: tu_clave_super_secreta" \
+													<br />
+													&nbsp;&nbsp;-d '&#123;"instanceName":
+													"plottio-central"&#125;'
+												</pre>
 											</li>
 											<li>
-												<strong>instanceName:</strong> Elige un nombre para tu
-												sesión (ej. <code>plottio-central</code>).
+												Abre el código QR retornado y escanéalo con WhatsApp en
+												tu teléfono corporativo.
 											</li>
 											<li>
-												<strong>Vincular:</strong> Abre el modal de WhatsApp,
-												haz clic en <em>Generar QR</em>, escanea con WhatsApp en{" "}
-												<em>Dispositivos vinculados</em>.
+												Configura el webhook de sincronización en Evolution API
+												apuntando a la URL de tu instancia de PLOTTIO.
 											</li>
 										</ol>
 									</div>
@@ -1481,99 +1392,56 @@ export const ConfiguracionView: React.FC = () => {
 								{selectedGuideTab === "telegram" && (
 									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
 										<div className="font-bold text-foreground text-sm">
-											2. Bot de Telegram (Telegram Bot API)
+											2. Telegram Bot API (ChatOps & Notificaciones Críticas)
 										</div>
 										<p className="text-muted-foreground">
-											Telegram ofrece bots gratuitos con API oficial ilimitada
-											para alertas de órdenes y chatops.
+											Configura un bot dedicado en menos de 2 minutos para
+											recibir avisos de nuevas órdenes, asignaciones de taller y
+											cambios de estado.
 										</p>
 										<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
 											<li>
 												Abre Telegram y busca{" "}
-												<code className="text-primary font-bold">
-													@BotFather
-												</code>
-												. Envía{" "}
-												<code className="bg-background px-1 py-0.5 rounded border border-border">
-													/newbot
-												</code>
-												. Asigna un nombre y un usuario que termine en{" "}
-												<code>bot</code>. Copia el token HTTP API.
+												<strong className="text-foreground">@BotFather</strong>.
+												Envía el comando <code>/newbot</code>.
 											</li>
 											<li>
-												<strong>Chat ID Personal:</strong> Habla con{" "}
-												<code className="text-primary">@userinfobot</code> y
-												presiona Start para ver tu ID numérico.
+												Ingresa el nombre de tu bot (ej. <em>Plottio Taller</em>
+												) y un usuario que termine en <code>bot</code>.
 											</li>
 											<li>
-												<strong>Chat ID Grupo:</strong> Añade tu bot al grupo de
-												taller y añade a{" "}
-												<code className="text-primary">@RawDataBot</code> para
-												copiar el campo <code>"id": -100...</code>.
+												Copia el <strong>HTTP API Token</strong> que te entrega
+												BotFather.
 											</li>
 											<li>
-												Pega el token y el chatId en el modal de Telegram y
-												pulsa <em>Probar Alerta</em>.
+												Para obtener tu <strong>Chat ID</strong>:
+												<ul className="list-disc list-inside ml-4 mt-0.5 space-y-0.5">
+													<li>
+														Para chat personal: escribe a <em>@userinfobot</em>{" "}
+														y copia tu Id numérico.
+													</li>
+													<li>
+														Para grupo de trabajo: añade tu bot al grupo, agrega
+														temporalmente a <em>@RawDataBot</em> y copia el ID
+														del chat (ej. <code>-100...</code>).
+													</li>
+												</ul>
+											</li>
+											<li>
+												Pega las credenciales en la pestaña{" "}
+												<em>2. Notificaciones Telegram</em> de esta pantalla o
+												en el modal de ChatOps y pulsa{" "}
+												<em>Probar Alerta Instantánea</em>.
 											</li>
 										</ol>
 									</div>
 								)}
 
-								{/* Guide 3: Buffer */}
-								{selectedGuideTab === "buffer" && (
-									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
-										<div className="font-bold text-foreground text-sm">
-											3. Buffer GraphQL (APEX Sync para Redes Sociales)
-										</div>
-										<p className="text-muted-foreground">
-											Buffer permite conectar oficialmente TikTok Empresa,
-											Instagram Profesional, LinkedIn y YouTube sin riesgo de
-											bloqueos.
-										</p>
-										<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
-											<li>
-												Regístrate gratis en{" "}
-												<a
-													href="https://buffer.com/"
-													target="_blank"
-													rel="noreferrer"
-													className="text-primary underline"
-												>
-													buffer.com
-												</a>{" "}
-												y conecta tus cuentas sociales deseadas.
-											</li>
-											<li>
-												Entra al portal de desarrolladores:{" "}
-												<a
-													href="https://buffer.com/developers/apps"
-													target="_blank"
-													rel="noreferrer"
-													className="text-primary underline"
-												>
-													buffer.com/developers/apps
-												</a>{" "}
-												y pulsa <em>Create an App</em>.
-											</li>
-											<li>
-												En la pestaña de tu app copia el{" "}
-												<strong>Access Token</strong> y pégalo en tu
-												configuración de PLOTTIO.
-											</li>
-											<li>
-												Al pulsar <em>Sincronizar Canales</em>, el sistema
-												consultará la API de Buffer e importará tus perfiles
-												automáticamente.
-											</li>
-										</ol>
-									</div>
-								)}
-
-								{/* Guide 4: Email */}
+								{/* Guide 3: Email */}
 								{selectedGuideTab === "email" && (
 									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
 										<div className="font-bold text-foreground text-sm">
-											4. Bandeja de Correo Corporativo (Google Workspace,
+											3. Bandeja de Correo Corporativo (Google Workspace,
 											Microsoft 365 & SMTP)
 										</div>
 										<div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
@@ -1620,12 +1488,12 @@ export const ConfiguracionView: React.FC = () => {
 									</div>
 								)}
 
-								{/* Guide 5: AI Models */}
+								{/* Guide 4: AI Models */}
 								{selectedGuideTab === "ai" && (
 									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
 										<div className="font-bold text-foreground text-sm">
-											5. Modelos de Inteligencia Artificial (Gemini / OpenAI /
-											Groq)
+											4. Modelos de Inteligencia Artificial & Optimización
+											FinOps
 										</div>
 										<ul className="space-y-1.5 text-muted-foreground text-[11px]">
 											<li>
@@ -1670,11 +1538,11 @@ export const ConfiguracionView: React.FC = () => {
 									</div>
 								)}
 
-								{/* Guide 6: pgvector */}
+								{/* Guide 5: pgvector */}
 								{selectedGuideTab === "pgvector" && (
 									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
 										<div className="font-bold text-foreground text-sm">
-											6. Base de Datos con pgvector (APEX Brain RAG)
+											5. Base de Datos con pgvector (APEX Brain RAG)
 										</div>
 										<p className="text-muted-foreground">
 											El motor vectorial requiere una base de datos PostgreSQL
@@ -1708,27 +1576,27 @@ export const ConfiguracionView: React.FC = () => {
 									</div>
 								)}
 
-								{/* Guide 7: Webhooks */}
+								{/* Guide 6: Webhooks */}
 								{selectedGuideTab === "webhooks" && (
 									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
 										<div className="font-bold text-foreground text-sm">
-											7. Hub Centralizado de Webhooks (Meta Ads & Zapier)
+											6. Hub Centralizado de Webhooks (Zapier, Make &
+											Formularios Web)
 										</div>
 										<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
-											<li>
-												<strong>Meta Lead Ads:</strong> En{" "}
-												<em>developers.facebook.com</em> agrega Webhooks al
-												objeto <strong>Page/Leadgen</strong>. Pega la URL del
-												webhook y suscríbete al campo <code>leadgen</code>. Cada
-												prospecto entrará de inmediato al CRM.
-											</li>
 											<li>
 												<strong>Zapier / Make:</strong> Crea un módulo{" "}
 												<em>Catch Hook</em> o <em>HTTP POST</em> hacia la URL
 												del webhook con JSON conteniendo <code>name</code>,{" "}
 												<code>email</code>, <code>phone</code>,{" "}
 												<code>company</code>. Se validará la firma HMAC SHA-256
-												automáticamente.
+												automáticamente y se creará el prospecto en el CRM.
+											</li>
+											<li>
+												<strong>Formularios Web / Landing Pages:</strong> Envía
+												solicitudes POST desde tu sitio web o cotizador online
+												hacia la URL de tu webhook. Los datos entrarán de forma
+												inmediata a la base de clientes.
 											</li>
 										</ol>
 									</div>

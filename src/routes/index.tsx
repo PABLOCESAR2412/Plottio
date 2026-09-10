@@ -8,7 +8,6 @@ import { BugReporter } from "../components/BugReporter";
 import { CatalogoView } from "../components/CatalogoView";
 import { ClientesView } from "../components/ClientesView";
 import { ConfiguracionView } from "../components/ConfiguracionView";
-import { ContenidosView } from "../components/ContenidosView";
 import { CotizacionesView } from "../components/CotizacionesView";
 import { DashboardView } from "../components/DashboardView";
 import { EmailIntegrationModal } from "../components/EmailIntegrationModal";
@@ -45,8 +44,7 @@ type TabId =
 	| "inventario"
 	| "catalogo"
 	| "lotes"
-	| "kits"
-	| "contenidos";
+	| "kits";
 
 function AppLayout() {
 	const currentUser = useSessionStore((s) => s.currentUser);
@@ -125,8 +123,6 @@ function AppLayout() {
 				return <LotesProduccionView />;
 			case "kits":
 				return <KitsFlotaView />;
-			case "contenidos":
-				return <ContenidosView />;
 			default:
 				return (
 					<DashboardView
@@ -162,8 +158,6 @@ function AppLayout() {
 				return "Lotes de Producción";
 			case "kits":
 				return "Kits de Flota";
-			case "contenidos":
-				return "Contenidos & Redes Sociales";
 			default:
 				return "Panel de Control";
 		}
