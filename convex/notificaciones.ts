@@ -1,6 +1,6 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
-import { getCurrentUserContext, requirePermission } from "./auth";
+import { getCurrentUserContext } from "./auth";
 
 // Crea una notificación para un usuario (llamado internamente desde otras mutaciones)
 export const crearNotificacion = internalMutation({
@@ -64,11 +64,12 @@ export const contarNoLeidas = query({
 export const marcarLeida = mutation({
   args: { usuarioId: v.id("usuarios"), notificacionId: v.id("notificaciones") },
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.usuarioId, "ver_ordenes");
     const actual = await ctx.db.get(args.notificacionId);
-    if (actual && actual.usuarioId === args.usuarioId) {
-      await ctx.db.patch(args.notificacionId, { leida: true });
+    if (!actual) throw new ConvexError("Notificación no encontrada");
+    if (actual.usuarioId !== args.usuarioId) {
+      throw new ConvexError("No autorizado para marcar esta notificación");
     }
+    await ctx.db.patch(args.notificacionId, { leida: true });
     return true;
   },
 });

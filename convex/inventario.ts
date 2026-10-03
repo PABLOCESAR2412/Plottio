@@ -19,12 +19,10 @@ export const createInventarioItems = mutation({
     await requirePermission(ctx, args.usuarioId, "editar_inventario");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     
-    let empresaIdToUse = userContext.empresa?.id;
-    if (!empresaIdToUse) {
-        const fallbackEmpresa = await ctx.db.query("empresas").first();
-        if (!fallbackEmpresa) throw new ConvexError("No hay empresas registradas en el sistema");
-        empresaIdToUse = fallbackEmpresa._id;
+    if (!userContext.empresa) {
+      throw new ConvexError("Usuario sin empresa asignada");
     }
+    const empresaIdToUse = userContext.empresa.id;
 
     const results = [];
     for (const item of args.items) {
@@ -139,6 +137,32 @@ export const transferirInventario = mutation({
     // Debe tener permiso de editar inventario en la sucursal de origen y destino
     await requirePermission(ctx, args.usuarioId, "editar_inventario", args.desde);
     await requirePermission(ctx, args.usuarioId, "editar_inventario", args.hacia);
+
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+
+    const sucursalOrigen = await ctx.db.get(args.desde);
+    const sucursalDestino = await ctx.db.get(args.hacia);
+
+    if (!sucursalOrigen || !sucursalDestino) {
+      throw new ConvexError("Sucursal de origen o destino no encontrada");
+    }
+
+    if (!esSuperAdmin) {
+      if (!userContext.empresa) {
+        throw new ConvexError("Usuario sin empresa asignada");
+      }
+      if (
+        sucursalOrigen.empresaId !== userContext.empresa.id ||
+        sucursalDestino.empresaId !== userContext.empresa.id
+      ) {
+        throw new ConvexError("No se permiten transferencias entre diferentes empresas o fuera de su empresa");
+      }
+    } else {
+      if (sucursalOrigen.empresaId !== sucursalDestino.empresaId) {
+        throw new ConvexError("No se permiten transferencias entre diferentes empresas");
+      }
+    }
 
     if (args.cantidad <= 0) throw new ConvexError("La cantidad debe ser mayor a 0");
 
@@ -259,11 +283,28 @@ export const getAlertasStockMinimo = query({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "ver_inventario");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
     
-    // Obtener todo el stock de las sucursales a las que tiene acceso
+    // Obtener todo el stock de las sucursales a las que tiene acceso dentro de su empresa
     let stocks: Doc<"inventarioSucursal">[] = [];
     if (userContext.permisos.includes("ver_todas_sucursales")) {
-      stocks = await ctx.db.query("inventarioSucursal").collect();
+      if (userContext.empresa) {
+        const sucursales = await ctx.db
+          .query("sucursales")
+          .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
+          .collect();
+        const stocksList = await Promise.all(
+          sucursales.map((s) =>
+            ctx.db
+              .query("inventarioSucursal")
+              .withIndex("by_sucursal", (q) => q.eq("sucursalId", s._id))
+              .collect()
+          )
+        );
+        stocks = stocksList.flat();
+      } else if (esSuperAdmin) {
+        stocks = await ctx.db.query("inventarioSucursal").collect();
+      }
     } else if (userContext.sucursal) {
       stocks = await ctx.db
         .query("inventarioSucursal")
@@ -300,23 +341,18 @@ export const getInventarioConsolidado = query({
     // Exigimos el permiso maestro
     await requirePermission(ctx, args.usuarioId, "ver_todas_sucursales");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    
-    let empresaIdToUse = userContext.empresa?.id;
-    if (!empresaIdToUse) {
-        const fallbackEmpresa = await ctx.db.query("empresas").first();
-        if (fallbackEmpresa) {
-            empresaIdToUse = fallbackEmpresa._id;
-        }
-    }
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
 
     let items;
-    if (empresaIdToUse) {
+    if (userContext.empresa) {
       items = await ctx.db
         .query("inventarioItems")
-        .withIndex("by_empresa", q => q.eq("empresaId", empresaIdToUse))
+        .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
         .collect();
-    } else {
+    } else if (esSuperAdmin) {
       items = await ctx.db.query("inventarioItems").collect();
+    } else {
+      return [];
     }
 
     return await Promise.all(items.map(async (item) => {
@@ -357,6 +393,16 @@ export const updateInventarioItem = mutation({
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_inventario");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
+    const item = await ctx.db.get(args.itemId);
+    if (!item) throw new ConvexError("Item no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && item.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este item");
+    }
+
     const { usuarioId: _u, itemId, ...updates } = args;
     await ctx.db.patch(itemId, updates);
     return { success: true };
@@ -371,6 +417,15 @@ export const deleteInventarioItem = mutation({
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_inventario");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
+    const item = await ctx.db.get(args.itemId);
+    if (!item) throw new ConvexError("Item no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && item.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para eliminar este item");
+    }
     
     // Check if there is stock. If so, fail or delete it. Let's delete stock as well.
     const stocks = await ctx.db

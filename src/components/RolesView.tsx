@@ -5,14 +5,18 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 
 export function RolesView() {
-	const roles = useQuery(api.roles.getRoles, {});
+	const currentUser = useSessionStore((s) => s.currentUser);
+	const roles = useQuery(
+		api.roles.getRoles,
+		currentUser?.id ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
 
 	const permisos = useQuery(api.permisos.getPermisos);
 
-	const seedPermisos = useMutation(api.permisos.seedPermisos);
 	const createRole = useMutation(api.roles.createRole);
 	const updateRole = useMutation(api.roles.updateRole);
 
@@ -28,13 +32,6 @@ export function RolesView() {
 		api.roles.getRolePermisos,
 		editingRole ? { roleId: editingRole._id } : "skip",
 	);
-
-	useEffect(() => {
-		// Si la DB de permisos está vacía, sembrarlos automáticamente
-		if (permisos && permisos.length === 0) {
-			seedPermisos().then(() => toast.info("Permisos base inicializados"));
-		}
-	}, [permisos, seedPermisos]);
 
 	useEffect(() => {
 		if (editingRole && loadRolePermissions) {
@@ -67,10 +64,15 @@ export function RolesView() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		if (!currentUser) {
+			toast.error("Debes iniciar sesión para gestionar roles");
+			return;
+		}
 
 		try {
 			if (editingRole) {
 				await updateRole({
+					usuarioId: currentUser.id as Id<"usuarios">,
 					roleId: editingRole._id,
 					nombre: formData.nombre,
 					descripcion: formData.descripcion,
@@ -79,6 +81,7 @@ export function RolesView() {
 				toast.success("Rol actualizado con éxito");
 			} else {
 				await createRole({
+					usuarioId: currentUser.id as Id<"usuarios">,
 					nombre: formData.nombre,
 					descripcion: formData.descripcion,
 					permisosIds: formData.permisosIds,

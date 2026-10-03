@@ -204,9 +204,13 @@ export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
 	};
 
 	const handleSave = async () => {
+		if (!currentUser) return;
+		const usuarioId = currentUser.id as Id<"usuarios">;
+
 		if (modalType === "empresa") {
 			if (editingItem) {
 				await updateEmpresa({
+					usuarioId,
 					id: editingItem._id as Id<"empresas">,
 					nombre,
 					direccion,
@@ -214,6 +218,7 @@ export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
 				});
 			} else {
 				await createEmpresa({
+					usuarioId,
 					nombre,
 					ruc: "000",
 					razonSocial: nombre,
@@ -224,6 +229,7 @@ export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
 		} else if (modalType === "sucursal") {
 			if (editingItem) {
 				await updateSucursal({
+					usuarioId,
 					id: editingItem._id as Id<"sucursales">,
 					nombre,
 					direccion,
@@ -232,6 +238,7 @@ export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
 				});
 			} else {
 				await createSucursal({
+					usuarioId,
 					empresaId: parentId as Id<"empresas">,
 					nombre,
 					direccion,
@@ -242,6 +249,7 @@ export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
 		} else if (modalType === "pv") {
 			if (editingItem) {
 				await updatePuntoVenta({
+					usuarioId,
 					id: editingItem._id as Id<"puntosVenta">,
 					nombre,
 					direccion,
@@ -250,6 +258,7 @@ export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
 				});
 			} else {
 				await createPuntoVenta({
+					usuarioId,
 					sucursalId: parentId as Id<"sucursales">,
 					nombre,
 					direccion,

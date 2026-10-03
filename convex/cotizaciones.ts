@@ -114,9 +114,15 @@ export const crearItemCotizacionConPlaca = mutation({
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const cotizacion = await ctx.db.get(args.cotizacionId);
     if (!cotizacion) throw new ConvexError("Cotización no encontrada");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && cotizacion.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar esta cotización");
+    }
 
     const nuevoItem = {
       servicioId: args.servicioId,
@@ -145,9 +151,15 @@ export const fetchItemsCotizacionConPlacas = query({
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "ver_cotizaciones");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const cotizacion = await ctx.db.get(args.cotizacionId);
     if (!cotizacion) throw new ConvexError("Cotización no encontrada");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && cotizacion.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para ver esta cotización");
+    }
 
     // Enriquecer items con la categoría del catálogo si existe
     return await Promise.all(cotizacion.items.map(async (item) => {
@@ -163,13 +175,6 @@ export const fetchItemsCotizacionConPlacas = query({
         categoria
       };
     }));
-  }
-});
-
-export const getCotizaciones = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("cotizaciones").collect();
   }
 });
 

@@ -80,6 +80,20 @@ export const createBug = mutation({
   },
 });
 
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const getFotoUrl = query({
+  args: { storageId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.storageId);
+  },
+});
+
 export const fetchBugs = query({
   args: {
     usuarioId: v.id("usuarios"),
@@ -98,7 +112,34 @@ export const fetchBugs = query({
       ? allBugs.filter((b) => b.estado === args.estado)
       : allBugs;
 
-    return filtrados.sort((a, b) => a.importancia.localeCompare(b.importancia));
+    const bugsConUrls = await Promise.all(
+      filtrados.map(async (b) => {
+        const resolvedImagenes = await Promise.all(
+          (b.imagenes ?? []).map(async (img) => {
+            if (
+              img.startsWith("http://") ||
+              img.startsWith("https://") ||
+              img.startsWith("data:") ||
+              img.startsWith("blob:")
+            ) {
+              return img;
+            }
+            try {
+              const url = await ctx.storage.getUrl(img);
+              return url ?? img;
+            } catch {
+              return img;
+            }
+          })
+        );
+        return {
+          ...b,
+          imagenes: resolvedImagenes,
+        };
+      })
+    );
+
+    return bugsConUrls.sort((a, b) => a.importancia.localeCompare(b.importancia));
   },
 });
 
@@ -144,7 +185,7 @@ export const addBugComment = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const nuevoComentario = {
-      id: `cmnt-${Date.now()}`,
+      id: `cmnt-${crypto.randomUUID()}`,
       autorId: args.usuarioId,
       autorNombre: userContext.nombre,
       texto: args.texto,

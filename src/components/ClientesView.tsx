@@ -503,6 +503,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 		try {
 			const newEmp = (await createEmpresaMut({
+				usuarioId: currentUser?.id as Id<"usuarios">,
 				nombre: empresaNombre.trim(),
 				ruc: empresaRuc.trim(),
 				razonSocial: empresaContactoNombre.trim() || empresaNombre.trim(),

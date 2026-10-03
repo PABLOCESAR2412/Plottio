@@ -6,18 +6,26 @@ import {
 	X,
 } from "lucide-react";
 import type React from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
+
+interface BugFotoItem {
+	id: string;
+	file: File;
+	previewUrl: string;
+}
 
 export const BugReporter: React.FC<{ currentSection?: string }> = ({
 	currentSection = "Desconocida",
 }) => {
 	const currentUser = useSessionStore((s) => s.currentUser);
 	const createBugMut = useMutation(api.bugs.createBug);
+	const generateUploadUrlMut = useMutation(api.bugs.generateUploadUrl);
 	const [isOpen, setIsOpen] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [titulo, setTitulo] = useState("");
@@ -26,15 +34,70 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 	const [importancia, setImportancia] = useState<
 		"Baja" | "Media" | "Alta" | "Critica"
 	>("Media");
-	const [imagenes, setImagenes] = useState<string[]>([]);
+	const [fotos, setFotos] = useState<BugFotoItem[]>([]);
+
+	const fotosRef = useRef<BugFotoItem[]>(fotos);
+	fotosRef.current = fotos;
+
+	// Cleanup de ObjectURLs al desmontar el componente (por navegación o unmount)
+	useEffect(() => {
+		return () => {
+			fotosRef.current.forEach((f) => {
+				if (f.previewUrl.startsWith("blob:")) {
+					URL.revokeObjectURL(f.previewUrl);
+				}
+			});
+		};
+	}, []);
 
 	if (!currentUser) return null;
 
+	const limpiarEstado = () => {
+		fotos.forEach((f) => {
+			if (f.previewUrl.startsWith("blob:")) {
+				URL.revokeObjectURL(f.previewUrl);
+			}
+		});
+		setFotos([]);
+		setTitulo("");
+		setDescripcion("");
+		setTipo("Visual");
+		setImportancia("Media");
+		setIsOpen(false);
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!titulo.trim() || !descripcion.trim()) return;
+		if (!titulo.trim() || !descripcion.trim() || isSubmitting) return;
 
+		setIsSubmitting(true);
 		try {
+			const storageIds: string[] = [];
+
+			// Subir cada archivo a Convex Storage
+			for (const item of fotos) {
+				try {
+					const uploadUrl = await generateUploadUrlMut();
+					const res = await fetch(uploadUrl, {
+						method: "POST",
+						headers: { "Content-Type": item.file.type },
+						body: item.file,
+					});
+					if (!res.ok) {
+						throw new Error(`Error en servidor: ${res.statusText}`);
+					}
+					const { storageId } = await res.json();
+					if (storageId) {
+						storageIds.push(storageId);
+					}
+				} catch (uploadErr) {
+					console.error("Error al subir captura de bug:", uploadErr);
+					toast.error(`No se pudo subir ${item.file.name}`, {
+						description: "El reporte se enviará sin esta imagen.",
+					});
+				}
+			}
+
 			await createBugMut({
 				usuarioId: currentUser.id as Id<"usuarios">,
 				titulo,
@@ -42,14 +105,10 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 				tipo,
 				importancia,
 				ruta: `/${currentSection.toLowerCase().replace(/ /g, "-")}`,
-				imagenes,
+				imagenes: storageIds,
 			});
-			setIsOpen(false);
-			setTitulo("");
-			setDescripcion("");
-			setTipo("Visual");
-			setImportancia("Media");
-			setImagenes([]);
+
+			limpiarEstado();
 			toast.success("Reporte enviado", {
 				description: "Tu reporte fue enviado al equipo de Plottio.",
 			});
@@ -57,43 +116,46 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 			toast.error("Error al enviar el reporte", {
 				description: (err as Error).message,
 			});
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
-	const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const files = e.target.files;
-		if (!files) return;
+	const agregarArchivos = (fileList: FileList | null) => {
+		if (!fileList) return;
 
-		Array.from(files).forEach((file) => {
+		const nuevos: BugFotoItem[] = [];
+		Array.from(fileList).forEach((file) => {
 			if (!file.type.startsWith("image/")) return;
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				if (event.target?.result) {
-					setImagenes((prev) => [...prev, event.target?.result as string]);
-				}
-			};
-			reader.readAsDataURL(file);
+			const previewUrl = URL.createObjectURL(file);
+			nuevos.push({
+				id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+				file,
+				previewUrl,
+			});
 		});
 
-		// Reset input
+		setFotos((prev) => [...prev, ...nuevos]);
 		if (fileInputRef.current) fileInputRef.current.value = "";
+	};
+
+	const eliminarFoto = (id: string) => {
+		setFotos((prev) => {
+			const item = prev.find((f) => f.id === id);
+			if (item?.previewUrl.startsWith("blob:")) {
+				URL.revokeObjectURL(item.previewUrl);
+			}
+			return prev.filter((f) => f.id !== id);
+		});
+	};
+
+	const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+		agregarArchivos(e.target.files);
 	};
 
 	const handleDrop = (e: React.DragEvent) => {
 		e.preventDefault();
-		const files = e.dataTransfer.files;
-		if (!files) return;
-
-		Array.from(files).forEach((file) => {
-			if (!file.type.startsWith("image/")) return;
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				if (event.target?.result) {
-					setImagenes((prev) => [...prev, event.target?.result as string]);
-				}
-			};
-			reader.readAsDataURL(file);
-		});
+		agregarArchivos(e.dataTransfer.files);
 	};
 
 	return (
@@ -117,7 +179,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 							</h3>
 							<button
 								type="button"
-								onClick={() => setIsOpen(false)}
+								onClick={limpiarEstado}
 								className="text-muted-foreground hover:text-foreground"
 							>
 								<X className="h-5 w-5" />
@@ -219,22 +281,20 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 									onDragOver={(e) => e.preventDefault()}
 									onDrop={handleDrop}
 								>
-									{imagenes.map((img, idx) => (
+									{fotos.map((item) => (
 										<div
-											// biome-ignore lint/suspicious/noArrayIndexKey: previsualización de capturas, lista estática
-											key={idx}
+											key={item.id}
 											className="relative h-16 w-16 rounded overflow-hidden border border-border shadow-sm"
 										>
 											<img
-												src={img}
-												alt="Screenshot"
+												src={item.previewUrl}
+												alt={item.file.name}
 												className="h-full w-full object-cover"
 											/>
 											<button
 												type="button"
-												onClick={() =>
-													setImagenes(imagenes.filter((_, i) => i !== idx))
-												}
+												onClick={() => eliminarFoto(item.id)}
+												disabled={isSubmitting}
 												className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/80 transition-colors"
 											>
 												<X className="h-3 w-3" />
@@ -249,11 +309,13 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 										multiple
 										accept="image/*"
 										className="hidden"
+										disabled={isSubmitting}
 									/>
 									<button
 										type="button"
 										onClick={() => fileInputRef.current?.click()}
-										className="flex h-16 w-16 items-center justify-center flex-col gap-1 rounded bg-secondary/50 hover:bg-secondary text-muted-foreground transition-colors border border-border"
+										disabled={isSubmitting}
+										className="flex h-16 w-16 items-center justify-center flex-col gap-1 rounded bg-secondary/50 hover:bg-secondary text-muted-foreground transition-colors border border-border disabled:opacity-50"
 									>
 										<ImagePlus className="h-5 w-5" />
 										<span className="text-[9px] font-medium text-center leading-tight px-1">
@@ -262,7 +324,7 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 											Imagen
 										</span>
 									</button>
-									{imagenes.length === 0 && (
+									{fotos.length === 0 && (
 										<div className="flex-1 flex items-center justify-center text-xs text-muted-foreground ml-2">
 											Arrastra imágenes aquí o haz clic en el botón.
 										</div>
@@ -290,16 +352,18 @@ export const BugReporter: React.FC<{ currentSection?: string }> = ({
 							<div className="pt-2 flex gap-3">
 								<button
 									type="button"
-									onClick={() => setIsOpen(false)}
-									className="w-full py-2.5 rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-secondary transition-colors cursor-pointer"
+									onClick={limpiarEstado}
+									disabled={isSubmitting}
+									className="w-full py-2.5 rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-secondary transition-colors cursor-pointer disabled:opacity-50"
 								>
 									Cancelar
 								</button>
 								<button
 									type="submit"
-									className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-colors shadow-sm cursor-pointer"
+									disabled={isSubmitting}
+									className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
 								>
-									Enviar Reporte
+									{isSubmitting ? "Enviando reporte..." : "Enviar Reporte"}
 								</button>
 							</div>
 						</form>

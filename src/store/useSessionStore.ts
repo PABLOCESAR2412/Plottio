@@ -28,7 +28,7 @@ export interface SessionUser {
 
 interface SessionStore {
 	currentUser: SessionUser | null;
-	setCurrentUser: (userOrId: string | SessionUser | null) => void;
+	setCurrentUser: (user: SessionUser | null) => void;
 	clearSession: () => void;
 
 	theme: "light" | "dark";
@@ -63,29 +63,21 @@ export const useSessionStore = create<SessionStore>()(
 	persist(
 		(set, get) => ({
 			currentUser: null,
-			setCurrentUser: (userOrId) => {
-				if (userOrId === null) {
+			setCurrentUser: (user) => {
+				if (!user) {
 					set({ currentUser: null });
-					return;
-				}
-				if (typeof userOrId === "string") {
-					// Búsqueda por id (compatibilidad con flujo antiguo)
-					const actual = get().currentUser;
-					if (actual && actual.id === userOrId) {
-						set({ currentUser: actual });
-					}
 					return;
 				}
 				set({
 					currentUser: {
-						id: userOrId.id ?? (userOrId as { _id?: string })._id ?? "",
-						nombre: userOrId.nombre ?? "",
-						email: userOrId.email ?? "",
-						rol: userOrId.rol ?? "Cotizador",
-						sucursalId: userOrId.sucursalId ?? null,
-						pvId: userOrId.pvId ?? null,
-						empresaId: userOrId.empresaId ?? null,
-						activo: userOrId.activo ?? true,
+						id: user.id ?? (user as unknown as { _id?: string })._id ?? "",
+						nombre: user.nombre ?? "",
+						email: user.email ?? "",
+						rol: user.rol ?? "Cotizador",
+						sucursalId: user.sucursalId ?? null,
+						pvId: user.pvId ?? null,
+						empresaId: user.empresaId ?? null,
+						activo: user.activo ?? true,
 					},
 				});
 			},
@@ -98,11 +90,6 @@ export const useSessionStore = create<SessionStore>()(
 
 				if (typeof window !== "undefined") {
 					window.localStorage.setItem("theme", next);
-					if (next === "dark") {
-						document.documentElement.classList.add("dark");
-					} else {
-						document.documentElement.classList.remove("dark");
-					}
 				}
 				set({ theme: next });
 			},

@@ -410,8 +410,11 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			return;
 		}
 
+		if (!currentUser) return;
+
 		try {
 			const newEmp = (await createEmpresaMut({
+				usuarioId: currentUser.id as Id<"usuarios">,
 				nombre: nombre.trim(),
 				ruc: ruc.trim(),
 				razonSocial: contactoNombre.trim() || nombre.trim(),
@@ -520,9 +523,11 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			});
 			return;
 		}
+		if (!currentUser) return;
 		try {
 			const logoUrl = await uploadLogo();
 			await updateEmpresaMut({
+				usuarioId: currentUser.id as Id<"usuarios">,
 				id: editingEmpresa.id as Id<"empresas">,
 				nombre: nombre.trim(),
 				ruc: ruc.trim(),
@@ -555,8 +560,12 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 			message: `¿Quieres desactivar a "${emp.nombre}"? Dejará de aparecer en las listas operativas, pero se conservarán sus sucursales, vehículos e historial.`,
 			type: "delete",
 			onConfirm: async () => {
+				if (!currentUser) return;
 				try {
-					await deleteEmpresaMut({ id: emp.id as Id<"empresas"> });
+					await deleteEmpresaMut({
+						usuarioId: currentUser.id as Id<"usuarios">,
+						id: emp.id as Id<"empresas">,
+					});
 					if (selectedEmpresaId === emp.id) {
 						const remaining = empresas.filter((e) => e.id !== emp.id);
 						setSelectedEmpresaId(remaining.length > 0 ? remaining[0].id : null);

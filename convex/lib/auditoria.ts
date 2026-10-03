@@ -39,7 +39,7 @@ export async function registrarAccion(
       tablaAfectada: args.tablaAfectada,
       accion: args.accion,
       registroId: args.registroId,
-      cambios: args.cambios ?? {},
+      cambios: (args.cambios ?? {}) as Record<string, string | number | boolean | string[] | null>,
       fecha: new Date().toISOString(),
     });
   } catch (err) {
@@ -49,7 +49,17 @@ export async function registrarAccion(
 }
 
 /**
- * Re-export del v.any() para mantener simetría con el helper.
- * Útil cuando se construye una `cambios` estructurada en TypeScript.
+ * Validador tipado para el campo `cambios` en la tabla de auditoría.
  */
-export const cambiosValidator = v.any();
+export const cambiosValidator = v.optional(
+  v.record(
+    v.string(),
+    v.union(
+      v.string(),
+      v.number(),
+      v.boolean(),
+      v.null(),
+      v.array(v.string())
+    )
+  )
+);

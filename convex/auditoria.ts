@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
 export const getAuditoria = query({
@@ -67,7 +67,7 @@ export const getAuditoria = query({
   },
 });
 
-export const registrarAccion = mutation({
+export const registrarAccion = internalMutation({
   args: {
     empresaId: v.id("empresas"),
     usuarioId: v.optional(v.id("usuarios")),
@@ -75,7 +75,18 @@ export const registrarAccion = mutation({
     tablaAfectada: v.string(),
     accion: v.string(),
     registroId: v.string(),
-    cambios: v.any(),
+    cambios: v.optional(
+      v.record(
+        v.string(),
+        v.union(
+          v.string(),
+          v.number(),
+          v.boolean(),
+          v.null(),
+          v.array(v.string())
+        )
+      )
+    ),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("auditoria", {

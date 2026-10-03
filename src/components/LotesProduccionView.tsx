@@ -495,6 +495,7 @@ export function LotesProduccionView() {
 										const newEstado = e.target.value;
 										try {
 											await cambiarEstado({
+												usuarioId: currentUser!.id as Id<"usuarios">,
 												loteId: selectedLote._id,
 												estado: newEstado,
 											});
@@ -521,9 +522,9 @@ export function LotesProduccionView() {
 								</h4>
 								<div className="max-h-40 overflow-y-auto space-y-2 mb-4 pr-2">
 									{selectedLote.comentarios?.length ? (
-										selectedLote.comentarios.map((c: any, _i: number) => (
+										selectedLote.comentarios.map((c: any, idx: number) => (
 											<div
-												key={crypto.randomUUID()}
+												key={c.id || `comentario-${c.fecha}-${idx}`}
 												className="bg-muted p-3 rounded-xl text-sm"
 											>
 												<div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">

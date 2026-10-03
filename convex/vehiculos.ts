@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import { getCurrentUserContext } from "./auth";
+import { getCurrentUserContext, requirePermission } from "./auth";
 
 // 5.2 MODIFICAR FUNCIÓN: fetchVehiculos()
 export const fetchVehiculos = query({
@@ -9,7 +9,7 @@ export const fetchVehiculos = query({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) return [];
     
-    const esSuper = userContext.roles.some(r => r.roleNombre === 'Super Admin');
+    const esSuper = userContext.roles.some(r => r.roleNombre === 'SuperAdmin');
     
     const allVehiculos = await ctx.db
       .query("vehiculos")
@@ -71,7 +71,7 @@ export const createVehiculo = mutation({
 
     const existing = await ctx.db
       .query("vehiculos")
-      .filter((q) => q.eq(q.field("placa"), args.placa))
+      .withIndex("by_placa", (q) => q.eq("placa", args.placa))
       .first();
     if (existing) {
       throw new ConvexError(`Ya existe un vehículo con la placa ${args.placa}`);
@@ -110,9 +110,20 @@ export const updateVehiculo = mutation({
     estado: v.string(),
   },
   handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_orden");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
+    const veh = await ctx.db.get(args.vehiculoId);
+    if (!veh) throw new ConvexError("Vehículo no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && veh.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este vehículo");
+    }
+
     const existing = await ctx.db
       .query("vehiculos")
-      .filter((q) => q.eq(q.field("placa"), args.placa))
+      .withIndex("by_placa", (q) => q.eq("placa", args.placa))
       .first();
     if (existing && existing._id !== args.vehiculoId) {
       throw new ConvexError(`Ya existe un vehículo con la placa ${args.placa}`);
@@ -138,6 +149,17 @@ export const deleteVehiculo = mutation({
     vehiculoId: v.id("vehiculos"),
   },
   handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_orden");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
+    const veh = await ctx.db.get(args.vehiculoId);
+    if (!veh) throw new ConvexError("Vehículo no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && veh.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para eliminar este vehículo");
+    }
+
     await ctx.db.delete(args.vehiculoId);
   }
 });
@@ -152,10 +174,19 @@ export const addServicioVehiculo = mutation({
     estado: v.string(),
   },
   handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_orden");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
     const veh = await ctx.db.get(args.vehiculoId);
-    if (!veh) throw new ConvexError("Vehiculo no encontrado");
+    if (!veh) throw new ConvexError("Vehículo no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && veh.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este vehículo");
+    }
+
     const newServicio = {
-      id: "srv-" + Date.now().toString(),
+      id: "srv-" + crypto.randomUUID(),
       fecha: args.fecha,
       descripcion: args.descripcion,
       costo: args.costo,
@@ -178,8 +209,17 @@ export const updateServicioVehiculo = mutation({
     estado: v.string(),
   },
   handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_orden");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
     const veh = await ctx.db.get(args.vehiculoId);
-    if (!veh) throw new ConvexError("Vehiculo no encontrado");
+    if (!veh) throw new ConvexError("Vehículo no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && veh.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este vehículo");
+    }
+
     const servicios = veh.servicios || [];
     const index = servicios.findIndex(s => s.id === args.servicioId);
     if (index > -1) {
@@ -202,8 +242,17 @@ export const deleteServicioVehiculo = mutation({
     servicioId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "editar_orden");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
     const veh = await ctx.db.get(args.vehiculoId);
-    if (!veh) throw new ConvexError("Vehiculo no encontrado");
+    if (!veh) throw new ConvexError("Vehículo no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && veh.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este vehículo");
+    }
+
     const servicios = (veh.servicios || []).filter(s => s.id !== args.servicioId);
     await ctx.db.patch(args.vehiculoId, { servicios });
   }

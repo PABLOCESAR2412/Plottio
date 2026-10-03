@@ -24,16 +24,18 @@ export function CatalogoView() {
 	);
 
 	const createServicio = useMutation(api.catalogoServicios.createServicio);
+	const updateServicio = useMutation(api.catalogoServicios.updateServicio);
 	const toggleActivo = useMutation(api.catalogoServicios.toggleActivo);
 	const deleteServicio = useMutation(api.catalogoServicios.deleteServicio);
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [showInactive, setShowInactive] = useState(false);
 	const [showModal, setShowModal] = useState(false);
-	const [_showEditModal, setShowEditModal] = useState(false);
-	const [_editingServicio, setEditingServicio] = useState<{
+	const [showEditModal, setShowEditModal] = useState(false);
+	const [editingServicio, setEditingServicio] = useState<{
 		id: Id<"catalogoServicios">;
 		nombre: string;
+		descripcion: string;
 		categoria: string;
 		precioBase: number;
 	} | null>(null);
@@ -65,6 +67,25 @@ export function CatalogoView() {
 			setFormData({ nombre: "", categoria: "general", precioBase: 0 });
 		} catch (err) {
 			toast.error((err as Error).message || "Error al crear servicio");
+		}
+	};
+
+	const handleUpdate = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!currentUser || !editingServicio) return;
+		try {
+			await updateServicio({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				id: editingServicio.id,
+				nombre: editingServicio.nombre,
+				categoria: editingServicio.categoria,
+				precioBase: Number(editingServicio.precioBase),
+			});
+			toast.success("Servicio actualizado exitosamente");
+			setShowEditModal(false);
+			setEditingServicio(null);
+		} catch (err) {
+			toast.error((err as Error).message || "Error al actualizar servicio");
 		}
 	};
 
@@ -200,6 +221,7 @@ export function CatalogoView() {
 													setEditingServicio({
 														id: s._id,
 														nombre: s.nombre,
+														descripcion: "",
 														categoria: s.categoria,
 														precioBase: s.precioBase,
 													});
@@ -316,6 +338,131 @@ export function CatalogoView() {
 									className="flex-1 px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl transition-colors font-medium shadow-sm"
 								>
 									Guardar
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{showEditModal && editingServicio && (
+				<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+					<div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+						<div className="p-6 border-b border-border">
+							<h3 className="text-xl font-bold text-foreground">
+								Editar Servicio
+							</h3>
+						</div>
+						<form onSubmit={handleUpdate} className="p-6 space-y-4">
+							<div>
+								<label
+									htmlFor="edit-servicio-nombre"
+									className="block text-sm font-medium text-foreground mb-1"
+								>
+									Nombre
+								</label>
+								<input
+									id="edit-servicio-nombre"
+									required
+									type="text"
+									value={editingServicio.nombre}
+									onChange={(e) =>
+										setEditingServicio({
+											...editingServicio,
+											nombre: e.target.value,
+										})
+									}
+									className="w-full px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground"
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor="edit-servicio-descripcion"
+									className="block text-sm font-medium text-foreground mb-1"
+								>
+									Descripción
+								</label>
+								<textarea
+									id="edit-servicio-descripcion"
+									rows={2}
+									value={editingServicio.descripcion}
+									onChange={(e) =>
+										setEditingServicio({
+											...editingServicio,
+											descripcion: e.target.value,
+										})
+									}
+									className="w-full px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground resize-none"
+								/>
+							</div>
+							<div className="grid grid-cols-2 gap-4">
+								<div>
+									<label
+										htmlFor="edit-servicio-categoria"
+										className="block text-sm font-medium text-foreground mb-1"
+									>
+										Categoría
+									</label>
+									<select
+										id="edit-servicio-categoria"
+										value={editingServicio.categoria}
+										onChange={(e) =>
+											setEditingServicio({
+												...editingServicio,
+												categoria: e.target.value,
+											})
+										}
+										className="w-full px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground"
+									>
+										<option value="general">General</option>
+										<option value="placa">Placa (Fase 9)</option>
+										<option value="rotulado">Rotulado</option>
+										<option value="cinta_seguridad">Cinta de Seguridad</option>
+										<option value="sello">Sello</option>
+										<option value="sticker">Sticker</option>
+									</select>
+								</div>
+								<div>
+									<label
+										htmlFor="edit-servicio-precio"
+										className="block text-sm font-medium text-foreground mb-1"
+									>
+										Precio Base
+									</label>
+									<input
+										id="edit-servicio-precio"
+										required
+										type="number"
+										step="0.01"
+										min="0"
+										value={editingServicio.precioBase}
+										onChange={(e) =>
+											setEditingServicio({
+												...editingServicio,
+												precioBase: parseFloat(e.target.value) || 0,
+											})
+										}
+										className="w-full px-4 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-ring outline-none text-foreground"
+									/>
+								</div>
+							</div>
+
+							<div className="flex gap-3 pt-4">
+								<button
+									type="button"
+									onClick={() => {
+										setShowEditModal(false);
+										setEditingServicio(null);
+									}}
+									className="flex-1 px-4 py-2 border border-border text-foreground rounded-xl hover:bg-muted transition-colors font-medium cursor-pointer"
+								>
+									Cancelar
+								</button>
+								<button
+									type="submit"
+									className="flex-1 px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl transition-colors font-medium shadow-sm cursor-pointer"
+								>
+									Guardar Cambios
 								</button>
 							</div>
 						</form>

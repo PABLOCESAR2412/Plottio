@@ -70,6 +70,9 @@ export const ClientEmailThreadModal: React.FC<ClientEmailThreadModalProps> = ({
 						<div>
 							<h3 className="text-base font-bold text-foreground flex items-center gap-2">
 								<span>Bandeja de Correo: {cliente.nombre}</span>
+								<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+									Modo Demostración / Sandbox
+								</span>
 							</h3>
 							<p className="text-xs text-muted-foreground font-mono">
 								{clientEmail}
@@ -83,6 +86,19 @@ export const ClientEmailThreadModal: React.FC<ClientEmailThreadModalProps> = ({
 					>
 						<X className="h-5 w-5" />
 					</button>
+				</div>
+
+				{/* Sandbox Notice Banner */}
+				<div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2 text-xs text-amber-700 dark:text-amber-300 flex items-center justify-between shrink-0">
+					<div className="flex items-center gap-2">
+						<span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 uppercase tracking-wide">
+							Modo Demostración / Sandbox
+						</span>
+						<span className="text-[11px]">
+							Envío y recepción de correos operan en modo simulado sin proveedor
+							SMTP en vivo.
+						</span>
+					</div>
 				</div>
 
 				{/* Thread Messages */}

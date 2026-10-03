@@ -227,6 +227,9 @@ export const ApexBrainModal: React.FC<ApexBrainModalProps> = ({
 								<h3 className="text-base font-bold text-foreground">
 									APEX Brain
 								</h3>
+								<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+									Modo Demostración / Sandbox (IA Simulada)
+								</span>
 								{rag.indexedDocumentsCount > 0 ? (
 									<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
 										<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -281,6 +284,20 @@ export const ApexBrainModal: React.FC<ApexBrainModalProps> = ({
 						>
 							<X className="h-5 w-5" />
 						</button>
+					</div>
+				</div>
+
+				{/* Sandbox / Demo Mode Banner */}
+				<div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2.5 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300 shrink-0">
+					<div className="flex items-center gap-2">
+						<span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 uppercase tracking-wide">
+							Modo Demostración / Sandbox (IA Simulada)
+						</span>
+						<span className="text-[11px] leading-tight">
+							Aviso para el operador: Los análisis, inferencias semánticas y
+							recomendaciones son una maqueta interactiva simulada sin conexión
+							a LLM en producción.
+						</span>
 					</div>
 				</div>
 

@@ -29,15 +29,17 @@ export const AgendaView: React.FC = () => {
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
-	);
+	) as Doc<"clientes">[] | undefined;
 	const createCitaMutation = useMutation(api.citas.createCita);
 	const updateCitaMutation = useMutation(api.citas.updateCita);
 	const deleteCitaMutation = useMutation(api.citas.deleteCita);
 
-	// Selected date on calendar. Today is June 3, 2026 according to system local time
-	const [currentYear, setCurrentYear] = useState(2026);
-	const [currentMonth, setCurrentMonth] = useState(5); // 0-indexed: 5 is June
-	const [selectedDate, setSelectedDate] = useState<string>("2026-06-03");
+	// Selected date on calendar dynamically initialized from current date
+	const now = new Date();
+	const todayDateString = now.toISOString().split("T")[0];
+	const [currentYear, setCurrentYear] = useState(now.getFullYear());
+	const [currentMonth, setCurrentMonth] = useState(now.getMonth()); // 0-indexed
+	const [selectedDate, setSelectedDate] = useState<string>(todayDateString);
 
 	// Modals
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -50,13 +52,13 @@ export const AgendaView: React.FC = () => {
 	const [clienteTelefono, setClienteTelefono] = useState("");
 	const [vehiculoPlaca, setVehiculoPlaca] = useState("");
 	const [servicio, setServicio] = useState("");
-	const [fecha, setFecha] = useState("2026-06-03");
+	const [fecha, setFecha] = useState(todayDateString);
 	const [hora, setHora] = useState("10:00");
 	const [selectedCitaId, setSelectedCitaId] = useState<string | null>(null);
 
 	const matchedCliente = useMemo(() => {
 		if (!clienteNombre.trim() || !rawClientes) return null;
-		return (rawClientes as any[]).find(
+		return (rawClientes as Doc<"clientes">[]).find(
 			(c) =>
 				c.nombre.trim().toLowerCase() === clienteNombre.trim().toLowerCase(),
 		);
@@ -93,7 +95,7 @@ export const AgendaView: React.FC = () => {
 		"Diciembre",
 	];
 
-	// Calendar calculations: June 2026 (1st is Monday, 30 days)
+	// Calendar calculations based on current view month and year
 	const getDaysInMonth = (year: number, month: number) => {
 		return new Date(year, month + 1, 0).getDate();
 	};
@@ -151,6 +153,7 @@ export const AgendaView: React.FC = () => {
 	const handleConfirmAppointment = async (cita: Doc<"citas">) => {
 		if (!currentUser) return;
 		await updateCitaMutation({
+			usuarioId: currentUser.id as Id<"usuarios">,
 			citaId: cita._id,
 			estado: "Confirmada",
 		});
@@ -171,7 +174,10 @@ export const AgendaView: React.FC = () => {
 			type: "delete",
 			onConfirm: async () => {
 				if (currentUser) {
-					await deleteCitaMutation({ citaId: cita._id });
+					await deleteCitaMutation({
+						usuarioId: currentUser.id as Id<"usuarios">,
+						citaId: cita._id,
+					});
 				}
 				setAlertConfig({
 					isOpen: true,
@@ -190,8 +196,8 @@ export const AgendaView: React.FC = () => {
 			targetDate = formatDateString(currentYear, currentMonth, day);
 		}
 
-		// Past dates verification (Today is 2026-06-03)
-		const todayLimit = "2026-06-03";
+		// Past dates verification
+		const todayLimit = todayDateString;
 		if (targetDate < todayLimit) {
 			setAlertConfig({
 				isOpen: true,
@@ -217,7 +223,7 @@ export const AgendaView: React.FC = () => {
 		if (!clienteNombre.trim() || !servicio.trim() || !fecha) return;
 
 		// Past dates verification
-		const todayLimit = "2026-06-03";
+		const todayLimit = todayDateString;
 		if (fecha < todayLimit) {
 			setAlertConfig({
 				isOpen: true,
@@ -267,10 +273,16 @@ export const AgendaView: React.FC = () => {
 
 	const handleEditAppointment = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!selectedCitaId || !clienteNombre.trim() || !servicio.trim()) return;
+		if (
+			!currentUser ||
+			!selectedCitaId ||
+			!clienteNombre.trim() ||
+			!servicio.trim()
+		)
+			return;
 
 		// Past dates verification
-		const todayLimit = "2026-06-03";
+		const todayLimit = todayDateString;
 		if (fecha < todayLimit) {
 			setAlertConfig({
 				isOpen: true,
@@ -282,6 +294,7 @@ export const AgendaView: React.FC = () => {
 		}
 
 		await updateCitaMutation({
+			usuarioId: currentUser.id as Id<"usuarios">,
 			citaId: selectedCitaId as Id<"citas">,
 			clienteNombre: clienteNombre.trim(),
 			clienteTelefono: clienteTelefono.trim(),
@@ -389,7 +402,7 @@ export const AgendaView: React.FC = () => {
 							const hasAppointments = (citas ?? []).some(
 								(c) => c.fecha === cellDateStr,
 							);
-							const isToday = cellDateStr === "2026-06-03";
+							const isToday = cellDateStr === todayDateString;
 
 							// Count appointments for this cell
 							const dayAppts = (citas ?? []).filter(
@@ -591,7 +604,7 @@ export const AgendaView: React.FC = () => {
 									onChange={(e) => {
 										const val = e.target.value;
 										setClienteNombre(val);
-										const found = (rawClientes as any[])?.find(
+										const found = (rawClientes as Doc<"clientes">[])?.find(
 											(c) =>
 												c.nombre.trim().toLowerCase() ===
 												val.trim().toLowerCase(),
@@ -604,7 +617,7 @@ export const AgendaView: React.FC = () => {
 									placeholder="Buscar cliente existente o escribir nombre libre..."
 								/>
 								<datalist id="agenda-clientes-datalist">
-									{((rawClientes as any[]) ?? []).map((c) => (
+									{((rawClientes as Doc<"clientes">[]) ?? []).map((c) => (
 										<option key={c._id} value={c.nombre}>
 											{c.telefono ? `Tel: ${c.telefono}` : ""}
 										</option>

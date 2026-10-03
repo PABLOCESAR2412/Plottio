@@ -5,22 +5,23 @@ import { registrarAccion } from "./lib/auditoria";
 
 export const getServicios = query({
   args: {
-    usuarioId: v.optional(v.id("usuarios")),
+    usuarioId: v.id("usuarios"),
   },
   handler: async (ctx, args) => {
-    if (args.usuarioId) {
-      const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-      if (!userContext.empresa) return [];
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
 
-      const propias = await ctx.db
+    let servicios;
+    if (esSuperAdmin) {
+      servicios = await ctx.db.query("catalogoServicios").collect();
+    } else {
+      if (!userContext.empresa) return [];
+      servicios = await ctx.db
         .query("catalogoServicios")
         .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
         .collect();
-      const activos = propias.filter((s) => s.activo);
-      return activos.sort((a, b) => a.nombre.localeCompare(b.nombre));
     }
 
-    const servicios = await ctx.db.query("catalogoServicios").collect();
     return servicios.sort((a, b) => a.nombre.localeCompare(b.nombre));
   }
 });
@@ -69,6 +70,14 @@ export const toggleActivo = mutation({
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
+    const servicio = await ctx.db.get(args.id);
+    if (!servicio) throw new ConvexError("Servicio no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && servicio.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este servicio");
+    }
+
     await ctx.db.patch(args.id, { activo: args.activo });
 
     if (userContext.empresa) {
@@ -98,6 +107,14 @@ export const updateServicio = mutation({
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
+    const servicio = await ctx.db.get(args.id);
+    if (!servicio) throw new ConvexError("Servicio no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && servicio.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este servicio");
+    }
+
     const { usuarioId: _u, id, ...updates } = args;
     await ctx.db.patch(id, updates);
 
@@ -124,6 +141,14 @@ export const deleteServicio = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_catalogo");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
+    const servicio = await ctx.db.get(args.id);
+    if (!servicio) throw new ConvexError("Servicio no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && servicio.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para eliminar este servicio");
+    }
 
     await ctx.db.delete(args.id);
 

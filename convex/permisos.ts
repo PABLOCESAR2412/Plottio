@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 
 export const getPermisos = query({
   handler: async (ctx) => {
@@ -6,7 +6,7 @@ export const getPermisos = query({
   },
 });
 
-export const seedPermisos = mutation({
+export const seedPermisos = internalMutation({
   handler: async (ctx) => {
     const existing = await ctx.db.query("permisos").collect();
     const byNombre = new Map(existing.map((p) => [p.nombre, p]));

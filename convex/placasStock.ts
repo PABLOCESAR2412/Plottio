@@ -38,6 +38,7 @@ export const asignarPlacaStockAOrden = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_orden");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
 
     // Verificar que la placa esté disponible
     const placa = await ctx.db.get(args.placaStockId);
@@ -45,9 +46,15 @@ export const asignarPlacaStockAOrden = mutation({
       throw new ConvexError("Placa no disponible o ya asignada");
     }
 
+    const lote = await ctx.db.get(placa.loteId);
+    if (!lote) throw new ConvexError("Lote no encontrado");
+    if (!esSuperAdmin && lote.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para asignar placas de otra empresa");
+    }
+
     // Verificar que la orden de trabajo existe
     const orden = await ctx.db.get(args.ordenTrabajoId);
-    if (!orden || (userContext.empresa && orden.empresaId !== userContext.empresa.id)) {
+    if (!orden || (!esSuperAdmin && userContext.empresa && orden.empresaId !== userContext.empresa.id)) {
       throw new ConvexError("Orden de trabajo no encontrada");
     }
 
@@ -77,10 +84,18 @@ export const marcarPlacaInstalada = mutation({
   handler: async (ctx, args) => {
     // Aquí el permiso original dice 'marcar_progreso'. Si no lo tenemos, usamos 'editar_orden'
     await requirePermission(ctx, args.usuarioId, "editar_orden");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
     
     const placa = await ctx.db.get(args.placaStockId);
     if (!placa || placa.estado !== "Asignada") {
       throw new ConvexError("Placa no está en estado Asignada");
+    }
+
+    const lote = await ctx.db.get(placa.loteId);
+    if (!lote) throw new ConvexError("Lote no encontrado");
+    if (!esSuperAdmin && lote.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar placas de otra empresa");
     }
 
     await ctx.db.patch(args.placaStockId, {
@@ -102,7 +117,7 @@ export const fetchPlacasDeOrden = query({
 
     const placas = await ctx.db
       .query("placasStock")
-      .filter(q => q.eq(q.field("ordenTrabajoId"), args.ordenTrabajoId))
+      .withIndex("by_orden", q => q.eq("ordenTrabajoId", args.ordenTrabajoId))
       .collect();
 
     placas.sort((a, b) => new Date(a.fechaAsignacion || "").getTime() - new Date(b.fechaAsignacion || "").getTime());
@@ -130,17 +145,25 @@ export const liberarPlacaAsignada = mutation({
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "editar_orden");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
 
     const placa = await ctx.db.get(args.placaStockId);
     if (!placa || placa.estado !== "Asignada") {
       throw new ConvexError("Placa no se puede liberar (no está en estado Asignada)");
     }
 
+    const lote = await ctx.db.get(placa.loteId);
+    if (!lote) throw new ConvexError("Lote no encontrado");
+    if (!esSuperAdmin && lote.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para liberar placas de otra empresa");
+    }
+
     await ctx.db.patch(args.placaStockId, {
       estado: "Disponible",
-      ordenTrabajoId: undefined,
-      vehiculoId: undefined,
-      fechaAsignacion: undefined
+      ordenTrabajoId: null,
+      vehiculoId: null,
+      fechaAsignacion: null,
     });
 
     const placaActualizada = await ctx.db.get(args.placaStockId);

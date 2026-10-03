@@ -163,6 +163,19 @@ interface IntegrationsState {
 	}) => void;
 }
 
+const getEnv = (key: string): string => {
+	try {
+		return (
+			(typeof import.meta !== "undefined" &&
+				import.meta.env &&
+				(import.meta.env[key] as string)) ||
+			""
+		);
+	} catch {
+		return "";
+	}
+};
+
 const initialHourlyUsage = [
 	{ hour: "08:00", tokens: 12400, costUSD: 0.024 },
 	{ hour: "10:00", tokens: 28900, costUSD: 0.058 },
@@ -179,8 +192,8 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			whatsapp: {
 				instanceName: "plottio-central",
 				apiUrl: "https://api.evolution.plottio.com",
-				apiKey: "evo_live_8f3a92b97c414d5e89a",
-				status: "connected",
+				apiKey: getEnv("VITE_EVOLUTION_API_KEY"),
+				status: "disconnected",
 				qrCode: null,
 				chats: {
 					default: [
@@ -245,12 +258,12 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 
 			// 2. Telegram
 			telegram: {
-				botToken: "7193849102:AAE9xYp4mQzKlRt-91Xj8b2Qw",
+				botToken: getEnv("VITE_TELEGRAM_BOT_TOKEN"),
 				botUsername: "@PlottioOpsBot",
-				chatId: "-10023489102",
-				status: "connected",
-				webhookUrl: "https://plottio.com/api/telegram-webhook",
-				enableChatOps: true,
+				chatId: "",
+				status: "disconnected",
+				webhookUrl: "",
+				enableChatOps: false,
 			},
 			updateTelegramConfig: (config) =>
 				set((state) => ({
@@ -269,10 +282,10 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				smtpHost: "smtp.office365.com",
 				smtpPort: 587,
 				smtpUser: "contacto@plottio.com",
-				smtpPass: "••••••••••••",
+				smtpPass: getEnv("VITE_SMTP_PASS"),
 				senderName: "Plottio Taller Central",
 				provider: "outlook",
-				status: "connected",
+				status: "disconnected",
 				threads: {
 					default: [
 						{
@@ -322,8 +335,8 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			// 5. IA & FinOps
 			ai: {
 				provider: "gemini",
-				geminiApiKey: "AIzaSyD-98124_plottio_gemini_pro_flash",
-				openaiApiKey: "sk-proj-491829...",
+				geminiApiKey: getEnv("VITE_GEMINI_API_KEY"),
+				openaiApiKey: getEnv("VITE_OPENAI_API_KEY"),
 				customEndpoint: "https://ai.internal.plottio.com/v1",
 				activeModel: "gemini-1.5-flash",
 				monthlyBudgetUSD: 150.0,
@@ -389,24 +402,24 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					id: "wh-1",
 					name: "Sincronizador CRM Hubspot",
 					url: "https://api.hubapi.com/webhooks/v1/leads/plottio",
-					secret: "sec_live_9a8b7c6d5e",
+					secret: "",
 					events: ["cliente.nuevo", "cotizacion.aprobada"],
-					active: true,
+					active: false,
 					createdAt: "2026-05-12",
 				},
 				{
 					id: "wh-2",
 					name: "Alerta Slack Taller",
 					url: "https://hooks.slack.com/services/T00/B00/X00",
-					secret: "sec_slack_12345",
+					secret: "",
 					events: ["orden.creada", "orden.terminada"],
-					active: true,
+					active: false,
 					createdAt: "2026-05-20",
 				},
 			],
 			inboundEndpoint:
 				"https://plottio.app/api/webhooks/inbound?workspaceId=ws_prod_apex_2026",
-			inboundSecret: "whsec_b8e391df7a64c205",
+			inboundSecret: getEnv("VITE_INBOUND_SECRET"),
 			inboundLogs: [
 				{
 					id: "log-1",

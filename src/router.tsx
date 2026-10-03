@@ -1,9 +1,14 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { convexClient, queryClient } from "./routes/__root";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
 	const router = createTanStackRouter({
 		routeTree,
+		context: {
+			queryClient,
+			convexClient,
+		},
 		scrollRestoration: true,
 		defaultPreload: "intent",
 		defaultPreloadStaleTime: 0,

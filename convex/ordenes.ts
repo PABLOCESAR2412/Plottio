@@ -312,17 +312,16 @@ export const deleteOrdenTrabajo = mutation({
     }
 
     // Liberar placas asignadas a esta orden
-    const placas = await ctx.db
+    const placasAOrden = await ctx.db
       .query("placasStock")
-      .withIndex("by_estado", (q) => q.eq("estado", "Asignada"))
+      .withIndex("by_orden", (q) => q.eq("ordenTrabajoId", args.ordenId))
       .collect();
-    const placasAOrden = placas.filter(p => p.ordenTrabajoId === args.ordenId);
     for (const placa of placasAOrden) {
       await ctx.db.patch(placa._id, {
         estado: "Disponible",
-        ordenTrabajoId: undefined,
-        vehiculoId: undefined,
-        fechaAsignacion: undefined,
+        ordenTrabajoId: null,
+        vehiculoId: null,
+        fechaAsignacion: null,
       });
     }
 
@@ -351,7 +350,7 @@ export const addFoto = mutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.usuarioId, "editar_ordenes");
+    await requirePermission(ctx, args.usuarioId, "editar_orden");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const actual = await ctx.db.get(args.ordenId);

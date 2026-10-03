@@ -20,16 +20,10 @@ export const getPlantillas = query({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) return [];
 
-    // Si no hay plantillas para la empresa, devolver las plantillas de
-    // cualquier empresa del sistema como fallback (modo dev).
-    const propias = await ctx.db
+    return await ctx.db
       .query("plantillasPrecios")
-      .filter((q) => q.eq(q.field("empresaId"), userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
-
-    if (propias.length > 0) return propias;
-
-    return await ctx.db.query("plantillasPrecios").collect();
   },
 });
 
@@ -130,12 +124,10 @@ export const getCategorias = query({
 
     const propias = await ctx.db
       .query("categoriasPrecios")
-      .filter((q) => q.eq(q.field("empresaId"), userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
-    if (propias.length > 0) return propias.map((c) => c.nombre);
-
-    return await ctx.db.query("categoriasPrecios").collect().then((cs) => cs.map((c) => c.nombre));
+    return propias.map((c) => c.nombre);
   },
 });
 
@@ -149,14 +141,10 @@ export const getCategoriasFull = query({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) return [];
 
-    const propias = await ctx.db
+    return await ctx.db
       .query("categoriasPrecios")
-      .filter((q) => q.eq(q.field("empresaId"), userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
-
-    if (propias.length > 0) return propias;
-
-    return await ctx.db.query("categoriasPrecios").collect();
   },
 });
 

@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from "convex/react";
-import { jsPDF } from "jspdf";
 import {
 	AlertCircle,
 	Briefcase,
@@ -22,6 +21,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { generarPdfCotizacion } from "../lib/pdf/cotizacionPdf";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
@@ -71,13 +71,13 @@ type LocalPlantilla = {
 	precioSugerido: number;
 };
 
-interface ItemCotizacion {
+export interface ItemCotizacion {
 	descripcion: string;
 	cantidad: number;
 	precioUnitario: number;
 }
 
-interface Cotizacion {
+export interface Cotizacion {
 	_id: string;
 	clienteNombre: string;
 	clienteTelefono: string;
@@ -90,6 +90,17 @@ interface Cotizacion {
 	pvId?: string;
 	vehiculoId?: string;
 	placa?: string;
+}
+
+export function buildWhatsAppUrl(cot: Cotizacion): string {
+	let itemsStr = "";
+	cot.items.forEach((it: ItemCotizacion, idx: number) => {
+		itemsStr += `${idx + 1}. ${it.descripcion} x${it.cantidad} - $${it.precioUnitario} c/u (*$${it.cantidad * it.precioUnitario}*)\n`;
+	});
+
+	const msg = `*COTIZACIÓN EN PLOTTIO*\n\n*Presupuesto ID:* ${cot._id}\n*Cliente:* ${cot.clienteNombre}\n*Vehículo:* ${cot.vehiculoTipo}\n\n*Detalle:*\n${itemsStr}\n*TOTAL ESTIMADO:* *$${cot.total.toLocaleString("en-US")} USD*\n\n_Cotización válida por 15 días. ¡Escríbenos para confirmar e iniciar!_`;
+	const cleanPhone = cot.clienteTelefono.replace(/[^0-9+]/g, "");
+	return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 }
 
 export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
@@ -626,138 +637,14 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 	);
 
 	// 5. EXPORT / EXTRAS
-	// Export jsPDF Document with Red/Blue minimalist theme colors
 	const handleDownloadPDF = (cot: Cotizacion) => {
-		const doc = new jsPDF();
-
-		// Header colors: Minimalist blue header line
-		doc.setDrawColor(26, 54, 93); // Dark Blue
-		doc.setLineWidth(1.5);
-		doc.line(20, 15, 190, 15);
-
-		// Title
-		doc.setFont("Helvetica", "bold");
-		doc.setFontSize(22);
-		doc.setTextColor(26, 54, 93); // Blue
-		doc.text("PLOTTIO", 20, 26);
-
-		doc.setFontSize(10);
-		doc.setFont("Helvetica", "normal");
-		doc.setTextColor(100, 100, 100);
-		doc.text("Especialistas en Stickers y Rotulado Vehicular", 20, 32);
-
-		// Quote ID in Accent Red
-		doc.setFont("Helvetica", "bold");
-		doc.setFontSize(14);
-		doc.setTextColor(197, 48, 48); // Accent Red
-		doc.text(`PRESUPUESTO #${cot._id}`, 130, 26);
-
-		doc.setFontSize(10);
-		doc.setFont("Helvetica", "normal");
-		doc.setTextColor(100, 100, 100);
-		doc.text(`Fecha: ${cot.fecha}`, 130, 32);
-
-		// Divider line
-		doc.setDrawColor(200, 200, 200);
-		doc.setLineWidth(0.5);
-		doc.line(20, 38, 190, 38);
-
-		// Client information
-		doc.setFont("Helvetica", "bold");
-		doc.setFontSize(11);
-		doc.setTextColor(26, 54, 93);
-		doc.text("DATOS DEL CLIENTE Y VEHÍCULO", 20, 48);
-
-		doc.setFont("Helvetica", "normal");
-		doc.setFontSize(10);
-		doc.setTextColor(50, 50, 50);
-		doc.text(`Cliente: ${cot.clienteNombre}`, 20, 55);
-		doc.text(`Teléfono: ${cot.clienteTelefono || "Sin registrar"}`, 20, 61);
-
-		doc.text(
-			`Tipo de Vehículo: ${cot.vehiculoTipo}${cot.placa ? ` (${cot.placa})` : ""}`,
-			110,
-			55,
-		);
-		doc.text(`Moneda: USD ($)`, 110, 61);
-
-		// Table Header
-		doc.setFont("Helvetica", "bold");
-		doc.setFillColor(26, 54, 93); // Blue row background
-		doc.rect(20, 72, 170, 8, "F");
-		doc.setTextColor(255, 255, 255);
-		doc.text("Descripción del Concepto / Sticker", 23, 77);
-		doc.text("Cant", 125, 77);
-		doc.text("Precio Unit.", 145, 77);
-		doc.text("Total", 175, 77);
-
-		// Table Content
-		let yPos = 87;
-		doc.setFont("Helvetica", "normal");
-		doc.setTextColor(50, 50, 50);
-
-		cot.items.forEach((item, index) => {
-			// Alternate light blue/grey rows
-			if (index % 2 === 0) {
-				doc.setFillColor(240, 244, 248);
-				doc.rect(20, yPos - 5, 170, 7.5, "F");
-			}
-			doc.text(item.descripcion, 23, yPos);
-			doc.text(item.cantidad.toString(), 127, yPos);
-			doc.text(`$${item.precioUnitario.toLocaleString("en-US")}`, 145, yPos);
-			doc.text(
-				`$${(item.cantidad * item.precioUnitario).toLocaleString("en-US")}`,
-				175,
-				yPos,
-			);
-			yPos += 8;
-		});
-
-		// Totals Box (accented red borders/bg)
-		yPos += 5;
-		doc.setDrawColor(26, 54, 93);
-		doc.line(20, yPos, 190, yPos);
-
-		doc.setFont("Helvetica", "bold");
-		doc.setTextColor(26, 54, 93);
-		doc.text("VALOR TOTAL ESTIMADO:", 110, yPos + 8);
-
-		doc.setTextColor(197, 48, 48); // Red for total sum
-		doc.setFontSize(13);
-		doc.text(`$${cot.total.toLocaleString("en-US")} USD`, 160, yPos + 8);
-
-		// Terms
-		doc.setFontSize(8);
-		doc.setFont("Helvetica", "italic");
-		doc.setTextColor(120, 120, 120);
-		doc.text(
-			"* Este presupuesto tiene una validez de 15 días laborables.",
-			20,
-			yPos + 22,
-		);
-		doc.text(
-			"* El tiempo estimado de producción inicia con el anticipo acordado.",
-			20,
-			yPos + 26,
-		);
-		doc.text("Plottio - Impresión y Rotulación Profesional.", 20, yPos + 32);
-
-		doc.save(
-			`Cotizacion-${cot._id}-${cot.clienteNombre.replace(/\s+/g, "_")}.pdf`,
-		);
+		generarPdfCotizacion(cot);
 	};
 
 	// WhatsApp formatted message trigger
 	const handleSendWhatsApp = (cot: Cotizacion) => {
-		let itemsStr = "";
-		cot.items.forEach((it: ItemCotizacion, idx: number) => {
-			itemsStr += `${idx + 1}. ${it.descripcion} x${it.cantidad} - $${it.precioUnitario} c/u (%2A$${it.cantidad * it.precioUnitario}%2A)%0A`;
-		});
-
-		const msg = `%2ACOTIZACIÓN EN PLOTTIO%2A%0A%0A%2APresupuesto ID:%2A ${cot._id}%0A%2ACliente:%2A ${cot.clienteNombre}%0A%2AVehículo:%2A ${cot.vehiculoTipo}%0A%0A%2ADetalle:%2A%0A${itemsStr}%0A%2ATOTAL ESTIMADO:%2A %2A$${cot.total.toLocaleString("en-US")} USD%2A%0A%0A_Cotización válida por 15 días. ¡Escríbenos para confirmar e iniciar!_`;
-		const cleanPhone = cot.clienteTelefono.replace(/[^0-9+]/g, "");
-		const url = `https://wa.me/${cleanPhone || ""}?text=${msg}`;
-		window.open(url, "_blank");
+		const url = buildWhatsAppUrl(cot);
+		window.open(url, "_blank", "noopener,noreferrer");
 	};
 
 	// 6. CONVERT QUOTE TO WORK ORDER

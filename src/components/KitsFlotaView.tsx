@@ -9,6 +9,8 @@ import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 
 interface KitItem {
+	id?: string;
+	_id?: string;
 	servicioId: string;
 	nombre: string;
 	cantidad_por_unidad: number;
@@ -537,9 +539,9 @@ export function KitsFlotaView() {
 								</div>
 
 								<div className="space-y-3">
-									{formData.items.map((item, index) => (
+									{formData.items.map((item, idx) => (
 										<div
-											key={crypto.randomUUID()}
+											key={item.id || item._id || `kit-item-${idx}`}
 											className="flex flex-col sm:flex-row gap-3 items-center bg-background p-3 rounded-xl border border-border"
 										>
 											<div className="flex-1 font-medium text-foreground text-sm">
@@ -553,7 +555,7 @@ export function KitsFlotaView() {
 													value={item.cantidad_por_unidad}
 													onChange={(e) =>
 														updateItem(
-															index,
+															idx,
 															"cantidad_por_unidad",
 															parseInt(e.target.value, 10),
 														)
@@ -568,14 +570,14 @@ export function KitsFlotaView() {
 													placeholder="Notas (ej. Frontal)"
 													value={item.notas}
 													onChange={(e) =>
-														updateItem(index, "notas", e.target.value)
+														updateItem(idx, "notas", e.target.value)
 													}
 													className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-background outline-none text-foreground"
 												/>
 											</div>
 											<button
 												type="button"
-												onClick={() => removeItem(index)}
+												onClick={() => removeItem(idx)}
 												className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
 											>
 												x

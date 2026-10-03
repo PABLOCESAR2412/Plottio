@@ -86,6 +86,9 @@ export const TelegramConfigModal: React.FC<TelegramConfigModalProps> = ({
 						<div>
 							<h3 className="text-lg font-bold text-foreground flex items-center gap-2">
 								<span>Telegram Bot & ChatOps</span>
+								<span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+									Modo Demostración / Sandbox
+								</span>
 								<span
 									className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
 										telegram.status === "connected"
@@ -123,6 +126,17 @@ export const TelegramConfigModal: React.FC<TelegramConfigModalProps> = ({
 							<X className="h-5 w-5" />
 						</button>
 					</div>
+				</div>
+
+				{/* Demo Mode / Sandbox Notice */}
+				<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2 shrink-0">
+					<span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/40 uppercase tracking-wide shrink-0">
+						Modo Demostración / Sandbox
+					</span>
+					<span className="text-[11px]">
+						La integración con Telegram y el webhook se ejecutan en entorno de
+						simulación local.
+					</span>
 				</div>
 
 				{/* Collapsible Step-by-Step Telegram Guide */}
@@ -243,12 +257,17 @@ export const TelegramConfigModal: React.FC<TelegramConfigModalProps> = ({
 					</div>
 
 					<div>
-						<label
-							htmlFor="tg-webhook"
-							className="block text-xs font-semibold text-muted-foreground mb-1"
-						>
-							Webhook Endpoint (Automático)
-						</label>
+						<div className="flex items-center justify-between mb-1">
+							<label
+								htmlFor="tg-webhook"
+								className="block text-xs font-semibold text-muted-foreground"
+							>
+								Webhook Endpoint (Automático)
+							</label>
+							<span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+								Modo Demostración / Sandbox
+							</span>
+						</div>
 						<input
 							id="tg-webhook"
 							type="text"

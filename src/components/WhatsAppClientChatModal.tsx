@@ -38,17 +38,6 @@ export const WhatsAppClientChatModal: React.FC<
 
 		sendWhatsAppMessage(chatKey, text.trim(), "agent");
 		setInputMessage("");
-
-		// Simulate client response after 2.5s if it's a test
-		if (Math.random() > 0.4) {
-			setTimeout(() => {
-				sendWhatsAppMessage(
-					chatKey,
-					"¡Excelente, muchas gracias! Mañana paso por el taller a revisar los avances.",
-					"client",
-				);
-			}, 2500);
-		}
 	};
 
 	const quickTemplates = [
@@ -85,6 +74,9 @@ export const WhatsAppClientChatModal: React.FC<
 						<div className="truncate">
 							<div className="text-sm font-bold truncate flex items-center gap-1.5">
 								<span>{cliente.nombre}</span>
+								<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/40 font-bold">
+									Modo Demostración / Sandbox
+								</span>
 								<span className="text-[10px] px-1.5 py-0.2 rounded bg-white/20 font-mono">
 									Evolution API
 								</span>
@@ -105,6 +97,19 @@ export const WhatsAppClientChatModal: React.FC<
 					>
 						<X className="h-5 w-5" />
 					</button>
+				</div>
+
+				{/* Sandbox Notice Banner */}
+				<div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300 shrink-0">
+					<div className="flex items-center gap-2">
+						<span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/40 uppercase tracking-wide">
+							Modo Demostración / Sandbox
+						</span>
+						<span className="text-[11px]">
+							Simulado - Sin webhook real conectado. Mensajes entrantes
+							ficticios desactivados.
+						</span>
+					</div>
 				</div>
 
 				{/* Quick Templates Drawer */}
@@ -151,10 +156,15 @@ export const WhatsAppClientChatModal: React.FC<
 										{m.text}
 									</p>
 									<div
-										className={`text-[10px] mt-1 flex items-center justify-end gap-1 ${
+										className={`text-[10px] mt-1 flex items-center justify-end gap-1.5 ${
 											isAgent ? "text-white/70" : "text-muted-foreground"
 										}`}
 									>
+										{isAgent && (
+											<span className="text-[9px] text-white/70 italic">
+												Simulado - Sin webhook real conectado
+											</span>
+										)}
 										<span>{m.timestamp}</span>
 										{isAgent && (
 											<CheckCheck className="h-3.5 w-3.5 text-sky-300" />

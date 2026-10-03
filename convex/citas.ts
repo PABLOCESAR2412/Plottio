@@ -71,6 +71,7 @@ export const createCita = mutation({
 
 export const updateCita = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     citaId: v.id("citas"),
     clienteNombre: v.optional(v.string()),
     clienteTelefono: v.optional(v.string()),
@@ -81,15 +82,48 @@ export const updateCita = mutation({
     estado: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { citaId, ...updates } = args;
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) {
+      throw new ConvexError("Usuario no tiene empresa asignada");
+    }
+
+    const cita = await ctx.db.get(args.citaId);
+    if (!cita) {
+      throw new ConvexError("Cita no encontrada");
+    }
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && cita.empresaId !== userContext.empresa.id) {
+      throw new ConvexError("No tiene permisos para modificar esta cita");
+    }
+
+    const { usuarioId: _u, citaId, ...updates } = args;
     await ctx.db.patch(citaId, updates);
     return true;
   }
 });
 
 export const deleteCita = mutation({
-  args: { citaId: v.id("citas") },
+  args: {
+    usuarioId: v.id("usuarios"),
+    citaId: v.id("citas"),
+  },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) {
+      throw new ConvexError("Usuario no tiene empresa asignada");
+    }
+
+    const cita = await ctx.db.get(args.citaId);
+    if (!cita) {
+      throw new ConvexError("Cita no encontrada");
+    }
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && cita.empresaId !== userContext.empresa.id) {
+      throw new ConvexError("No tiene permisos para eliminar esta cita");
+    }
+
     await ctx.db.delete(args.citaId);
     return true;
   }

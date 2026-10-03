@@ -49,10 +49,10 @@ export default defineSchema({
     pvId: v.optional(v.id("puntosVenta")),
     activo: v.boolean(),
     // Campos de Invitación / Auth
-    invitationToken: v.optional(v.string()),
+    invitationToken: v.optional(v.union(v.string(), v.null())),
     invitationAccepted: v.optional(v.boolean()),
     password: v.optional(v.string())
-  }).index("by_empresa", ["empresaId"]).index("by_sucursal", ["sucursalId"]).index("by_email", ["email"]),
+  }).index("by_empresa", ["empresaId"]).index("by_sucursal", ["sucursalId"]).index("by_email", ["email"]).index("by_invitation_token", ["invitationToken"]),
 
   clientes: defineTable({
     nombre: v.string(),
@@ -64,7 +64,7 @@ export default defineSchema({
     esClienteGlobal: v.boolean(),
     direccion: v.optional(v.string()),
     identificacion: v.optional(v.string()),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
+  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_empresa_identificacion", ["empresaId", "identificacion"]),
 
   vehiculos: defineTable({
     placa: v.string(),
@@ -85,7 +85,7 @@ export default defineSchema({
     }))),
     empresaId: v.optional(v.id("empresas")),
     sucursalId: v.optional(v.id("sucursales")),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
+  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_placa", ["placa"]),
 
   cotizaciones: defineTable({
     clienteNombre: v.string(),
@@ -150,7 +150,18 @@ export default defineSchema({
     tablaAfectada: v.string(),
     accion: v.string(),
     registroId: v.string(),
-    cambios: v.any(),
+    cambios: v.optional(
+      v.record(
+        v.string(),
+        v.union(
+          v.string(),
+          v.number(),
+          v.boolean(),
+          v.null(),
+          v.array(v.string())
+        )
+      )
+    ),
     ipAddress: v.optional(v.string()),
     fecha: v.string(),
     sucursalId: v.optional(v.id("sucursales")),
@@ -263,11 +274,11 @@ export default defineSchema({
     alto_cm: v.optional(v.number()),
     contenido_texto: v.optional(v.string()),
     estado: v.string(), // 'Disponible' | 'Asignada' | 'Instalada' | 'Dañada'
-    ordenTrabajoId: v.optional(v.id("ordenesTrabajo")),
-    vehiculoId: v.optional(v.id("vehiculos")),
-    fechaAsignacion: v.optional(v.string()),
+    ordenTrabajoId: v.optional(v.union(v.id("ordenesTrabajo"), v.null())),
+    vehiculoId: v.optional(v.union(v.id("vehiculos"), v.null())),
+    fechaAsignacion: v.optional(v.union(v.string(), v.null())),
     fechaCreacion: v.string(),
-  }).index("by_lote", ["loteId"]).index("by_estado", ["estado"]).index("by_vehiculo", ["vehiculoId"]),
+  }).index("by_lote", ["loteId"]).index("by_estado", ["estado"]).index("by_vehiculo", ["vehiculoId"]).index("by_orden", ["ordenTrabajoId"]),
 
   // --- FASE 12: KITS DE FLOTA ---
   kitsFlota: defineTable({

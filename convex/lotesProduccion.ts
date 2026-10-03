@@ -1,6 +1,26 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
+
+/**
+ * Calcula de forma determinista el siguiente número secuencial de lote (LOTE-XXXX)
+ * buscando el mayor sufijo entero existente para evitar colisiones cuando se han eliminado lotes.
+ */
+export function calcularSiguienteNumeroLote(lotes: Array<{ numero?: string }>): string {
+  let maxSecuencia = 0;
+  for (const lote of lotes) {
+    if (!lote.numero) continue;
+    const match = lote.numero.match(/(\d+)$/);
+    if (match) {
+      const val = parseInt(match[1], 10);
+      if (!Number.isNaN(val) && val > maxSecuencia) {
+        maxSecuencia = val;
+      }
+    }
+  }
+  const siguiente = maxSecuencia + 1;
+  return `LOTE-${String(siguiente).padStart(4, "0")}`;
+}
 
 // 10.3 FUNCIÓN: crearLoteProduccion()
 export const crearLoteProduccion = mutation({
@@ -25,14 +45,13 @@ export const crearLoteProduccion = mutation({
     const sucursalId = args.sucursalId ?? userContext.sucursal?.id;
     if (!sucursalId) throw new ConvexError("Usuario sin sucursal asignada");
 
-    // Generar número de lote LOTE-XXXX
+    // Generar número de lote LOTE-XXXX de manera determinista anti-colisión
     const lotesEmpresa = await ctx.db
       .query("lotesProduccion")
       .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id).eq("sucursalId", sucursalId))
       .collect();
 
-    const numeroStr = String(lotesEmpresa.length + 1).padStart(4, '0');
-    const numeroLote = `LOTE-${numeroStr}`;
+    const numeroLote = calcularSiguienteNumeroLote(lotesEmpresa);
 
     const loteId = await ctx.db.insert("lotesProduccion", {
       empresaId: userContext.empresa.id,
@@ -172,7 +191,7 @@ export async function actualizarEstadoLoteHelper(ctx: any, loteId: import("./_ge
   return nuevoEstado;
 }
 
-export const actualizarEstadoLote = mutation({
+export const actualizarEstadoLote = internalMutation({
   args: {
     loteId: v.id("lotesProduccion")
   },
@@ -183,10 +202,22 @@ export const actualizarEstadoLote = mutation({
 
 export const cambiarEstadoLote = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     loteId: v.id("lotesProduccion"),
     estado: v.string(),
   },
   handler: async (ctx, args) => {
+    await requirePermission(ctx, args.usuarioId, "producir_lotes");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+
+    const lote = await ctx.db.get(args.loteId);
+    if (!lote) throw new ConvexError("Lote no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && lote.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para modificar este lote");
+    }
+
     await ctx.db.patch(args.loteId, { estado: args.estado });
   }
 });
@@ -198,11 +229,19 @@ export const agregarComentarioLote = mutation({
     texto: v.string(),
   },
   handler: async (ctx, args) => {
-    const usuario = await ctx.db.get(args.usuarioId);
-    if (!usuario) throw new ConvexError("Usuario no encontrado");
+    await requirePermission(ctx, args.usuarioId, "producir_lotes");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
 
     const lote = await ctx.db.get(args.loteId);
     if (!lote) throw new ConvexError("Lote no encontrado");
+
+    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!esSuperAdmin && lote.empresaId !== userContext.empresa?.id) {
+      throw new ConvexError("No autorizado para comentar en este lote");
+    }
+
+    const usuario = await ctx.db.get(args.usuarioId);
+    if (!usuario) throw new ConvexError("Usuario no encontrado");
 
     const comentarios = lote.comentarios || [];
     comentarios.push({

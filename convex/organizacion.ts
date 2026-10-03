@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { getCurrentUserContext } from "./auth";
 
 // --- EMPRESAS ---
 export const getEmpresas = query({
@@ -22,6 +23,7 @@ export const getEmpresas = query({
 
 export const createEmpresa = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     nombre: v.string(),
     ruc: v.string(),
     razonSocial: v.string(),
@@ -30,6 +32,14 @@ export const createEmpresa = mutation({
     direccion: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!isSuperAdmin) {
+      throw new ConvexError("Solo SuperAdmin puede crear empresas");
+    }
+
+    const { usuarioId: _u, ...empresaData } = args;
+
     const existing = await ctx.db
       .query("empresas")
       .filter((q) => q.eq(q.field("ruc"), args.ruc))
@@ -40,14 +50,14 @@ export const createEmpresa = mutation({
       }
       // Si la empresa existía pero estaba desactivada (archivada), la reactivamos y actualizamos sus datos
       await ctx.db.patch(existing._id, {
-        ...args,
+        ...empresaData,
         activa: true,
       });
       return existing._id;
     }
 
     return await ctx.db.insert("empresas", {
-      ...args,
+      ...empresaData,
       activa: true,
     });
   }
@@ -55,6 +65,7 @@ export const createEmpresa = mutation({
 
 export const updateEmpresa = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     id: v.id("empresas"),
     nombre: v.optional(v.string()),
     ruc: v.optional(v.string()),
@@ -66,6 +77,12 @@ export const updateEmpresa = mutation({
     logoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!isSuperAdmin) {
+      throw new ConvexError("Solo SuperAdmin puede actualizar empresas");
+    }
+
     if (args.ruc && args.ruc.trim() !== "") {
       const existing = await ctx.db
         .query("empresas")
@@ -76,7 +93,7 @@ export const updateEmpresa = mutation({
       }
     }
 
-    const { id, ...updates } = args;
+    const { usuarioId: _u, id, ...updates } = args;
     return await ctx.db.patch(id, updates);
   }
 });
@@ -125,6 +142,7 @@ export const getSucursales = query({
 
 export const createSucursal = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     empresaId: v.id("empresas"),
     nombre: v.string(),
     ruc: v.optional(v.string()),
@@ -137,8 +155,17 @@ export const createSucursal = mutation({
     esMatriz: v.boolean(),
   },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!isSuperAdmin) {
+      if (!userContext.empresa || userContext.empresa.id !== args.empresaId) {
+        throw new ConvexError("No tiene permisos para crear sucursales en otra empresa");
+      }
+    }
+
+    const { usuarioId: _u, ...sucursalData } = args;
     return await ctx.db.insert("sucursales", {
-      ...args,
+      ...sucursalData,
       activa: true,
     });
   }
@@ -146,6 +173,7 @@ export const createSucursal = mutation({
 
 export const updateSucursal = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     id: v.id("sucursales"),
     nombre: v.optional(v.string()),
     ruc: v.optional(v.string()),
@@ -159,7 +187,19 @@ export const updateSucursal = mutation({
     activa: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+
+    const sucursal = await ctx.db.get(args.id);
+    if (!sucursal) throw new ConvexError("Sucursal no encontrada");
+
+    if (!isSuperAdmin) {
+      if (!userContext.empresa || userContext.empresa.id !== sucursal.empresaId) {
+        throw new ConvexError("No tiene permisos para modificar sucursales de otra empresa");
+      }
+    }
+
+    const { usuarioId: _u, id, ...updates } = args;
     return await ctx.db.patch(id, updates);
   }
 });
@@ -181,6 +221,7 @@ export const getPuntosVenta = query({
 
 export const createPuntoVenta = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     sucursalId: v.id("sucursales"),
     nombre: v.string(),
     codigo: v.string(),
@@ -192,8 +233,21 @@ export const createPuntoVenta = mutation({
     horarioCierre: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+
+    const sucursal = await ctx.db.get(args.sucursalId);
+    if (!sucursal) throw new ConvexError("Sucursal no encontrada");
+
+    if (!isSuperAdmin) {
+      if (!userContext.empresa || userContext.empresa.id !== sucursal.empresaId) {
+        throw new ConvexError("No tiene permisos para crear puntos de venta en otra empresa");
+      }
+    }
+
+    const { usuarioId: _u, ...pvData } = args;
     return await ctx.db.insert("puntosVenta", {
-      ...args,
+      ...pvData,
       activo: true,
     });
   }
@@ -201,6 +255,7 @@ export const createPuntoVenta = mutation({
 
 export const updatePuntoVenta = mutation({
   args: {
+    usuarioId: v.id("usuarios"),
     id: v.id("puntosVenta"),
     nombre: v.optional(v.string()),
     codigo: v.optional(v.string()),
@@ -213,7 +268,22 @@ export const updatePuntoVenta = mutation({
     activo: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+
+    const pv = await ctx.db.get(args.id);
+    if (!pv) throw new ConvexError("Punto de venta no encontrado");
+
+    const sucursal = await ctx.db.get(pv.sucursalId);
+    if (!sucursal) throw new ConvexError("Sucursal no encontrada");
+
+    if (!isSuperAdmin) {
+      if (!userContext.empresa || userContext.empresa.id !== sucursal.empresaId) {
+        throw new ConvexError("No tiene permisos para modificar puntos de venta de otra empresa");
+      }
+    }
+
+    const { usuarioId: _u, id, ...updates } = args;
     return await ctx.db.patch(id, updates);
   }
 });
@@ -221,8 +291,17 @@ export const updatePuntoVenta = mutation({
 // --- ARCHIVADO SEGURO ---
 
 export const deleteEmpresa = mutation({
-  args: { id: v.id("empresas") },
+  args: {
+    usuarioId: v.id("usuarios"),
+    id: v.id("empresas"),
+  },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    if (!isSuperAdmin) {
+      throw new ConvexError("Solo SuperAdmin puede desactivar empresas");
+    }
+
     const empresa = await ctx.db.get(args.id);
     if (!empresa) throw new ConvexError("Empresa no encontrada");
 
@@ -236,10 +315,22 @@ export const deleteEmpresa = mutation({
 });
 
 export const deleteSucursal = mutation({
-  args: { id: v.id("sucursales") },
+  args: {
+    usuarioId: v.id("usuarios"),
+    id: v.id("sucursales"),
+  },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+
     const sucursal = await ctx.db.get(args.id);
     if (!sucursal) throw new ConvexError("Sucursal no encontrada");
+
+    if (!isSuperAdmin) {
+      if (!userContext.empresa || userContext.empresa.id !== sucursal.empresaId) {
+        throw new ConvexError("No tiene permisos para eliminar sucursales de otra empresa");
+      }
+    }
 
     // Verificar que no tenga puntos de venta
     const pvs = await ctx.db
@@ -269,10 +360,25 @@ export const deleteSucursal = mutation({
 });
 
 export const deletePuntoVenta = mutation({
-  args: { id: v.id("puntosVenta") },
+  args: {
+    usuarioId: v.id("usuarios"),
+    id: v.id("puntosVenta"),
+  },
   handler: async (ctx, args) => {
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+
     const pv = await ctx.db.get(args.id);
     if (!pv) throw new ConvexError("Punto de venta no encontrado");
+
+    const sucursal = await ctx.db.get(pv.sucursalId);
+    if (!sucursal) throw new ConvexError("Sucursal no encontrada");
+
+    if (!isSuperAdmin) {
+      if (!userContext.empresa || userContext.empresa.id !== sucursal.empresaId) {
+        throw new ConvexError("No tiene permisos para eliminar puntos de venta de otra empresa");
+      }
+    }
 
     // Verificar que no tenga cotizaciones u órdenes asociadas
     const cotizaciones = await ctx.db
@@ -289,4 +395,3 @@ export const deletePuntoVenta = mutation({
     return { success: true };
   }
 });
-

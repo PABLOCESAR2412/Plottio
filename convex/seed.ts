@@ -1,6 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 
-export const populate = mutation({
+export const populate = internalMutation({
   args: {},
   handler: async (ctx) => {
     const usersCount = await ctx.db.query("usuarios").collect();

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Mail, Menu, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AceptarInvitacionView } from "../components/AceptarInvitacionView";
 import { AgendaView } from "../components/AgendaView";
 import { ApexBrainModal } from "../components/ApexBrainModal";
@@ -14,7 +14,6 @@ import { EmailIntegrationModal } from "../components/EmailIntegrationModal";
 import { EmpresasView } from "../components/EmpresasView";
 import { InventarioView } from "../components/InventarioView";
 import { KitsFlotaView } from "../components/KitsFlotaView";
-import { Loader } from "../components/Loader";
 import { LoginView } from "../components/LoginView";
 import { LotesProduccionView } from "../components/LotesProduccionView";
 import { OrdenesTrabajoView } from "../components/OrdenesTrabajoView";
@@ -50,7 +49,6 @@ function AppLayout() {
 	const currentUser = useSessionStore((s) => s.currentUser);
 	const [activeTab, setActiveTab] = useState<TabId>("dashboard");
 	const [isOpenMobile, setIsOpenMobile] = useState(false);
-	const [loading, setLoading] = useState(true);
 	const [isApexBrainOpen, setIsApexBrainOpen] = useState(false);
 	const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 	const [preselectedVehicleId, setPreselectedVehicleId] = useState<
@@ -59,13 +57,6 @@ function AppLayout() {
 	const [preselectedOrderId, setPreselectedOrderId] = useState<string | null>(
 		null,
 	);
-
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setLoading(false);
-		}, 1500);
-		return () => clearTimeout(timer);
-	}, []);
 
 	// Switch between tabs
 	const renderActiveView = () => {
@@ -163,34 +154,6 @@ function AppLayout() {
 		}
 	};
 
-	if (loading) {
-		return (
-			<div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background text-foreground animate-fade-in">
-				<div className="flex flex-col items-center gap-4 text-center">
-					<PlottioLogo size="lg" className="animate-pulse" />
-					<p className="text-xs text-muted-foreground tracking-wider uppercase font-semibold">
-						Cargando taller de rotulación...
-					</p>
-					<div className="w-48 h-1.5 bg-secondary rounded-full overflow-hidden border border-border mt-2">
-						<div
-							className="bg-primary h-full rounded-full transition-all duration-300"
-							style={{
-								width: "60%",
-								animation: "slide 1.5s infinite ease-in-out",
-							}}
-						/>
-					</div>
-				</div>
-				<style>{`
-          @keyframes slide {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(200%); }
-          }
-        `}</style>
-			</div>
-		);
-	}
-
 	const urlParams = new URLSearchParams(window.location.search);
 	const token = urlParams.get("token");
 
@@ -202,14 +165,6 @@ function AppLayout() {
 					window.location.href = "/";
 				}}
 			/>
-		);
-	}
-
-	if (loading) {
-		return (
-			<div className="w-screen h-screen flex items-center justify-center bg-background">
-				<Loader />
-			</div>
 		);
 	}
 

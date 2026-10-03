@@ -57,7 +57,7 @@ CREATE INDEX idx_usuarios_roles_sucursal_role ON usuarios_roles_sucursal(role_id
 -- 2.2 INSERTAR ROLES BASE
 INSERT INTO roles (nombre, descripcion, empresa_id) 
 VALUES 
-  ('Super Admin', 'Acceso total a todas las sucursales y funcionalidades', NULL),
+  ('SuperAdmin', 'Acceso total a todas las sucursales y funcionalidades', NULL),
   ('Admin Sucursal', 'Administra una sucursal específica', NULL),
   ('Gerente PV', 'Gestiona un punto de venta', NULL),
   ('Cotizador', 'Crea cotizaciones y clientes', NULL),

@@ -21,25 +21,19 @@ export const getUsuarios = query({
     
     if (esSuperAdmin) {
       // Super Admin ve todos
-      return await ctx.db.query("usuarios").collect();
+      const usuarios = await ctx.db.query("usuarios").collect();
+      return usuarios.map(({ password: _, ...u }) => u);
     } else {
       // Admin Sucursal ve solo su sucursal
       await requirePermission(ctx, args.usuarioId, "ver_usuarios");
       if (!context.sucursal) throw new ConvexError("Contexto de sucursal no encontrado");
       
-      return await ctx.db
+      const usuarios = await ctx.db
         .query("usuarios")
         .withIndex("by_sucursal", q => q.eq("sucursalId", context.sucursal!.id))
         .collect();
+      return usuarios.map(({ password: _, ...u }) => u);
     }
-  }
-});
-
-// Query pública solo para el simulador de Login
-export const getAllPublicUsers = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("usuarios").filter(q => q.eq(q.field("activo"), true)).collect();
   }
 });
 
@@ -94,13 +88,17 @@ export const invitarUsuario = mutation({
 export const getUserByToken = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    const users = await ctx.db.query("usuarios").filter(q => q.eq(q.field("invitationToken"), args.token)).collect();
+    const users = await ctx.db
+      .query("usuarios")
+      .withIndex("by_invitation_token", (q) => q.eq("invitationToken", args.token))
+      .collect();
     if (users.length === 0) return null;
+    const { password: _, ...usuarioSeguro } = users[0];
     return {
-      id: users[0]._id,
-      nombre: users[0].nombre,
-      email: users[0].email,
-      invitationAccepted: users[0].invitationAccepted
+      id: usuarioSeguro._id,
+      nombre: usuarioSeguro.nombre,
+      email: usuarioSeguro.email,
+      invitationAccepted: usuarioSeguro.invitationAccepted
     };
   }
 });
@@ -109,11 +107,10 @@ export const getUserByToken = query({
 export const getUserByTokenInternal = internalQuery({
   args: { token: v.string() },
   handler: async (ctx, args): Promise<Doc<"usuarios"> | null> => {
-    const users = await ctx.db
+    return await ctx.db
       .query("usuarios")
-      .filter((q) => q.eq(q.field("invitationToken"), args.token))
-      .collect();
-    return users[0] ?? null;
+      .withIndex("by_invitation_token", (q) => q.eq("invitationToken", args.token))
+      .first();
   },
 });
 
@@ -147,7 +144,7 @@ export const aceptarInvitacionInternal = internalMutation({
       password: args.hashed,
       invitationAccepted: true,
       activo: true,
-      invitationToken: undefined,
+      invitationToken: null,
     });
   },
 });
@@ -180,6 +177,14 @@ export const aceptarInvitacion = action({
 
 // CRUD de usuarios (sólo accesible para administradores)
 
+/**
+ * Remueve campos sensibles como `password` antes de enviar el usuario al cliente.
+ */
+export function sanitizarUsuario<T extends { password?: string }>(usuario: T): Omit<T, "password"> {
+  const { password: _, ...usuarioSeguro } = usuario;
+  return usuarioSeguro;
+}
+
 export const updateUsuario = mutation({
   args: {
     adminId: v.id("usuarios"),
@@ -194,7 +199,10 @@ export const updateUsuario = mutation({
     await requirePermission(ctx, args.adminId, "crear_usuarios");
     const { adminId: _a, usuarioId, ...updates } = args;
     await ctx.db.patch(usuarioId, updates);
-    return await ctx.db.get(usuarioId);
+    const updated = await ctx.db.get(usuarioId);
+    if (!updated) return null;
+    const { password: _, ...usuarioSeguro } = updated;
+    return usuarioSeguro;
   }
 });
 
@@ -206,7 +214,10 @@ export const archiveUsuario = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.adminId, "crear_usuarios");
     await ctx.db.patch(args.usuarioId, { activo: false });
-    return await ctx.db.get(args.usuarioId);
+    const updated = await ctx.db.get(args.usuarioId);
+    if (!updated) return null;
+    const { password: _, ...usuarioSeguro } = updated;
+    return usuarioSeguro;
   }
 });
 
@@ -262,7 +273,7 @@ export const login = action({
     email: v.string(),
     password: v.string()
   },
-  handler: async (ctx, args): Promise<Doc<"usuarios"> | null> => {
+  handler: async (ctx, args): Promise<Omit<Doc<"usuarios">, "password"> | null> => {
     const user = await ctx.runQuery(internal.usuarios.getUserByEmailInternal, {
       email: args.email,
     });
@@ -272,6 +283,8 @@ export const login = action({
 
     const stored = user.password ?? null;
 
+    let usuarioAutenticado: Doc<"usuarios"> | null = null;
+
     // Caso 1: usuario sin password (primer login / recién invitado)
     if (stored === null) {
       const hashed = await hashPassword(args.password);
@@ -279,33 +292,34 @@ export const login = action({
         userId: user._id,
         hashed,
       });
-      return await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
+      usuarioAutenticado = await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
         userId: user._id,
       });
-    }
-
-    // Caso 2: hash bcrypt
-    if (isBcryptHash(stored)) {
+    } else if (isBcryptHash(stored)) {
+      // Caso 2: hash bcrypt
       const ok = await verifyPassword(args.password, stored);
       if (!ok) throw new ConvexError("Credenciales incorrectas");
-      return await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
+      usuarioAutenticado = await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
         userId: user._id,
       });
-    }
-
-    // Caso 3: texto plano legacy → verificar, re-hashear y guardar
-    if (args.password === stored) {
+    } else if (args.password === stored) {
+      // Caso 3: texto plano legacy → verificar, re-hashear y guardar
       const hashed = await hashPassword(args.password);
       await ctx.runMutation(internal.usuarios.setPasswordInternal, {
         userId: user._id,
         hashed,
       });
-      return await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
+      usuarioAutenticado = await ctx.runQuery(internal.usuarios.getUserByIdInternal, {
         userId: user._id,
       });
+    } else {
+      throw new ConvexError("Credenciales incorrectas");
     }
 
-    throw new ConvexError("Credenciales incorrectas");
+    if (!usuarioAutenticado) return null;
+
+    const { password: _, ...usuarioSeguro } = usuarioAutenticado;
+    return usuarioSeguro;
   }
 });
 
