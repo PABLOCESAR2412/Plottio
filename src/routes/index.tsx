@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "convex/react";
 import { Mail, Menu, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
 import { AceptarInvitacionView } from "../components/AceptarInvitacionView";
 import { AgendaView } from "../components/AgendaView";
 import { ApexBrainModal } from "../components/ApexBrainModal";
@@ -47,6 +50,20 @@ type TabId =
 
 function AppLayout() {
 	const currentUser = useSessionStore((s) => s.currentUser);
+	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
+
+	const sesion = useQuery(
+		api.usuarios.validarSesion,
+		currentUser?.id ? { usuarioId: currentUser.id } : "skip",
+	);
+
+	useEffect(() => {
+		if (sesion && !sesion.valida) {
+			setCurrentUser(null);
+			toast.error("Sesión no válida o expirada. Por favor inicia sesión.");
+		}
+	}, [sesion, setCurrentUser]);
+
 	const [activeTab, setActiveTab] = useState<TabId>("dashboard");
 	const [isOpenMobile, setIsOpenMobile] = useState(false);
 	const [isApexBrainOpen, setIsApexBrainOpen] = useState(false);

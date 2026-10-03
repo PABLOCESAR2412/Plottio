@@ -336,3 +336,35 @@ export const setPasswordInternal = internalMutation({
     await ctx.db.patch(args.userId, { password: args.hashed });
   },
 });
+
+/**
+ * Query segura para validar la sesión activa de un usuario.
+ * Utiliza v.string() y ctx.db.normalizeId("usuarios", ...) para evitar
+ * que un ID corrupto (de otra tabla o basura) genere ArgumentValidationError.
+ */
+export const validarSesion = query({
+  args: {
+    usuarioId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.usuarioId) return { valida: false };
+    try {
+      const id = ctx.db.normalizeId("usuarios", args.usuarioId);
+      if (!id) return { valida: false };
+      const user = await ctx.db.get(id);
+      if (!user || !user.activo) return { valida: false };
+      return {
+        valida: true,
+        usuario: {
+          id: user._id,
+          nombre: user.nombre,
+          email: user.email,
+          rol: user.rol,
+        },
+      };
+    } catch {
+      return { valida: false };
+    }
+  },
+});
+

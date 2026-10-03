@@ -68,7 +68,7 @@ export function RootErrorFallback({ error, reset }: ErrorComponentProps) {
 						{errorMessage}
 					</div>
 				)}
-				<div className="flex gap-3 justify-center pt-2">
+				<div className="flex flex-wrap gap-3 justify-center pt-2">
 					<button
 						type="button"
 						onClick={() => {
@@ -88,6 +88,19 @@ export function RootErrorFallback({ error, reset }: ErrorComponentProps) {
 						className="px-4 py-2 border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-secondary transition-colors cursor-pointer"
 					>
 						Recargar aplicación
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							try {
+								localStorage.removeItem("plottio-auth-storage");
+								sessionStorage.clear();
+							} catch {}
+							window.location.href = "/";
+						}}
+						className="px-4 py-2 bg-destructive/10 text-destructive border border-destructive/20 text-sm font-semibold rounded-lg hover:bg-destructive/20 transition-colors cursor-pointer"
+					>
+						Limpiar sesión y reiniciar
 					</button>
 				</div>
 			</div>

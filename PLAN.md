@@ -145,3 +145,13 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     4. Asegurar que `bun run test` y `bun run build` pasen al 100%.
   - **Criterios de Aceptación:** Aplicación carga sin fatal error de Convex en despliegues donde la variable de entorno no esté configurada manualmente en el dashboard de Vercel.
 
+- [x] **Tarea 16 (P0 - Auth & Resilience): Validación de sesión activa en frontend, auto-recuperación de sesiones corruptas y botón de reseteo en ErrorBoundary**
+  - **Archivos:** `convex/usuarios.ts`, `src/routes/index.tsx`, `src/routes/__root.tsx`, `tests/sessionResilience.test.ts`
+  - **Requerimiento:**
+    1. En `convex/usuarios.ts`, crear query segura `validarSesion` con argumento `usuarioId: v.string()` que no lance `ArgumentValidationError` si el ID pertenece a otra tabla o es corrupto; debe devolver `{ valida: false }` si el ID no corresponde a un documento de la tabla `usuarios` activo.
+    2. En `src/routes/index.tsx`, utilizar `validarSesion` cuando `currentUser` exista en el store local. Si `valida === false`, limpiar la sesión con `setCurrentUser(null)` para devolver al usuario de forma segura a `LoginView`.
+    3. En `src/routes/__root.tsx`, añadir a `RootErrorFallback` el botón de acción "Limpiar sesión y reiniciar" que purga `localStorage` (`plottio-auth-storage`) y recarga la página, permitiendo salir de cualquier estado de sesión corrupto persistido en el cliente.
+    4. Crear pruebas unitarias en `tests/sessionResilience.test.ts`.
+    5. Asegurar paso del 100% de los tests (`bun run test`) y compilación limpia (`bun run build`).
+  - **Criterios de Aceptación:** Sesiones corruptas o IDs huérfanos se auto-purgan limpiamente hacia `LoginView` sin romper con errores fatales de Convex ni bloquear al usuario.
+
