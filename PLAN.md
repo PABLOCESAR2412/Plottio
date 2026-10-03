@@ -136,3 +136,12 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     5. Verificación de compilación limpia (`bun run build`) y paso del 100% de la suite de pruebas (`bun run test`).
   - **Criterios de Aceptación:** `@tanstack/react-start` ausente en árbol de dependencias; build de producción limpio; cero regresiones.
 
+- [x] **Tarea 15 (P0 - Deployment): Configuración canónica de VITE_CONVEX_URL de producción y fallback resiliente**
+  - **Archivos:** `src/routes/__root.tsx`, `.env.production`, `tests/convexDeploymentUrl.test.ts`
+  - **Requerimiento:**
+    1. En `src/routes/__root.tsx`, erradicar el crash fatal `Couldn't parse deployment name unconfigured` usando como fallback canónico la URL de producción real del proyecto Convex (`https://polished-ladybug-273.convex.cloud`).
+    2. Crear `.env.production` con `VITE_CONVEX_URL=https://polished-ladybug-273.convex.cloud` para que los builds en Vercel tengan la URL inyectada por defecto.
+    3. Crear `tests/convexDeploymentUrl.test.ts` validando que la URL de Convex siempre resuelva a un deployment válido parseable y no a un string inválido.
+    4. Asegurar que `bun run test` y `bun run build` pasen al 100%.
+  - **Criterios de Aceptación:** Aplicación carga sin fatal error de Convex en despliegues donde la variable de entorno no esté configurada manualmente en el dashboard de Vercel.
+

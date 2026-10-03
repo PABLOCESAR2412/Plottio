@@ -17,7 +17,7 @@ if (!convexUrl) {
 }
 
 export const convexClient = new ConvexReactClient(
-	convexUrl || "https://unconfigured.convex.cloud",
+	convexUrl || "https://polished-ladybug-273.convex.cloud",
 );
 
 export const queryClient = new QueryClient({
