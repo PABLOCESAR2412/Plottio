@@ -126,3 +126,13 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     2. Eliminar `Math.random()` engañoso en `WhatsAppClientChatModal` que simula respuestas de clientes ficticios.
   - **Criterios de Aceptación:** UI transparente que no induce a error sobre integraciones activas; sin respuestas ficticias no controladas.
 
+- [x] **Tarea 14 (P0 - Deployment): Remoción de vulnerabilidad XSS en TanStack Start y dependencias SSR zombi**
+  - **Archivos:** `package.json`, `bun.lock`, `package-lock.json`, `tests/deploymentSecurity.test.ts`
+  - **Requerimiento:**
+    1. Desinstalación de `@tanstack/react-start` (bloqueado por Vercel por vulnerabilidad XSS conocida en v1.168.26).
+    2. Desinstalación de dependencias zombi de SSR no utilizadas (`@tanstack/react-router-ssr-query`, `nitro`).
+    3. Actualización consistente de `bun.lock` y `package-lock.json`.
+    4. Creación de prueba de regresión `tests/deploymentSecurity.test.ts`.
+    5. Verificación de compilación limpia (`bun run build`) y paso del 100% de la suite de pruebas (`bun run test`).
+  - **Criterios de Aceptación:** `@tanstack/react-start` ausente en árbol de dependencias; build de producción limpio; cero regresiones.
+
