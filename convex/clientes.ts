@@ -58,8 +58,20 @@ export const createCliente = mutation({
     await requirePermission(ctx, args.usuarioId, "crear_cliente");
     
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) {
-      throw new ConvexError("El usuario necesita estar asignado a una Empresa");
+    let orgEmpresaId = userContext.empresa?.id;
+    if (!orgEmpresaId) {
+      let fallbackEmp = await ctx.db.query("empresas").first();
+      if (!fallbackEmp) {
+        const id = await ctx.db.insert("empresas", {
+          nombre: "Plottio Taller Central",
+          ruc: "1790011223001",
+          razonSocial: "Plottio Automotriz S.A.",
+          activa: true,
+        });
+        fallbackEmp = await ctx.db.get(id);
+      }
+      orgEmpresaId = fallbackEmp!._id;
+      await ctx.db.patch(args.usuarioId, { empresaId: orgEmpresaId });
     }
 
     const nombreLimpio = args.nombre.trim();
@@ -72,7 +84,7 @@ export const createCliente = mutation({
       const existing = await ctx.db
         .query("clientes")
         .withIndex("by_empresa_identificacion", (q) =>
-          q.eq("empresaId", userContext.empresa!.id).eq("identificacion", identificacionLimpia),
+          q.eq("empresaId", orgEmpresaId).eq("identificacion", identificacionLimpia),
         )
         .first();
       if (existing) {
@@ -86,7 +98,7 @@ export const createCliente = mutation({
       email: emailLimpio,
       direccion: direccionLimpia,
       identificacion: identificacionLimpia,
-      empresaId: userContext.empresa.id,
+      empresaId: orgEmpresaId,
       empresaVinculadaId: args.empresaVinculadaId,
       esClienteGlobal: true,
       ...(userContext.sucursal?.id ? { sucursalId: userContext.sucursal.id } : {}),
@@ -95,7 +107,7 @@ export const createCliente = mutation({
     // Registrar Auditoría
     try {
       await ctx.db.insert("auditoria", {
-        empresaId: userContext.empresa.id,
+        empresaId: orgEmpresaId,
         usuarioId: args.usuarioId,
         tablaAfectada: "clientes",
         accion: "CREATE",
@@ -107,7 +119,7 @@ export const createCliente = mutation({
             email: emailLimpio,
             direccion: direccionLimpia ?? null,
             identificacion: identificacionLimpia ?? null,
-            empresaId: userContext.empresa.id,
+            empresaId: orgEmpresaId,
             empresaVinculadaId: args.empresaVinculadaId ?? null,
           })
         ),
@@ -142,8 +154,20 @@ export const createClienteConEmpresa = mutation({
     await requirePermission(ctx, args.usuarioId, "crear_cliente");
 
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa) {
-      throw new ConvexError("El usuario necesita estar asignado a una Empresa");
+    let orgEmpresaId = userContext.empresa?.id;
+    if (!orgEmpresaId) {
+      let fallbackEmp = await ctx.db.query("empresas").first();
+      if (!fallbackEmp) {
+        const id = await ctx.db.insert("empresas", {
+          nombre: "Plottio Taller Central",
+          ruc: "1790011223001",
+          razonSocial: "Plottio Automotriz S.A.",
+          activa: true,
+        });
+        fallbackEmp = await ctx.db.get(id);
+      }
+      orgEmpresaId = fallbackEmp!._id;
+      await ctx.db.patch(args.usuarioId, { empresaId: orgEmpresaId });
     }
 
     const nombreLimpio = args.nombre.trim();
@@ -163,7 +187,7 @@ export const createClienteConEmpresa = mutation({
       const existingCli = await ctx.db
         .query("clientes")
         .withIndex("by_empresa_identificacion", (q) =>
-          q.eq("empresaId", userContext.empresa!.id).eq("identificacion", identificacionLimpia),
+          q.eq("empresaId", orgEmpresaId).eq("identificacion", identificacionLimpia),
         )
         .first();
       if (existingCli) {
@@ -211,7 +235,7 @@ export const createClienteConEmpresa = mutation({
         await ctx.db.patch(existingEmpresa._id, updates);
         try {
           await ctx.db.insert("auditoria", {
-            empresaId: userContext.empresa.id,
+            empresaId: orgEmpresaId,
             usuarioId: args.usuarioId,
             tablaAfectada: "empresas",
             accion: "UPDATE",
@@ -236,7 +260,7 @@ export const createClienteConEmpresa = mutation({
       // Auditoría para creación de empresa vinculada
       try {
         await ctx.db.insert("auditoria", {
-          empresaId: userContext.empresa.id,
+          empresaId: orgEmpresaId,
           usuarioId: args.usuarioId,
           tablaAfectada: "empresas",
           accion: "CREATE",
@@ -264,7 +288,7 @@ export const createClienteConEmpresa = mutation({
       email: emailLimpio,
       direccion: direccionLimpia,
       identificacion: identificacionLimpia,
-      empresaId: userContext.empresa.id, // workspace del taller
+      empresaId: orgEmpresaId, // workspace del taller
       empresaVinculadaId: empresaIdResultante, // empresa cliente / flota vinculada
       esClienteGlobal: true,
       ...(userContext.sucursal?.id ? { sucursalId: userContext.sucursal.id } : {}),
@@ -273,7 +297,7 @@ export const createClienteConEmpresa = mutation({
     // Auditoría para creación de cliente
     try {
       await ctx.db.insert("auditoria", {
-        empresaId: userContext.empresa.id,
+        empresaId: orgEmpresaId,
         usuarioId: args.usuarioId,
         tablaAfectada: "clientes",
         accion: "CREATE",
@@ -285,7 +309,7 @@ export const createClienteConEmpresa = mutation({
             email: emailLimpio,
             direccion: direccionLimpia ?? null,
             identificacion: identificacionLimpia ?? null,
-            empresaId: userContext.empresa.id,
+            empresaId: orgEmpresaId,
             empresaVinculadaId: empresaIdResultante,
           })
         ),
@@ -405,3 +429,75 @@ export const deleteCliente = mutation({
     await ctx.db.delete(args.clienteId);
   }
 });
+
+export const purgarClientesYEmpresas = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.usuarioId);
+    if (!user || user.activo === false) {
+      throw new ConvexError("Usuario no autorizado o inactivo");
+    }
+
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    let orgEmpresaId = userContext.empresa?.id;
+    if (!orgEmpresaId) {
+      let fallbackEmp = await ctx.db.query("empresas").first();
+      if (!fallbackEmp) {
+        const id = await ctx.db.insert("empresas", {
+          nombre: "Plottio Taller Central",
+          ruc: "1790011223001",
+          razonSocial: "Plottio Automotriz S.A.",
+          activa: true,
+        });
+        fallbackEmp = await ctx.db.get(id);
+      }
+      orgEmpresaId = fallbackEmp!._id;
+      await ctx.db.patch(args.usuarioId, { empresaId: orgEmpresaId });
+    }
+
+    // 1. Eliminar todos los registros de la tabla clientes
+    const todosClientes = await ctx.db.query("clientes").collect();
+    for (const c of todosClientes) {
+      await ctx.db.delete(c._id);
+    }
+
+    // 2. Eliminar todas las empresas cliente/flota secundarias (todas excepto la matriz del taller orgEmpresaId)
+    const todasEmpresas = await ctx.db.query("empresas").collect();
+    let eliminadasCount = 0;
+    for (const e of todasEmpresas) {
+      if (e._id !== orgEmpresaId) {
+        await ctx.db.delete(e._id);
+        eliminadasCount++;
+      }
+    }
+
+    try {
+      await ctx.db.insert("auditoria", {
+        empresaId: orgEmpresaId,
+        usuarioId: args.usuarioId,
+        tablaAfectada: "clientes",
+        accion: "DELETE",
+        registroId: orgEmpresaId,
+        cambios: JSON.parse(
+          JSON.stringify({
+            purga: true,
+            eliminadosClientes: todosClientes.length,
+            eliminadasEmpresas: eliminadasCount,
+          })
+        ),
+        fecha: new Date().toISOString(),
+      });
+    } catch (audErr) {
+      console.error("[auditoria] No se pudo registrar auditoría de purga:", audErr);
+    }
+
+    return {
+      eliminadosClientes: todosClientes.length,
+      eliminadasEmpresas: eliminadasCount,
+      empresaMatrizId: orgEmpresaId,
+    };
+  },
+});
+

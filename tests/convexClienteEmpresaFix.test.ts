@@ -4,7 +4,9 @@ import {
 	createCliente,
 	createClienteConEmpresa,
 	fetchClientes,
+	purgarClientesYEmpresas,
 } from "../convex/clientes";
+import { getCurrentUserContext } from "../convex/auth";
 import { registrarAccion, cambiosValidator } from "../convex/lib/auditoria";
 
 type Doc = Record<string, any>;
@@ -514,6 +516,239 @@ describe("Tarea 29 (P0 - Fase 6): Solución de Server Error en Convex (createCli
 			const resultado = await queryHandler(ctx, { usuarioId: "user_1" });
 			expect(resultado).toBeDefined();
 			expect(resultado.length).toBe(3);
+		});
+	});
+
+	describe("4. Tarea 34 (P0 - Fase 7): Auto-resolución Single-Org, Fix createClienteConEmpresa y Purga", () => {
+		it("a) getCurrentUserContext auto-asigna empresa si el usuario no tiene empresaId", async () => {
+			const { ctx, store } = createMockCtx({
+				empresas: [
+					{
+						_id: "empresa_default_existente",
+						nombre: "Plottio Taller Central",
+						ruc: "1790011223001",
+						activa: true,
+					},
+				],
+				usuarios: [
+					{
+						_id: "user_sin_empresa",
+						nombre: "Usuario Sin Empresa",
+						email: "sinempresa@plottio.ec",
+						rol: "SuperAdmin",
+						activo: true,
+					},
+				],
+				roles: [
+					{
+						_id: "rol_superadmin",
+						nombre: "SuperAdmin",
+						activo: true,
+					},
+				],
+				permisos: [
+					{ _id: "perm_1", clave: "ver_clientes", nombre: "Ver Clientes" },
+				],
+				rolePermisos: [{ roleId: "rol_superadmin", permisoId: "perm_1" }],
+				usuariosRolesSucursal: [
+					{
+						_id: "urs_1",
+						usuarioId: "user_sin_empresa",
+						roleId: "rol_superadmin",
+						activo: true,
+					},
+				],
+			});
+
+			const context = await getCurrentUserContext(ctx, "user_sin_empresa" as any);
+			expect(context.empresa).toBeDefined();
+			expect(context.empresa?.id).toBe("empresa_default_existente");
+			expect(context.empresa?.nombre).toBe("Plottio Taller Central");
+
+			// Verifica que se parcheó en la base de datos
+			const updatedUser = store.usuarios.find((u) => u._id === "user_sin_empresa");
+			expect(updatedUser?.empresaId).toBe("empresa_default_existente");
+		});
+
+		it("a.2) getCurrentUserContext crea empresa matriz si la base está completamente vacía", async () => {
+			const { ctx, store } = createMockCtx({
+				empresas: [],
+				usuarios: [
+					{
+						_id: "user_clean",
+						nombre: "Usuario Limpio",
+						email: "clean@plottio.ec",
+						rol: "SuperAdmin",
+						activo: true,
+					},
+				],
+				roles: [],
+				permisos: [],
+				rolePermisos: [],
+				usuariosRolesSucursal: [],
+			});
+
+			const context = await getCurrentUserContext(ctx, "user_clean" as any);
+			expect(context.empresa).toBeDefined();
+			expect(context.empresa?.nombre).toBe("Plottio Taller Central");
+			expect(store.empresas.length).toBe(1);
+			expect(store.empresas[0].ruc).toBe("1790011223001");
+		});
+
+		it("b) createClienteConEmpresa opera exitosamente incluso si empresaId original era nulo", async () => {
+			const { ctx, store } = createMockCtx({
+				empresas: [
+					{
+						_id: "empresa_taller_central",
+						nombre: "Plottio Taller Central",
+						ruc: "1790011223001",
+						activa: true,
+					},
+				],
+				usuarios: [
+					{
+						_id: "user_huerfano",
+						nombre: "Operador Nuevo",
+						email: "operador@plottio.ec",
+						rol: "SuperAdmin",
+						// sin empresaId
+						activo: true,
+					},
+				],
+				roles: [
+					{
+						_id: "rol_superadmin",
+						nombre: "SuperAdmin",
+						activo: true,
+					},
+				],
+				permisos: [
+					{ _id: "perm_crear", clave: "crear_cliente", nombre: "Crear Cliente" },
+				],
+				rolePermisos: [{ roleId: "rol_superadmin", permisoId: "perm_crear" }],
+				usuariosRolesSucursal: [
+					{
+						_id: "urs_huerfano",
+						usuarioId: "user_huerfano",
+						roleId: "rol_superadmin",
+						activo: true,
+					},
+				],
+				clientes: [],
+				auditoria: [],
+			});
+
+			const handler = (createClienteConEmpresa as any)._handler;
+			const res = await handler(ctx, {
+				usuarioId: "user_huerfano",
+				nombre: "Cliente Flota 1",
+				telefono: "0998765432",
+				email: "contacto@flota1.com",
+				identificacion: "1711223344",
+				empresaNombre: "Empresa Flota Uno S.A.",
+				empresaRuc: "1799887766001",
+				empresaRazonSocial: "Empresa Flota Uno",
+			});
+
+			expect(res).toBeDefined();
+			expect(res.cliente).toBeDefined();
+			expect(res.cliente.nombre).toBe("Cliente Flota 1");
+			expect(res.cliente.empresaId).toBe("empresa_taller_central");
+			expect(res.cliente.empresaVinculadaId).toBe(res.empresaId);
+
+			// El usuario ahora tiene empresaId auto-asignada
+			const user = store.usuarios.find((u) => u._id === "user_huerfano");
+			expect(user?.empresaId).toBe("empresa_taller_central");
+		});
+
+		it("c) purgarClientesYEmpresas purga clientes y empresas secundarias conservando la matriz", async () => {
+			const { ctx, store } = createMockCtx({
+				empresas: [
+					{
+						_id: "empresa_matriz",
+						nombre: "Plottio Taller Central",
+						ruc: "1790011223001",
+						activa: true,
+					},
+					{
+						_id: "empresa_cliente_1",
+						nombre: "Flota Pichincha",
+						ruc: "1791111111001",
+						activa: true,
+					},
+					{
+						_id: "empresa_cliente_2",
+						nombre: "Transportes Cotopaxi",
+						ruc: "1792222222001",
+						activa: true,
+					},
+				],
+				usuarios: [
+					{
+						_id: "admin_purga",
+						nombre: "Admin Purga",
+						email: "admin@plottio.ec",
+						rol: "SuperAdmin",
+						empresaId: "empresa_matriz",
+						activo: true,
+					},
+				],
+				roles: [
+					{
+						_id: "rol_superadmin",
+						nombre: "SuperAdmin",
+						activo: true,
+					},
+				],
+				permisos: [
+					{ _id: "perm_ver", clave: "ver_clientes", nombre: "Ver Clientes" },
+				],
+				rolePermisos: [{ roleId: "rol_superadmin", permisoId: "perm_ver" }],
+				usuariosRolesSucursal: [
+					{
+						_id: "urs_admin",
+						usuarioId: "admin_purga",
+						roleId: "rol_superadmin",
+						activo: true,
+					},
+				],
+				clientes: [
+					{
+						_id: "cli_1",
+						nombre: "Cliente 1",
+						empresaId: "empresa_matriz",
+					},
+					{
+						_id: "cli_2",
+						nombre: "Cliente 2",
+						empresaId: "empresa_matriz",
+					},
+				],
+				auditoria: [],
+			});
+
+			const purgarHandler = (purgarClientesYEmpresas as any)._handler;
+			const resultado = await purgarHandler(ctx, { usuarioId: "admin_purga" });
+
+			expect(resultado).toEqual({
+				eliminadosClientes: 2,
+				eliminadasEmpresas: 2,
+				empresaMatrizId: "empresa_matriz",
+			});
+
+			// Todos los clientes eliminados
+			expect(store.clientes.length).toBe(0);
+
+			// Solo la empresa matriz permanece
+			expect(store.empresas.length).toBe(1);
+			expect(store.empresas[0]._id).toBe("empresa_matriz");
+
+			// Auditoría registrada
+			const auditPurga = store.auditoria.find(
+				(a) => a.tablaAfectada === "clientes" && a.accion === "DELETE",
+			);
+			expect(auditPurga).toBeDefined();
+			expect(auditPurga?.cambios.purga).toBe(true);
 		});
 	});
 });

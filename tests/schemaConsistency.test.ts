@@ -398,9 +398,9 @@ describe("Consistencia de esquema, anti-race conditions e índices en Convex", (
 	});
 
 	describe("5. Aislamiento multi-tenant en convex/inventario.ts", () => {
-		it("createInventarioItems: lanza ConvexError si el usuario no tiene empresa asignada", async () => {
-			const { ctx } = createMockCtx({
-				empresas: [{ _id: "emp_default", nombre: "Empresa Ajena", activa: true }],
+		it("createInventarioItems: auto-asigna empresa matriz al usuario si no la tenía (Single-Org resiliente)", async () => {
+			const { ctx, store } = createMockCtx({
+				empresas: [{ _id: "emp_default", nombre: "Plottio Taller Central", activa: true }],
 				usuarios: [
 					{
 						_id: "u_sin_empresa",
@@ -419,12 +419,13 @@ describe("Consistencia de esquema, anti-race conditions e índices en Convex", (
 				inventarioItems: [],
 			});
 
-			await expect(
-				(createInventarioItems as any)._handler(ctx, {
-					usuarioId: "u_sin_empresa",
-					items: [{ nombre: "Perno M8", costoUnitario: 0.5, unidadMedida: "unidad" }],
-				}),
-			).rejects.toThrow("Usuario sin empresa asignada");
+			const items = await (createInventarioItems as any)._handler(ctx, {
+				usuarioId: "u_sin_empresa",
+				items: [{ nombre: "Perno M8", costoUnitario: 0.5, unidadMedida: "unidad" }],
+			});
+			expect(items).toBeDefined();
+			expect(items[0].empresaId).toBe("emp_default");
+			expect(store.usuarios.find((u) => u._id === "u_sin_empresa")?.empresaId).toBe("emp_default");
 		});
 
 		it("transferirInventario: bloquea transferencias cross-tenant entre diferentes empresas", async () => {
@@ -750,11 +751,14 @@ describe("Consistencia de esquema, anti-race conditions e índices en Convex", (
 			expect(consolidado[0].nombre).toBe("Lámina Empresa 1");
 		});
 
-		it("getInventarioConsolidado: retorna array vacío si el usuario no tiene empresa y no es SuperAdmin (sin fallback)", async () => {
+		it("getInventarioConsolidado: retorna array vacío si no hay items de la empresa asignada", async () => {
 			const { ctx } = createMockCtx({
-				empresas: [{ _id: "emp_ajena", nombre: "Empresa Ajena", activa: true }],
+				empresas: [
+					{ _id: "emp_matriz", nombre: "Plottio Taller Central", activa: true },
+					{ _id: "emp_ajena", nombre: "Empresa Ajena", activa: true },
+				],
 				usuarios: [
-					{ _id: "u_sin_emp", nombre: "Sin Empresa", email: "sin@emp.com", empresaId: undefined, activo: true },
+					{ _id: "u_sin_emp", nombre: "Sin Empresa", email: "sin@emp.com", empresaId: "emp_matriz", activo: true },
 				],
 				roles: [{ _id: "r_inv", nombre: "Invitado", activo: true }],
 				permisos: [{ _id: "p_vts", clave: "ver_todas_sucursales", nombre: "ver_todas_sucursales" }],

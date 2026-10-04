@@ -70,6 +70,32 @@ export async function getCurrentUserContext(
     empresa = emp ? { id: emp._id, nombre: emp.nombre } : null;
   }
 
+  // Auto-resolución Single-Org: Si el usuario no tiene empresaId o apunta a una empresa inexistente
+  if (!empresa) {
+    let defaultEmpresa: any = await ctx.db.query("empresas").first();
+    if (!defaultEmpresa && "insert" in ctx.db) {
+      const createdId = await (ctx.db as any).insert("empresas", {
+        nombre: "Plottio Taller Central",
+        ruc: "1790011223001",
+        razonSocial: "Plottio Automotriz S.A.",
+        activa: true,
+      });
+      defaultEmpresa = await ctx.db.get(createdId);
+    }
+    if (defaultEmpresa) {
+      if ("patch" in ctx.db) {
+        try {
+          await (ctx.db as any).patch(user._id, { empresaId: defaultEmpresa._id });
+        } catch (e) {
+          console.error("Error auto-asociando empresaId al usuario:", e);
+        }
+      }
+      empresa = { id: defaultEmpresa._id, nombre: defaultEmpresa.nombre };
+    } else {
+      empresa = { id: "empresa_default" as Id<"empresas">, nombre: "Plottio Taller Central" };
+    }
+  }
+
   let sucursal: UserContext["sucursal"] = null;
   if (user.sucursalId) {
     const suc = await ctx.db.get(user.sucursalId);

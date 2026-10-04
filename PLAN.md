@@ -347,4 +347,54 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     4. Actualizar catálogo oficial de Google en el store con `["Gemini 3.8 Flash", "Gemini 3.7 Flash", "Gemini Flash Latest", "Gemini Pro Latest"]`.
   - **Criterios de Aceptación:** Cero interrupciones ante HTTP 503 de Google; conmutación automática de modelos; respuesta garantizada siempre al operador; tests al 100%.
 
+---
+
+## FASE 7: ESTABILIZACIÓN DEFINITIVA DE PRODUCCIÓN, ASISTENTE VISTA COMPLETA, WHATSAPP QR Y MULTI-PROVEEDOR CON RESPALDO
+
+- [x] **Tarea 34 (P0): Auto-resolución Single-Org en Convex Auth, Fix de createClienteConEmpresa y Purga de Clientes/Empresas**
+  - **Archivos:** `convex/auth.ts`, `convex/clientes.ts`, `tests/convexClienteEmpresaFix.test.ts`
+  - **Requerimiento:**
+    1. En `convex/auth.ts:getCurrentUserContext`: Si `user.empresaId` es nulo o apunta a una empresa inexistente, auto-resolver a la organización matriz del taller (`ctx.db.query("empresas").first()`) o crear `"Plottio Taller Central"` de forma determinista, y auto-parchear al usuario (`ctx.db.patch`). `userContext.empresa` NUNCA debe ser `null`.
+    2. En `convex/clientes.ts:createClienteConEmpresa` y `createCliente`: Si `userContext.empresa` fuera nulo por cualquier motivo, aplicar fallback seguro de auto-resolución hacia la empresa matriz sin lanzar Server Error.
+    3. Crear mutación interna/pública `purgarClientesYEmpresas` que elimine todos los documentos de `clientes` y las empresas secundarias de clientes/flotas (preservando únicamente la empresa matriz del taller).
+    4. Desplegar con `bunx convex deploy --yes` y ejecutar la purga de datos en producción.
+  - **Criterios de Aceptación:** Cero Server Error en `createClienteConEmpresa`; contexto de empresa garantizado siempre; clientes y empresas de prueba purgados en producción.
+
+- [ ] **Tarea 35 (P0): Plottio Asistente como Vista Principal (`activeTab === "asistente"`) con Historial Persistente de Conversaciones**
+  - **Archivos:** `src/components/PlottioAsistenteView.tsx`, `src/routes/index.tsx`, `src/components/Sidebar.tsx`, `src/store/useIntegrationsStore.ts`, `tests/plottioAsistenteView.test.ts`
+  - **Requerimiento:**
+    1. Convertir Plottio Asistente en una VISTA de navegación completa (`activeTab === "asistente"`) en lugar de un modal emergente.
+    2. El botón "Plottio Asistente" en la barra superior (y atajo ⌘K) debe activar `setActiveTab("asistente")`.
+    3. Añadir en `Sidebar.tsx` la opción de navegación a "Plottio Asistente" con icono Bot.
+    4. Implementar Historial de Conversaciones (threads) persistido en `useIntegrationsStore` (`conversations: Array<{ id, title, createdAt, updatedAt, messages: ChatMessage[] }>`, `activeConversationId`):
+       - Barra lateral de hilos con botón "+ Nueva Conversación".
+       - Selector de conversaciones anteriores con títulos automáticos y timestamps.
+       - Botón para eliminar conversación.
+       - Los mensajes se guardan en el hilo activo y no se borran al cambiar de pestaña ni al recargar.
+  - **Criterios de Aceptación:** Plottio Asistente opera como vista completa integrada; historial de conversaciones persistente con múltiples hilos; cero pérdidas de mensajes.
+
+- [ ] **Tarea 36 (P1): WhatsApp — Visualización Condicional de QR post-configuración y Desacoplamiento de Test de Conexión**
+  - **Archivos:** `src/components/WhatsAppConfigModal.tsx`, `src/components/WhatsAppQrCode.tsx`, `tests/whatsappQrFlow.test.ts`
+  - **Requerimiento:**
+    1. El Código QR debe mostrarse ÚNICAMENTE cuando la configuración está guardada (`hasSavedCredentials && !isEditingCredentials`), nunca antes.
+    2. En `handleTestConnection`: la prueba de conexión debe evaluar la disponibilidad de la pasarela HTTP (HTTP 200 OK) y reportar "Pasarela verificada con éxito", pero NO cambiar `whatsapp.status` a `"connected"`, ya que la vinculación del teléfono solo se realiza al escanear el QR.
+    3. Permitir vincular y re-vincular dispositivos: si el estado es `connected` o `disconnected`, mostrar siempre botón accesible "Vincular nuevo dispositivo / Re-escanear QR" que libere el visor para un nuevo escaneo sin bloquear al operador.
+  - **Criterios de Aceptación:** QR visible solo tras guardar credenciales; prueba de conexión no bloquea el escaneo; re-escaneo accesible en todo momento.
+
+- [ ] **Tarea 37 (P1): Respaldo Multi-Proveedor (Fallback Chaining) y Catálogo de Modelos Recomendados por Costo/Velocidad**
+  - **Archivos:** `src/store/useIntegrationsStore.ts`, `src/services/plottioAgent.ts`, `src/components/FinOpsMetricsPanel.tsx`, `src/services/aiModelsDiscovery.ts`, `tests/multiProviderFallback.test.ts`
+  - **Requerimiento:**
+    1. En `useIntegrationsStore.ts`: Añadir campos en `ai`: `backupProvider: AiProvider | null`, `backupModel: string | null`.
+    2. En `FinOpsMetricsPanel.tsx`: Añadir selector "Proveedor de Respaldo (Fallback)" que liste ÚNICAMENTE los proveedores que tienen API Key configurada (Google, Groq, Opencode Zen, Nvidia).
+    3. En `plottioAgent.ts:executeLiveBusinessAgent`:
+       - Si el proveedor principal falla (timeout, 503, 429, error de red), intentar inmediatamente con el `backupProvider` configurado antes de degradar a local.
+       - Reflejar en la telemetría del mensaje si se usó el proveedor principal o el de respaldo (`provider: "${backupProvider} (Respaldo por timeout en ${primaryProvider})"`).
+    4. Curar catálogo de modelos para destacar modelos funcionales con etiquetas de recomendación por costo y velocidad:
+       - Google: `Gemini 3.8 Flash (Recomendado · Rápido y Económico)`, `Gemini 3.7 Flash`, `Gemini Flash Lite`.
+       - Groq: `Llama 3.3 70B Versatile (Recomendado)`, `Llama 3.1 8B Instant (Ultra Rápido)`.
+       - Opencode Zen: `DeepSeek V3 (Recomendado)`, `Qwen 2.5 Coder`.
+       - Nvidia: `Llama 3.1 Nemotron 70B (Recomendado)`.
+  - **Criterios de Aceptación:** Respaldo automático a proveedor secundario ante fallos del primario; selector de respaldo limitado a proveedores con keys; catálogo curado con modelos recomendados.
+
+
 
