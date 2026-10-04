@@ -23,7 +23,7 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 	// 1. RESOLUCIÓN DINÁMICA DE MODELOS Y ELIMINACIÓN DE gemini-1.5-flash
 	// =========================================================================
 	describe("1. Resolución Dinámica de Modelos en executeLiveBusinessAgent", () => {
-		it("utiliza gemini-flash-latest por defecto y nunca gemini-1.5-flash", async () => {
+		it("utiliza gemini-3.8-flash por defecto y nunca gemini-1.5-flash", async () => {
 			const mockFetch = vi.fn().mockResolvedValue({
 				ok: true,
 				status: 200,
@@ -33,7 +33,7 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 							content: {
 								parts: [
 									{
-										text: "Respuesta en vivo con gemini-flash-latest para taller de rotulado.",
+										text: "Respuesta en vivo con gemini-3.8-flash para taller de rotulado.",
 									},
 								],
 							},
@@ -55,15 +55,47 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 			expect(mockFetch).toHaveBeenCalledTimes(1);
 			const requestUrl = mockFetch.mock.calls[0][0] as string;
 
-			expect(requestUrl).toContain("models/gemini-flash-latest:generateContent");
+			expect(requestUrl).toContain("models/gemini-3.8-flash:generateContent");
 			expect(requestUrl).not.toContain("gemini-1.5-flash");
 			expect(requestUrl).toContain("key=AQ.Ab8RN6LcmZXRRSCF_test_key");
 			expect(result.allowed).toBe(true);
-			expect(result.response).toContain("Respuesta en vivo con gemini-flash-latest");
+			expect(result.response).toContain("Respuesta en vivo con gemini-3.8-flash");
 			expect(result.toolsCalled.length).toBeGreaterThan(0);
 		});
 
-		it("mapea dinámicamente modelos deprecados (gemini-1.5-flash, gemini-2.0-flash) a gemini-flash-latest", async () => {
+		it("permite ejecutar con gemini-flash-latest si el usuario lo especifica explícitamente", async () => {
+			const mockFetch = vi.fn().mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => ({
+					candidates: [
+						{
+							content: {
+								parts: [
+									{
+										text: "Respuesta en vivo con gemini-flash-latest.",
+									},
+								],
+							},
+						},
+					],
+				}),
+			});
+			vi.stubGlobal("fetch", mockFetch);
+
+			await executeLiveBusinessAgent("Stock vinilos", {
+				assistantName: "Plottio Asistente",
+				apiKey: "AQ.test_key",
+				provider: "google",
+				model: "gemini-flash-latest",
+			});
+
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+			const requestUrl = mockFetch.mock.calls[0][0] as string;
+			expect(requestUrl).toContain("models/gemini-flash-latest:generateContent");
+		});
+
+		it("mapea dinámicamente modelos deprecados (gemini-1.5-flash, gemini-2.0-flash) a gemini-3.8-flash", async () => {
 			const mockFetch = vi.fn().mockResolvedValue({
 				ok: true,
 				status: 200,
@@ -84,7 +116,7 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 			});
 
 			let requestUrl = mockFetch.mock.calls[0][0] as string;
-			expect(requestUrl).toContain("models/gemini-flash-latest:generateContent");
+			expect(requestUrl).toContain("models/gemini-3.8-flash:generateContent");
 			expect(requestUrl).not.toContain("gemini-1.5-flash");
 
 			// Intento con gemini-2.0-flash
@@ -97,7 +129,7 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 			});
 
 			requestUrl = mockFetch.mock.calls[0][0] as string;
-			expect(requestUrl).toContain("models/gemini-flash-latest:generateContent");
+			expect(requestUrl).toContain("models/gemini-3.8-flash:generateContent");
 		});
 
 		it("permite ejecutar con gemini-3.8-flash sin forzar fallback si responde 200 OK", async () => {
@@ -161,10 +193,10 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 	// 2. RETRY AUTOMÁTICO ANTE HTTP 404 (DESCONTINUACIÓN EN GOOGLE AI STUDIO)
 	// =========================================================================
 	describe("2. Retry Automático Inmediato ante HTTP 404 de Google", () => {
-		it("si el modelo seleccionado arroja 404, reintenta inmediatamente con gemini-flash-latest", async () => {
+		it("si gemini-flash-latest arroja 404, reintenta inmediatamente con gemini-3.8-flash", async () => {
 			const mockFetch = vi
 				.fn()
-				// Primera llamada con gemini-3.8-flash falla con 404 (ej. no habilitado en la región/cuenta)
+				// Primera llamada con gemini-flash-latest falla con 404
 				.mockResolvedValueOnce({
 					ok: false,
 					status: 404,
@@ -172,11 +204,11 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 					json: async () => ({
 						error: {
 							code: 404,
-							message: "models/gemini-3.8-flash is not found for API version v1beta",
+							message: "models/gemini-flash-latest is not found for API version v1beta",
 						},
 					}),
 				})
-				// Segunda llamada con gemini-flash-latest responde exitosamente 200 OK
+				// Segunda llamada con gemini-3.8-flash responde exitosamente 200 OK
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -186,7 +218,7 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 								content: {
 									parts: [
 										{
-											text: "Respuesta generada en retry automático con gemini-flash-latest.",
+											text: "Respuesta generada en retry automático con gemini-3.8-flash.",
 										},
 									],
 								},
@@ -200,22 +232,22 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 				assistantName: "Plottio Asistente",
 				apiKey: "AQ.Ab8RN6LcmZXRRSCF_test_key",
 				provider: "google",
-				model: "gemini-3.8-flash",
+				model: "gemini-flash-latest",
 			});
 
 			expect(mockFetch).toHaveBeenCalledTimes(2);
 
 			// Primera petición al modelo solicitado
 			const firstUrl = mockFetch.mock.calls[0][0] as string;
-			expect(firstUrl).toContain("models/gemini-3.8-flash:generateContent");
+			expect(firstUrl).toContain("models/gemini-flash-latest:generateContent");
 
-			// Segunda petición de retry a gemini-flash-latest
+			// Segunda petición de retry a gemini-3.8-flash
 			const secondUrl = mockFetch.mock.calls[1][0] as string;
-			expect(secondUrl).toContain("models/gemini-flash-latest:generateContent");
+			expect(secondUrl).toContain("models/gemini-3.8-flash:generateContent");
 
 			expect(result.allowed).toBe(true);
 			expect(result.response).toBe(
-				"Respuesta generada en retry automático con gemini-flash-latest.",
+				"Respuesta generada en retry automático con gemini-3.8-flash.",
 			);
 			expect(result.toolsCalled.length).toBeGreaterThan(0);
 		});
@@ -243,22 +275,22 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 	describe("3. Catálogo de Modelos Google en useIntegrationsStore", () => {
 		it("AI_MODELS_BY_PROVIDER.google contiene los modelos oficiales actualizados", () => {
 			expect(AI_MODELS_BY_PROVIDER.google).toEqual([
-				"Gemini Flash Latest",
 				"Gemini 3.8 Flash",
-				"Gemini 2.5 Flash",
-				"Gemini 2.5 Pro",
+				"Gemini 3.7 Flash",
+				"Gemini Flash Latest",
+				"Gemini Pro Latest",
 			]);
 		});
 
-		it("el estado inicial de ai.activeModel es 'Gemini Flash Latest'", () => {
+		it("el estado inicial de ai.activeModel es 'Gemini 3.8 Flash'", () => {
 			const state = useIntegrationsStore.getState();
-			expect(state.ai.activeModel).toBe("Gemini Flash Latest");
+			expect(state.ai.activeModel).toBe("Gemini 3.8 Flash");
 		});
 
-		it("el estado inicial de agent.model y rag.model es 'gemini-flash-latest'", () => {
+		it("el estado inicial de agent.model y rag.model es 'gemini-3.8-flash'", () => {
 			const state = useIntegrationsStore.getState();
-			expect(state.agent.model).toBe("gemini-flash-latest");
-			expect(state.rag.model).toBe("gemini-flash-latest");
+			expect(state.agent.model).toBe("gemini-3.8-flash");
+			expect(state.rag.model).toBe("gemini-3.8-flash");
 		});
 
 		it("onRehydrateStorage migra modelos deprecados a los nuevos modelos canónicos", () => {
@@ -285,9 +317,9 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 
 				onRehydrate(obsoleteState);
 
-				expect(obsoleteState.agent.model).toBe("gemini-flash-latest");
+				expect(obsoleteState.agent.model).toBe("gemini-3.8-flash");
 				expect(obsoleteState.rag.model).toBe("gemini-pro-latest");
-				expect(obsoleteState.ai.activeModel).toBe("Gemini Flash Latest");
+				expect(obsoleteState.ai.activeModel).toBe("Gemini 3.8 Flash");
 
 				const anotherObsoleteState = {
 					agent: { model: "gemini-2.0-flash" },
@@ -297,9 +329,9 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 
 				onRehydrate(anotherObsoleteState);
 
-				expect(anotherObsoleteState.agent.model).toBe("gemini-flash-latest");
-				expect(anotherObsoleteState.rag.model).toBe("gemini-flash-latest");
-				expect(anotherObsoleteState.ai.activeModel).toBe("Gemini 2.5 Pro");
+				expect(anotherObsoleteState.agent.model).toBe("gemini-3.8-flash");
+				expect(anotherObsoleteState.rag.model).toBe("gemini-3.8-flash");
+				expect(anotherObsoleteState.ai.activeModel).toBe("Gemini Pro Latest");
 			}
 		});
 	});

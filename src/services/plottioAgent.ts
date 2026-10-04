@@ -820,23 +820,23 @@ export async function executeLiveBusinessAgent(
 
 	try {
 		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 6000);
+		const timeoutId = setTimeout(() => controller.abort(), 10000);
 
 		let liveText = "";
 		let promptTokens = 0;
 		let completionTokens = 0;
 		let totalTokens = 0;
-		let executedModel = options.model || "gemini-flash-latest";
+		let executedModel = options.model || "gemini-3.8-flash";
 		let executedProvider = "Google Gemini";
 
 		if (provider === "google" || provider === "gemini") {
 			executedProvider = "Google Gemini";
-			let selectedModel = options.model?.toLowerCase() || "gemini-flash-latest";
+			let selectedModel = options.model?.toLowerCase() || "gemini-3.8-flash";
 			if (
 				selectedModel.includes("1.5") ||
 				selectedModel === "gemini-2.0-flash"
 			) {
-				selectedModel = "gemini-flash-latest";
+				selectedModel = "gemini-3.8-flash";
 			} else if (selectedModel.includes("pro")) {
 				selectedModel = "gemini-pro-latest";
 			}
@@ -844,6 +844,9 @@ export async function executeLiveBusinessAgent(
 				.replace(/^models\//, "")
 				.trim()
 				.replace(/\s+/g, "-");
+			if (!selectedModel) {
+				selectedModel = "gemini-3.8-flash";
+			}
 			executedModel = selectedModel;
 
 			const sendGoogleRequest = async (modelName: string) => {
@@ -870,17 +873,54 @@ export async function executeLiveBusinessAgent(
 				});
 			};
 
-			let res = await sendGoogleRequest(selectedModel);
+			const isRetryableStatus = (status?: number) =>
+				status === 503 || status === 429 || status === 404;
 
-			// Si el modelo retorna 404 y no es gemini-flash-latest, reintentar con gemini-flash-latest
-			if (res.status === 404 && selectedModel !== "gemini-flash-latest") {
-				selectedModel = "gemini-flash-latest";
-				executedModel = selectedModel;
-				res = await sendGoogleRequest("gemini-flash-latest");
+			const fallbackCandidates =
+				selectedModel !== "gemini-3.8-flash"
+					? ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-lite-latest"]
+					: [
+							"gemini-3.7-flash",
+							"gemini-flash-lite-latest",
+							"gemini-flash-latest",
+						];
+
+			let res: Response | null = null;
+			let networkError = false;
+			let lastStatus: number | null = null;
+
+			try {
+				res = await sendGoogleRequest(selectedModel);
+				lastStatus = res.status;
+				if (res.ok) {
+					executedModel = selectedModel;
+				}
+			} catch (_err) {
+				networkError = true;
+			}
+
+			if (networkError || (res && isRetryableStatus(res.status))) {
+				for (const fallbackModel of fallbackCandidates) {
+					try {
+						networkError = false;
+						res = await sendGoogleRequest(fallbackModel);
+						lastStatus = res.status;
+						if (res.ok) {
+							selectedModel = fallbackModel;
+							executedModel = fallbackModel;
+							break;
+						}
+						if (!isRetryableStatus(res.status)) {
+							break;
+						}
+					} catch (_err) {
+						networkError = true;
+					}
+				}
 			}
 			clearTimeout(timeoutId);
 
-			if (res.ok) {
+			if (res?.ok) {
 				const data = (await res.json()) as {
 					candidates?: Array<{
 						content?: { parts?: Array<{ text?: string }> };
@@ -901,6 +941,21 @@ export async function executeLiveBusinessAgent(
 					completionTokens = data.usageMetadata.candidatesTokenCount || 0;
 					totalTokens = data.usageMetadata.totalTokenCount || 0;
 				}
+			}
+
+			// Si todos los intentos remotos a Google arrojan 503 / 429 o falla la red: degeneración transparente
+			if (
+				!liveText &&
+				(networkError ||
+					lastStatus === 503 ||
+					lastStatus === 429 ||
+					lastStatus === 404)
+			) {
+				liveText =
+					"(Aviso de disponibilidad: El servicio de Google AI Studio se encuentra temporalmente saturado [HTTP 503]. Respuesta generada a partir de los datos operacionales de tu taller:)\n\n" +
+					baseExecution.response;
+				executedModel = `${executedModel} (Google 503 -> Respaldo Local)`;
+				executedProvider = "Google Gemini (Respaldo Local Plottio)";
 			}
 		} else if (provider === "groq") {
 			executedProvider = "Groq Cloud";

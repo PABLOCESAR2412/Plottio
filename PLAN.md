@@ -338,3 +338,13 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
        - Pulir tipografía, contraste, badges, bordes, estados de carga y fluidez en móvil y desktop.
   - **Criterios de Aceptación:** Respuestas del asistente basadas en la BD real sin alucinaciones de SLA falsos; sin clutter visual de herramientas en burbujas; telemetría técnica clara; diseño impeccable.
 
+- [x] **Tarea 33 (P0): Resiliencia ante HTTP 503 / 429 en Google AI Studio (Fallback Inteligente a Gemini 3.8 Flash y Degeneración Transparente)**
+  - **Archivos:** `src/services/plottioAgent.ts`, `src/store/useIntegrationsStore.ts`, `src/services/aiModelsDiscovery.ts`, `tests/gemini503Resilience.test.ts`
+  - **Requerimiento:**
+    1. En `executeLiveBusinessAgent`, fijar modelo canónico predeterminado a `gemini-3.8-flash` (3x más rápido y con menor congestión que `gemini-flash-latest`) y ampliar timeout a 10s.
+    2. Si Google retorna HTTP 503 (Service Unavailable) o 429 (Rate Limit), reintentar automáticamente conmutando entre `gemini-3.8-flash`, `gemini-3.7-flash` y `gemini-flash-lite-latest`.
+    3. Si Google AI Studio está completamente no disponible (503 persistente), degradar de forma transparente a la respuesta determinista basada en la base de datos real del taller sin romper la UI y reflejar en telemetría el estado de respaldo.
+    4. Actualizar catálogo oficial de Google en el store con `["Gemini 3.8 Flash", "Gemini 3.7 Flash", "Gemini Flash Latest", "Gemini Pro Latest"]`.
+  - **Criterios de Aceptación:** Cero interrupciones ante HTTP 503 de Google; conmutación automática de modelos; respuesta garantizada siempre al operador; tests al 100%.
+
+

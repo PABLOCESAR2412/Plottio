@@ -10,7 +10,6 @@ import whatsappHandler, {
 } from "../api/webhook/wha";
 import generalWebhooksHandler, {
 	CORS_HEADERS as GEN_CORS,
-	GET as genGet,
 	OPTIONS as genOptions,
 	POST as genPost,
 } from "../api/webhooks";

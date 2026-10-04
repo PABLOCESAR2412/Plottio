@@ -105,7 +105,10 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		api.ordenes.fetchOrdenes,
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
-	const rawInventario = useQuery(api.inventario.fetchInventario);
+	const rawInventario = useQuery(
+		api.inventario.fetchInventario,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : {},
+	);
 	const rawVehiculos = useQuery(
 		api.vehiculos.fetchVehiculos,
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
@@ -145,7 +148,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.",
 	);
 	const [configModel, setConfigModel] = useState(
-		agent?.model || rag?.model || "gemini-flash-latest",
+		agent?.model || rag?.model || "gemini-3.8-flash",
 	);
 	const [configTemperature, setConfigTemperature] = useState(
 		agent?.temperature ?? rag?.temperature ?? 0.2,
@@ -318,7 +321,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 				email: c.email,
 			})),
 			ordenes: (rawOrdenes || []).map((o) => ({
-				id: o.numeroOrden || o._id,
+				id: o._id,
 				placa: o.placa,
 				clienteNombre: o.clienteNombre,
 				estado: o.estado,

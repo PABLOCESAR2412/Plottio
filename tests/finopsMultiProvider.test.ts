@@ -39,10 +39,10 @@ describe(
 
 			// Modelos Google
 			expect(AI_MODELS_BY_PROVIDER.google).toEqual([
-				"Gemini Flash Latest",
 				"Gemini 3.8 Flash",
-				"Gemini 2.5 Flash",
-				"Gemini 2.5 Pro",
+				"Gemini 3.7 Flash",
+				"Gemini Flash Latest",
+				"Gemini Pro Latest",
 			]);
 
 			// Modelos Groq
@@ -75,7 +75,7 @@ describe(
 			expect(ai.opencodeZenApiKey).toBeDefined();
 			expect(ai.nvidiaApiKey).toBeDefined();
 			expect(ai.timeFilter).toBe("dia");
-			expect(ai.activeModel).toBe("Gemini Flash Latest");
+			expect(ai.activeModel).toBe("Gemini 3.8 Flash");
 		});
 
 		it("permite actualizar la configuración de IA para cualquier proveedor", () => {

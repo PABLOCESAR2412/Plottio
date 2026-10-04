@@ -6,7 +6,6 @@ import {
 	fetchClientes,
 } from "../convex/clientes";
 import { registrarAccion, cambiosValidator } from "../convex/lib/auditoria";
-import { ConvexError } from "convex/values";
 
 type Doc = Record<string, any>;
 
@@ -257,24 +256,24 @@ describe("Tarea 29 (P0 - Fase 6): Solución de Server Error en Convex (createCli
 				(e) => e._id === res.empresaId,
 			);
 			expect(empresaCreada).toBeDefined();
-			expect(empresaCreada.nombre).toBe("Transportes del Norte");
-			expect(empresaCreada.ruc).toBe("1798889990001");
-			expect(empresaCreada.activa).toBe(true);
+			expect(empresaCreada!.nombre).toBe("Transportes del Norte");
+			expect(empresaCreada!.ruc).toBe("1798889990001");
+			expect(empresaCreada!.activa).toBe(true);
 
 			// Verificar auditorías registradas para cliente y empresa
 			const auditEmpresa = store.auditoria.find(
 				(a) => a.tablaAfectada === "empresas" && a.registroId === res.empresaId,
 			);
 			expect(auditEmpresa).toBeDefined();
-			expect(auditEmpresa.accion).toBe("CREATE");
-			expect(auditEmpresa.cambios.nombre).toBe("Transportes del Norte");
+			expect(auditEmpresa!.accion).toBe("CREATE");
+			expect(auditEmpresa!.cambios.nombre).toBe("Transportes del Norte");
 
 			const auditCliente = store.auditoria.find(
 				(a) => a.tablaAfectada === "clientes" && a.registroId === res.cliente._id,
 			);
 			expect(auditCliente).toBeDefined();
-			expect(auditCliente.accion).toBe("CREATE");
-			expect(auditCliente.cambios.identificacion).toBe("1723456789");
+			expect(auditCliente!.accion).toBe("CREATE");
+			expect(auditCliente!.cambios.identificacion).toBe("1723456789");
 		});
 
 		it("si la empresa vinculada ya existe por RUC, la reutiliza, actualiza sus datos y la reactiva sin duplicar", async () => {
@@ -302,15 +301,16 @@ describe("Tarea 29 (P0 - Fase 6): Solución de Server Error en Convex (createCli
 			const empresaActualizada = store.empresas.find(
 				(e) => e._id === "empresa_cliente_existente",
 			);
-			expect(empresaActualizada.activa).toBe(true);
-			expect(empresaActualizada.nombre).toBe(
+			expect(empresaActualizada).toBeDefined();
+			expect(empresaActualizada!.activa).toBe(true);
+			expect(empresaActualizada!.nombre).toBe(
 				"Flota Comercial Pichincha Actualizada",
 			);
-			expect(empresaActualizada.razonSocial).toBe(
+			expect(empresaActualizada!.razonSocial).toBe(
 				"Flota Pichincha Corporación",
 			);
-			expect(empresaActualizada.telefono).toBe("022999000");
-			expect(empresaActualizada.direccion).toBe("Nueva Dirección 500");
+			expect(empresaActualizada!.telefono).toBe("022999000");
+			expect(empresaActualizada!.direccion).toBe("Nueva Dirección 500");
 
 			// Se registró auditoría de UPDATE para la empresa vinculada
 			const auditUpdate = store.auditoria.find(
@@ -319,7 +319,7 @@ describe("Tarea 29 (P0 - Fase 6): Solución de Server Error en Convex (createCli
 					a.registroId === "empresa_cliente_existente",
 			);
 			expect(auditUpdate).toBeDefined();
-			expect(auditUpdate.accion).toBe("UPDATE");
+			expect(auditUpdate!.accion).toBe("UPDATE");
 		});
 
 		it("bloquea duplicidad de identificación de cliente con ConvexError descriptivo", async () => {
@@ -342,7 +342,7 @@ describe("Tarea 29 (P0 - Fase 6): Solución de Server Error en Convex (createCli
 		});
 
 		it("createCliente estándar también bloquea duplicados de identificación y sanitiza inputs", async () => {
-			const { ctx, store } = createMockCtx(baseInitialData());
+			const { ctx } = createMockCtx(baseInitialData());
 			const handler = (createCliente as any)._handler;
 
 			// Rechaza duplicado
