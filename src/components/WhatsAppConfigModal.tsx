@@ -213,11 +213,12 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 					serverUrl: serverUrl.trim(),
 					apiUrl: serverUrl.trim(),
 					apiKey: apiKey.trim(),
-					status: "connected",
+					status: whatsapp.status || "disconnected",
 				});
 				setTestResult({
 					success: true,
-					message: `Conexión exitosa con la pasarela de WhatsApp. ${statusDetail}`,
+					message:
+						"Pasarela verificada con éxito. El servidor webhook responde correctamente. Procede a escanear el código QR para vincular tu dispositivo móvil.",
 					timestamp: new Date().toLocaleTimeString(),
 				});
 			} else {
@@ -242,6 +243,14 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 			timestamp: new Date().toLocaleTimeString(),
 		});
 	};
+
+	const handleRebindDevice = () => {
+		disconnectWhatsApp();
+		refreshWhatsAppQr();
+	};
+
+	// El Código QR solo se debe mostrar cuando existen credenciales guardadas Y no se está editando
+	const shouldShowQr = hasSavedCredentials && !isEditingCredentials;
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
@@ -298,7 +307,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 
 				{/* Body con Scroll */}
 				<div className="p-5 sm:p-6 overflow-y-auto">
-					{!isEditingCredentials ? (
+					{shouldShowQr ? (
 						/* Vista Principal: Código QR de WhatsApp */
 						<WhatsAppQrCode
 							code={whatsapp.qrCode}
@@ -311,6 +320,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 							onRefresh={refreshWhatsAppQr}
 							onDisconnect={handleDisconnect}
 							onConnect={connectWhatsApp}
+							onRebindDevice={handleRebindDevice}
 							onEditCredentials={() => setIsEditingCredentials(true)}
 						/>
 					) : (

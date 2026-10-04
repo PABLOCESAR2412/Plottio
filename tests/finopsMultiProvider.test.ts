@@ -39,31 +39,29 @@ describe(
 
 			// Modelos Google
 			expect(AI_MODELS_BY_PROVIDER.google).toEqual([
-				"Gemini 3.8 Flash",
+				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
 				"Gemini 3.7 Flash",
+				"Gemini Flash Lite",
 				"Gemini Flash Latest",
-				"Gemini Pro Latest",
 			]);
 
 			// Modelos Groq
 			expect(AI_MODELS_BY_PROVIDER.groq).toEqual([
-				"Llama 3.3 70B Versatile",
-				"Llama 3.1 8B Instant",
+				"Llama 3.3 70B Versatile (Recomendado · Alto Rendimiento)",
+				"Llama 3.1 8B Instant (Ultra Rápido y Económico)",
 				"Mixtral 8x7B",
 			]);
 
 			// Modelos Opencode Zen
 			expect(AI_MODELS_BY_PROVIDER.opencode_zen).toEqual([
-				"DeepSeek R1",
-				"DeepSeek V3",
-				"Qwen 2.5 Coder",
+				"DeepSeek V3 (Recomendado · Económico)",
+				"Qwen 2.5 Coder 32B",
 			]);
 
 			// Modelos Nvidia NIM
 			expect(AI_MODELS_BY_PROVIDER.nvidia).toEqual([
-				"Nemotron 70B",
-				"Llama 3.1 Nemotron 70B Ultra",
-				"Mistral NeMo",
+				"Llama 3.1 Nemotron 70B (Recomendado)",
+				"Mistral NeMo 12B (Económico)",
 			]);
 		});
 
@@ -75,7 +73,9 @@ describe(
 			expect(ai.opencodeZenApiKey).toBeDefined();
 			expect(ai.nvidiaApiKey).toBeDefined();
 			expect(ai.timeFilter).toBe("dia");
-			expect(ai.activeModel).toBe("Gemini 3.8 Flash");
+			expect(ai.activeModel).toBe(
+				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
+			);
 		});
 
 		it("permite actualizar la configuración de IA para cualquier proveedor", () => {
@@ -84,14 +84,17 @@ describe(
 			updateAiConfig({
 				provider: "groq",
 				groqApiKey: "gsk_live_test_12345",
-				activeModel: "Llama 3.3 70B Versatile",
+				activeModel:
+					"Llama 3.3 70B Versatile (Recomendado · Alto Rendimiento)",
 				monthlyBudgetUSD: 250,
 			});
 
 			const { ai } = useIntegrationsStore.getState();
 			expect(ai.provider).toBe("groq");
 			expect(ai.groqApiKey).toBe("gsk_live_test_12345");
-			expect(ai.activeModel).toBe("Llama 3.3 70B Versatile");
+			expect(ai.activeModel).toBe(
+				"Llama 3.3 70B Versatile (Recomendado · Alto Rendimiento)",
+			);
 			expect(ai.monthlyBudgetUSD).toBe(250);
 		});
 

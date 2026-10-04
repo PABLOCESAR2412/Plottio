@@ -275,16 +275,18 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 	describe("3. Catálogo de Modelos Google en useIntegrationsStore", () => {
 		it("AI_MODELS_BY_PROVIDER.google contiene los modelos oficiales actualizados", () => {
 			expect(AI_MODELS_BY_PROVIDER.google).toEqual([
-				"Gemini 3.8 Flash",
+				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
 				"Gemini 3.7 Flash",
+				"Gemini Flash Lite",
 				"Gemini Flash Latest",
-				"Gemini Pro Latest",
 			]);
 		});
 
-		it("el estado inicial de ai.activeModel es 'Gemini 3.8 Flash'", () => {
+		it("el estado inicial de ai.activeModel es 'Gemini 3.8 Flash (Recomendado · Rápido y Económico)'", () => {
 			const state = useIntegrationsStore.getState();
-			expect(state.ai.activeModel).toBe("Gemini 3.8 Flash");
+			expect(state.ai.activeModel).toBe(
+				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
+			);
 		});
 
 		it("el estado inicial de agent.model y rag.model es 'gemini-3.8-flash'", () => {
@@ -319,7 +321,9 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 
 				expect(obsoleteState.agent.model).toBe("gemini-3.8-flash");
 				expect(obsoleteState.rag.model).toBe("gemini-pro-latest");
-				expect(obsoleteState.ai.activeModel).toBe("Gemini 3.8 Flash");
+				expect(obsoleteState.ai.activeModel).toBe(
+					"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
+				);
 
 				const anotherObsoleteState = {
 					agent: { model: "gemini-2.0-flash" },

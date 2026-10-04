@@ -9,6 +9,10 @@ import {
 	Coins,
 	Command,
 	Layers,
+	MessageSquare,
+	PanelLeftClose,
+	PanelLeftOpen,
+	Plus,
 	RefreshCw,
 	Save,
 	Send,
@@ -17,10 +21,9 @@ import {
 	Sparkles,
 	Trash2,
 	Wrench,
-	X,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
@@ -32,16 +35,13 @@ import {
 } from "../services/plottioAgent";
 import {
 	type ChatMessage,
+	type ConversationThread,
 	useIntegrationsStore,
 } from "../store/useIntegrationsStore";
 import { useSessionStore } from "../store/useSessionStore";
 
-export type { ChatMessage };
-
-export interface PlottioAsistenteModalProps {
-	isOpen: boolean;
-	onClose: () => void;
-	onNavigate?: (tab: string) => void;
+export interface PlottioAsistenteViewProps {
+	onNavigate?: (tab: any) => void;
 }
 
 interface QuickSuggestion {
@@ -78,14 +78,12 @@ const QUICK_SUGGESTIONS: QuickSuggestion[] = [
 	},
 ];
 
-export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
-	isOpen,
-	onClose,
+export const PlottioAsistenteView: React.FC<PlottioAsistenteViewProps> = ({
 	onNavigate: _onNavigate,
 }) => {
 	const currentUser = useSessionStore((s) => s.currentUser);
 
-	// Inyección de consultas reales de la base de datos de Convex
+	// Contexto de datos reales desde Convex
 	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
 	const rawClientes = useQuery(
 		api.clientes.fetchClientes,
@@ -108,6 +106,14 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		agent,
 		rag,
 		ai,
+		conversations,
+		activeConversationId,
+		createConversation,
+		selectConversation,
+		deleteConversation,
+		addMessageToActiveConversation,
+		updateActiveConversationMessage,
+		clearActiveConversation,
 		updateAgentConfig,
 		updateRagConfig,
 		indexKnowledgeBase,
@@ -123,10 +129,13 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			ai?.geminiApiKey,
 	);
 
+	// Estado local de la UI
 	const [query, setQuery] = useState("");
 	const [activeTab, setActiveTab] = useState<"chat" | "config" | "tools">(
 		"chat",
 	);
+	const [showMobileHistory, setShowMobileHistory] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
 	// Configuración editable local del agente
 	const [configNombre, setConfigNombre] = useState(
@@ -145,7 +154,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	);
 	const [savedNotification, setSavedNotification] = useState(false);
 
-	// Estado interactivo de acordeón de telemetría técnica por mensaje (por defecto abierto)
+	// Acordeón de telemetría por mensaje
 	const [collapsedTelemetry, setCollapsedTelemetry] = useState<
 		Record<string, boolean>
 	>({});
@@ -157,7 +166,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		}));
 	};
 
-	// Sincronizar estado local si cambia en el store
+	// Sincronizar configuración si cambia en store
 	useEffect(() => {
 		if (agent) {
 			setConfigNombre(agent.nombre);
@@ -167,44 +176,28 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		}
 	}, [agent]);
 
-	// Historial conversacional
-	const [messages, setMessages] = useState<ChatMessage[]>([
-		{
-			id: "welcome",
-			role: "assistant",
-			text: "¡Hola! Soy Plottio Asistente, tu copiloto operacional con Agentic RAG. Cuento con herramientas de negocio para consultar y gestionar órdenes de trabajo, inventario de vinilos, clientes, cotizaciones y vehículos de flota.",
-			timestamp: "Ahora",
-		},
-	]);
+	// Conversación activa actual
+	const activeConversation: ConversationThread | undefined = useMemo(() => {
+		if (!conversations || conversations.length === 0) return undefined;
+		return (
+			conversations.find((c) => c.id === activeConversationId) ||
+			conversations[0]
+		);
+	}, [conversations, activeConversationId]);
+
+	const currentMessages = activeConversation?.messages || [];
 
 	const chatEndRef = useRef<HTMLDivElement>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-	// Listener de atajos de teclado (Cmd+K / Ctrl+K / Esc)
+	// Auto-scroll al final del chat
 	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-				e.preventDefault();
-				if (isOpen) onClose();
-			}
-			if (e.key === "Escape" && isOpen) {
-				onClose();
-			}
-		};
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [isOpen, onClose]);
-
-	// Auto-scroll en el chat
-	useEffect(() => {
-		if (isOpen && messages.length > 0 && activeTab === "chat") {
+		if (currentMessages.length > 0 && activeTab === "chat") {
 			if (typeof chatEndRef.current?.scrollIntoView === "function") {
 				chatEndRef.current.scrollIntoView({ behavior: "smooth" });
 			}
 		}
-	}, [isOpen, messages.length, activeTab]);
-
-	if (!isOpen) return null;
+	}, [currentMessages.length, activeTab]);
 
 	const handleSaveConfig = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -220,7 +213,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		setTimeout(() => setSavedNotification(false), 2200);
 	};
 
-	// Estimación de costo en USD
+	// Costo estimado
 	const getCostPerCallUSD = (maxTokens: number) => {
 		let ratePer1k = 0.00015;
 		if (configModel.includes("gpt-4o")) ratePer1k = 0.005;
@@ -228,7 +221,29 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		return ((maxTokens / 1000) * ratePer1k).toFixed(5);
 	};
 
-	// Envío de consulta y orquestación de herramientas con datos reales
+	// Formatear fecha para el historial
+	const formatThreadDate = (isoString?: string) => {
+		if (!isoString) return "";
+		try {
+			const d = new Date(isoString);
+			const today = new Date();
+			const isToday = d.toDateString() === today.toDateString();
+			if (isToday) {
+				return d.toLocaleTimeString([], {
+					hour: "2-digit",
+					minute: "2-digit",
+				});
+			}
+			return d.toLocaleDateString([], {
+				month: "short",
+				day: "numeric",
+			});
+		} catch {
+			return "";
+		}
+	};
+
+	// Ejecución de la consulta con Agentic RAG
 	const executeQuery = async (textToSubmit: string) => {
 		const currentText = textToSubmit.trim();
 		if (!currentText || rag.indexedDocumentsCount === 0) return;
@@ -243,7 +258,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			}),
 		};
 
-		// 1. Verificar Guardrail de seguridad de permisos
+		// 1. Guardrail de seguridad de permisos
 		if (isRestrictedAction(currentText)) {
 			const securityAssistantMsg: ChatMessage = {
 				id: `sec-${Date.now()}`,
@@ -255,7 +270,8 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 					minute: "2-digit",
 				}),
 			};
-			setMessages((prev) => [...prev, userMsg, securityAssistantMsg]);
+			addMessageToActiveConversation(userMsg);
+			addMessageToActiveConversation(securityAssistantMsg);
 			setQuery("");
 			if (textareaRef.current) {
 				textareaRef.current.style.height = "auto";
@@ -298,13 +314,15 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			}),
 		};
 
-		setMessages((prev) => [...prev, userMsg, assistantMsg]);
+		// Persistir mensaje del usuario y placeholder de asistente en el store
+		addMessageToActiveConversation(userMsg);
+		addMessageToActiveConversation(assistantMsg);
 		setQuery("");
 		if (textareaRef.current) {
 			textareaRef.current.style.height = "auto";
 		}
 
-		// 3. Preparar contexto de datos reales desde Convex
+		// 3. Preparar contexto de negocio desde Convex
 		const businessData: BusinessDataContext = {
 			empresas: (rawEmpresas || []).map((e) => ({
 				id: e._id,
@@ -343,7 +361,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			})),
 		};
 
-		// 4. Ejecutar Agentic RAG de Negocio con datos reales y telemetría técnica
+		// 4. Ejecución del agente con telemetría técnica
 		const startTime = Date.now();
 		const executionResult = await executeLiveBusinessAgent(currentText, {
 			assistantName: configNombre,
@@ -359,19 +377,12 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		});
 		const latencyMs = Date.now() - startTime;
 
-		// Actualizar mensaje con telemetría técnica
-		setMessages((prev) =>
-			prev.map((m) =>
-				m.id === assistantMsgId
-					? {
-							...m,
-							toolsCalled: executionResult.toolsCalled,
-							citations: executionResult.citations,
-							telemetry: executionResult.telemetry,
-						}
-					: m,
-			),
-		);
+		// Actualizar metadatos del mensaje en el store
+		updateActiveConversationMessage(assistantMsgId, {
+			toolsCalled: executionResult.toolsCalled,
+			citations: executionResult.citations,
+			telemetry: executionResult.telemetry,
+		});
 
 		// Efecto máquina de escribir (Streaming interactivo)
 		const words = executionResult.response.split(" ");
@@ -381,24 +392,16 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			currentWordIdx++;
 			const partialText = words.slice(0, currentWordIdx).join(" ");
 
-			setMessages((prev) =>
-				prev.map((m) =>
-					m.id === assistantMsgId ? { ...m, text: partialText } : m,
-				),
-			);
+			updateActiveConversationMessage(assistantMsgId, {
+				text: partialText,
+			});
 
 			if (currentWordIdx >= words.length) {
 				clearInterval(streamInterval);
-				setMessages((prev) =>
-					prev.map((m) =>
-						m.id === assistantMsgId
-							? {
-									...m,
-									isStreaming: false,
-								}
-							: m,
-					),
-				);
+				updateActiveConversationMessage(assistantMsgId, {
+					text: executionResult.response,
+					isStreaming: false,
+				});
 				recordAiUsage(
 					rag.maxTokens,
 					Number(getCostPerCallUSD(rag.maxTokens)),
@@ -438,28 +441,182 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		}
 	};
 
+	// Crear nueva conversación
+	const handleCreateNewThread = () => {
+		createConversation();
+		setShowMobileHistory(false);
+	};
+
+	// Ordenar conversaciones por updatedAt más reciente
+	const sortedConversations = useMemo(() => {
+		return [...(conversations || [])].sort((a, b) => {
+			const timeA = new Date(a.updatedAt || a.createdAt).getTime();
+			const timeB = new Date(b.updatedAt || b.createdAt).getTime();
+			return timeB - timeA;
+		});
+	}, [conversations]);
+
 	return (
-		<div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 sm:pt-10 bg-black/60 backdrop-blur-sm animate-fade-in">
-			<button
-				type="button"
-				className="fixed inset-0 w-full h-full cursor-default"
-				onClick={onClose}
-				aria-label="Cerrar Plottio Asistente"
-			/>
-			<div className="relative w-full max-w-3xl max-h-[92vh] rounded-2xl border border-border/60 bg-card/95 backdrop-blur-md shadow-2xl z-10 animate-slide-in flex flex-col overflow-hidden">
-				{/* Top Modal Header */}
-				<div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60 bg-muted/20 shrink-0">
-					<div className="flex items-center gap-3">
-						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
+		<div className="flex h-[calc(100vh-8.5rem)] w-full rounded-2xl border border-border bg-card shadow-sm overflow-hidden animate-fade-in relative">
+			{/* PANEL IZQUIERDO: Sidebar de Conversaciones / Historial (Desktop & Drawer Mobile) */}
+			<div
+				className={`flex flex-col border-r border-border bg-muted/20 shrink-0 transition-all duration-300 z-20 ${
+					sidebarCollapsed ? "w-0 md:w-16 overflow-hidden" : "w-72 sm:w-80"
+				} ${
+					showMobileHistory
+						? "absolute inset-y-0 left-0 w-72 bg-card shadow-xl z-30"
+						: "hidden md:flex"
+				}`}
+			>
+				{/* Header del Historial */}
+				<div className="flex items-center justify-between p-3.5 border-b border-border/60 shrink-0">
+					{!sidebarCollapsed && (
+						<div className="flex items-center gap-2">
+							<MessageSquare className="h-4 w-4 text-primary" />
+							<span className="text-xs font-bold text-foreground uppercase tracking-wider">
+								Historial de Chats
+							</span>
+						</div>
+					)}
+					<div className="flex items-center gap-1">
+						<button
+							type="button"
+							onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+							className="hidden md:flex p-1.5 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+							title={
+								sidebarCollapsed ? "Expandir panel" : "Colapsar panel lateral"
+							}
+							aria-label="Alternar panel lateral"
+						>
+							{sidebarCollapsed ? (
+								<PanelLeftOpen className="h-4 w-4" />
+							) : (
+								<PanelLeftClose className="h-4 w-4" />
+							)}
+						</button>
+						{showMobileHistory && (
+							<button
+								type="button"
+								onClick={() => setShowMobileHistory(false)}
+								className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+								aria-label="Cerrar panel lateral móvil"
+							>
+								<PanelLeftClose className="h-4 w-4" />
+							</button>
+						)}
+					</div>
+				</div>
+
+				{/* Botón "+ Nueva Conversación" */}
+				<div className="p-3 shrink-0">
+					<button
+						type="button"
+						onClick={handleCreateNewThread}
+						className={`w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-xs hover:bg-primary/90 transition-all cursor-pointer ${
+							sidebarCollapsed ? "px-2" : ""
+						}`}
+						title="Crear nueva conversación"
+					>
+						<Plus className="h-4 w-4 shrink-0" />
+						{!sidebarCollapsed && <span>Nueva Conversación</span>}
+					</button>
+				</div>
+
+				{/* Lista de Conversaciones */}
+				<div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1 overscroll-contain">
+					{sortedConversations.map((thread) => {
+						const isActive = thread.id === activeConversation?.id;
+						const msgCount = thread.messages?.length || 0;
+
+						if (sidebarCollapsed) {
+							return (
+								<button
+									key={thread.id}
+									type="button"
+									onClick={() => selectConversation(thread.id)}
+									className={`w-full flex items-center justify-center p-2 rounded-xl transition-all ${
+										isActive
+											? "bg-primary/10 text-primary border border-primary/30"
+											: "text-muted-foreground hover:bg-secondary hover:text-foreground"
+									}`}
+									title={thread.title}
+								>
+									<MessageSquare className="h-4 w-4 shrink-0" />
+								</button>
+							);
+						}
+
+						return (
+							<div
+								key={thread.id}
+								className={`group relative flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-left text-xs transition-all cursor-pointer border ${
+									isActive
+										? "bg-primary/10 border-primary/30 text-primary font-medium shadow-2xs"
+										: "border-transparent text-foreground hover:bg-secondary/70 hover:border-border/60"
+								}`}
+								onClick={() => {
+									selectConversation(thread.id);
+									setShowMobileHistory(false);
+								}}
+							>
+								<div className="flex flex-col min-w-0 flex-1 pr-2">
+									<span className="font-semibold truncate text-xs">
+										{thread.title || "Nueva conversación"}
+									</span>
+									<div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+										<span>{formatThreadDate(thread.updatedAt)}</span>
+										<span>·</span>
+										<span>
+											{msgCount} {msgCount === 1 ? "mensaje" : "mensajes"}
+										</span>
+									</div>
+								</div>
+
+								{/* Botón Eliminar Hilo */}
+								<button
+									type="button"
+									onClick={(e) => {
+										e.stopPropagation();
+										deleteConversation(thread.id);
+									}}
+									className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all cursor-pointer shrink-0"
+									title="Eliminar conversación"
+									aria-label="Eliminar conversación"
+								>
+									<Trash2 className="h-3.5 w-3.5" />
+								</button>
+							</div>
+						);
+					})}
+				</div>
+			</div>
+
+			{/* PANEL DERECHO: Área Principal del Asistente */}
+			<div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background">
+				{/* Header Principal de la Vista */}
+				<div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border/70 bg-card shrink-0">
+					<div className="flex items-center gap-3 min-w-0">
+						<button
+							type="button"
+							onClick={() => setShowMobileHistory(true)}
+							className="md:hidden p-2 rounded-lg border border-border bg-background text-foreground hover:bg-secondary"
+							aria-label="Abrir historial"
+						>
+							<MessageSquare className="h-4 w-4" />
+						</button>
+
+						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs shrink-0">
 							<Brain className="h-5 w-5" />
 						</div>
-						<div>
-							<div className="flex items-center gap-2">
-								<h3 className="text-base font-bold text-foreground tracking-tight">
+
+						<div className="min-w-0">
+							<div className="flex items-center gap-2 flex-wrap">
+								<h3 className="font-bold text-foreground text-sm truncate">
 									{configNombre || "Plottio Asistente"}
 								</h3>
+
 								{hasApiKey ? (
-									<span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+									<span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
 										<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
 										IA Conectada (
 										{ai?.provider === "google"
@@ -473,29 +630,30 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									</span>
 								) : (
 									<span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-										Modo Demostración / Sandbox
+										Sandbox / Demostración
 									</span>
 								)}
+
 								{rag.indexedDocumentsCount > 0 ? (
-									<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+									<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
 										<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
 										RAG Operacional
 									</span>
 								) : (
-									<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+									<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
 										Sin indexar
 									</span>
 								)}
 							</div>
-							<p className="text-[11px] text-muted-foreground">
+							<p className="text-[11px] text-muted-foreground truncate hidden sm:block">
 								Agentic RAG de Negocio · Órdenes, Clientes, Inventario &
 								Cotizaciones
 							</p>
 						</div>
 					</div>
 
-					{/* Navigation tabs & Close button */}
-					<div className="flex items-center gap-2">
+					{/* Navigation tabs & Action Buttons */}
+					<div className="flex items-center gap-2 shrink-0">
 						<div className="flex bg-muted/60 p-1 rounded-xl border border-border/50 text-xs">
 							<button
 								type="button"
@@ -521,7 +679,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 								title="Herramientas de Negocio Disponibles"
 							>
 								<Wrench className="h-3.5 w-3.5" />
-								<span>Herramientas</span>
+								<span className="hidden sm:inline">Herramientas</span>
 							</button>
 
 							<button
@@ -535,32 +693,35 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 								title="Configurar Nombre, Prompt, Modelo y Temperatura"
 							>
 								<Sliders className="h-3.5 w-3.5" />
-								<span>Configuración</span>
+								<span className="hidden sm:inline">Configuración</span>
 							</button>
 						</div>
 
-						<button
-							type="button"
-							onClick={onClose}
-							className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-							aria-label="Cerrar modal"
-						>
-							<X className="h-4 w-4" />
-						</button>
+						{/* Botón para limpiar chat actual */}
+						{activeTab === "chat" && (
+							<button
+								type="button"
+								onClick={clearActiveConversation}
+								className="p-1.5 rounded-xl border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+								title="Limpiar mensajes del chat actual"
+								aria-label="Limpiar chat actual"
+							>
+								<Trash2 className="h-4 w-4" />
+							</button>
+						)}
 					</div>
 				</div>
 
-				{/* Sandbox / Demo Mode Banner - Solo visible si NO hay API Key */}
+				{/* Sandbox Banner */}
 				{!hasApiKey && (
-					<div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300 shrink-0">
+					<div className="bg-amber-500/10 border-b border-amber-500/20 px-4 sm:px-6 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300 shrink-0">
 						<div className="flex items-center gap-2">
 							<span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 uppercase tracking-wide">
-								Modo Demostración / Sandbox (IA Simulada)
+								Modo Demostración / Sandbox
 							</span>
-							<span className="text-[11px] leading-tight">
-								Aviso para el operador: Los análisis y recomendaciones son una
-								maqueta interactiva simulada con ejecución autónoma de
-								herramientas de negocio.
+							<span className="text-[11px] leading-tight hidden sm:inline">
+								Los análisis se ejecutan con simulación autónoma de herramientas
+								de negocio.
 							</span>
 						</div>
 					</div>
@@ -568,7 +729,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 
 				{/* TAB 1: HERRAMIENTAS DE NEGOCIO */}
 				{activeTab === "tools" && (
-					<div className="flex-1 overflow-y-auto p-5 space-y-4">
+					<div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
 						<div className="flex items-center justify-between border-b border-border/60 pb-3">
 							<div>
 								<h4 className="font-bold text-foreground text-sm flex items-center gap-2">
@@ -576,8 +737,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									Herramientas de Negocio del Asistente
 								</h4>
 								<p className="text-xs text-muted-foreground">
-									Capacidades exclusivas asignadas al agente bajo el patrón
-									Agentic RAG.
+									Capacidades operacionales exclusivas asignadas al agente.
 								</p>
 							</div>
 							<span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-mono font-bold border border-primary/20">
@@ -627,7 +787,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 				{activeTab === "config" && (
 					<form
 						onSubmit={handleSaveConfig}
-						className="flex-1 overflow-y-auto p-5 space-y-4 text-xs sm:text-sm"
+						className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs sm:text-sm"
 					>
 						<div className="flex items-center justify-between border-b border-border/60 pb-3">
 							<div>
@@ -662,13 +822,13 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 						{/* Nombre del Asistente */}
 						<div className="space-y-1.5">
 							<label
-								htmlFor="agent-name-input"
+								htmlFor="view-agent-name-input"
 								className="font-semibold text-foreground text-xs"
 							>
 								Nombre del Asistente:
 							</label>
 							<input
-								id="agent-name-input"
+								id="view-agent-name-input"
 								type="text"
 								value={configNombre}
 								onChange={(e) => setConfigNombre(e.target.value)}
@@ -680,7 +840,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 						{/* Prompt del Sistema / Instrucciones */}
 						<div className="space-y-1.5">
 							<label
-								htmlFor="agent-system-prompt"
+								htmlFor="view-agent-system-prompt"
 								className="font-semibold text-foreground text-xs flex justify-between"
 							>
 								<span>Prompt del Sistema / Instrucciones:</span>
@@ -689,8 +849,8 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 								</span>
 							</label>
 							<textarea
-								id="agent-system-prompt"
-								rows={3}
+								id="view-agent-system-prompt"
+								rows={4}
 								value={configSystemPrompt}
 								onChange={(e) => setConfigSystemPrompt(e.target.value)}
 								className="w-full bg-background border border-border/80 rounded-xl p-3 text-xs text-foreground focus:outline-none focus:border-primary font-mono leading-relaxed shadow-2xs"
@@ -798,9 +958,9 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 				{/* TAB 3: CHAT CON AGENTIC RAG */}
 				{activeTab === "chat" && (
 					<>
-						{/* Modal Body */}
+						{/* Chat Body */}
 						<div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-							{/* ZERO-STATE: Antes de la Conexión */}
+							{/* ZERO-STATE: Si no hay documentos indexados */}
 							{rag.indexedDocumentsCount === 0 ? (
 								<div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 sm:p-8 text-center space-y-4 my-auto">
 									<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
@@ -840,9 +1000,9 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									</div>
 								</div>
 							) : (
-								/* Conversational Chat */
+								/* Mensajes de la Conversación */
 								<div className="space-y-4">
-									{messages.map((msg) => {
+									{currentMessages.map((msg) => {
 										const isAssistant = msg.role === "assistant";
 										const isUser = msg.role === "user";
 										const hasTelemetry = Boolean(msg.telemetry);
@@ -997,7 +1157,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							)}
 						</div>
 
-						{/* Carrusel / Barra de sugerencias rápidas */}
+						{/* Carrusel de sugerencias rápidas */}
 						{rag.indexedDocumentsCount > 0 && (
 							<div className="px-4 py-2 bg-muted/20 border-t border-border/60 flex items-center gap-2 overflow-x-auto text-[11px] shrink-0">
 								<span className="text-muted-foreground font-semibold shrink-0 text-xs">
@@ -1021,7 +1181,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							</div>
 						)}
 
-						{/* Input de Mensaje y Quick Actions Bar */}
+						{/* Formulario de Input y Envío */}
 						<form
 							onSubmit={handleSubmit}
 							className="p-3 sm:p-4 border-t border-border/60 bg-card/90 flex flex-col gap-2 shrink-0"
@@ -1034,7 +1194,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									placeholder={
 										rag.indexedDocumentsCount === 0
 											? "Indexa la base de conocimiento para comenzar..."
-											: "Pregunta a Plottio Asistente o solicita una acción de negocio..."
+											: "Pregunta a Plottio Asistente sobre órdenes, clientes o inventario..."
 									}
 									value={query}
 									onChange={handleTextareaChange}
@@ -1052,7 +1212,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 								</button>
 							</div>
 
-							{/* Atajos visuales sutiles */}
+							{/* Shortcuts Footer */}
 							<div className="hidden sm:flex items-center justify-between px-1 text-[10px] text-muted-foreground select-none">
 								<div className="flex items-center gap-3">
 									<span className="flex items-center gap-1 font-mono">
@@ -1069,15 +1229,15 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									</span>
 								</div>
 								<span className="text-[10px] text-muted-foreground/80 font-medium">
-									Agentic RAG Operacional
+									Agentic RAG Operacional · Persistencia Multi-Hilo
 								</span>
 							</div>
 						</form>
 					</>
 				)}
 
-				{/* Footer Bar */}
-				<div className="px-5 py-2 border-t border-border/50 bg-muted/15 flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
+				{/* Footer Bar de la Vista */}
+				<div className="px-4 sm:px-6 py-2 border-t border-border/50 bg-muted/15 flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
 					<span className="flex items-center gap-2">
 						<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
 						Base de conocimiento:{" "}
@@ -1087,7 +1247,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 						entidades operacionales
 					</span>
 					<span className="flex items-center gap-1 font-mono text-[10px]">
-						<Command className="h-3 w-3" /> + K o Esc para alternar
+						<Command className="h-3 w-3" /> + K para abrir asistente
 					</span>
 				</div>
 			</div>

@@ -13,6 +13,7 @@ import {
 	Lock,
 	Save,
 	Server,
+	ShieldAlert,
 	Sparkles,
 	Zap,
 } from "lucide-react";
@@ -65,6 +66,14 @@ export const FinOpsMetricsPanel: React.FC = () => {
 		null,
 	);
 
+	// Respaldo Multi-Proveedor (Fallback)
+	const [backupProvider, setBackupProvider] = useState<AiProvider | null>(
+		ai.backupProvider || null,
+	);
+	const [backupModel, setBackupModel] = useState<string | null>(
+		ai.backupModel || null,
+	);
+
 	const [budgetUSD, setBudgetUSD] = useState(ai.monthlyBudgetUSD);
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [connectionTestStatus, setConnectionTestStatus] = useState<
@@ -92,6 +101,64 @@ export const FinOpsMetricsPanel: React.FC = () => {
 				: selectedProvider === "opencode_zen"
 					? opencodeZenApiKey
 					: nvidiaApiKey;
+
+	// Proveedores elegibles para respaldo: con API key activa y distintos al seleccionado
+	const hasKeyFor = useCallback(
+		(prov: AiProvider) => {
+			if (prov === "google")
+				return Boolean(
+					(googleApiKey || ai.googleApiKey || ai.geminiApiKey)?.trim(),
+				);
+			if (prov === "groq")
+				return Boolean((groqApiKey || ai.groqApiKey)?.trim());
+			if (prov === "opencode_zen")
+				return Boolean((opencodeZenApiKey || ai.opencodeZenApiKey)?.trim());
+			if (prov === "nvidia")
+				return Boolean((nvidiaApiKey || ai.nvidiaApiKey)?.trim());
+			return false;
+		},
+		[
+			googleApiKey,
+			groqApiKey,
+			opencodeZenApiKey,
+			nvidiaApiKey,
+			ai.googleApiKey,
+			ai.groqApiKey,
+			ai.opencodeZenApiKey,
+			ai.nvidiaApiKey,
+			ai.geminiApiKey,
+		],
+	);
+
+	const eligibleBackupProviders = useMemo(() => {
+		const allProviders: AiProvider[] = [
+			"google",
+			"groq",
+			"opencode_zen",
+			"nvidia",
+		];
+		return allProviders.filter((p) => p !== selectedProvider && hasKeyFor(p));
+	}, [selectedProvider, hasKeyFor]);
+
+	const backupAvailableModels = useMemo(() => {
+		if (!backupProvider) return [];
+		return AI_MODELS_BY_PROVIDER[backupProvider] || [];
+	}, [backupProvider]);
+
+	const handleBackupProviderChange = (
+		e: React.ChangeEvent<HTMLSelectElement>,
+	) => {
+		const val = e.target.value;
+		if (!val || val === "none") {
+			setBackupProvider(null);
+			setBackupModel(null);
+		} else {
+			const prov = val as AiProvider;
+			setBackupProvider(prov);
+			const models = AI_MODELS_BY_PROVIDER[prov] || [];
+			setBackupModel(models[0] || null);
+		}
+	};
 
 	// Detección dinámica de modelos por API Key
 	const detectModelsForKey = useCallback(
@@ -129,6 +196,10 @@ export const FinOpsMetricsPanel: React.FC = () => {
 		setAvailableModels(providerModels);
 		if (!providerModels.includes(activeModel)) {
 			setActiveModel(providerModels[0] || "");
+		}
+		if (backupProvider === newProvider) {
+			setBackupProvider(null);
+			setBackupModel(null);
 		}
 		const keyForProv =
 			newProvider === "google"
@@ -189,6 +260,8 @@ export const FinOpsMetricsPanel: React.FC = () => {
 			geminiApiKey: googleApiKey,
 			activeModel,
 			monthlyBudgetUSD: Number(budgetUSD),
+			backupProvider: backupProvider || null,
+			backupModel: backupModel || null,
 		});
 		setSavedNotification(true);
 		setTimeout(() => setSavedNotification(false), 2500);
@@ -947,6 +1020,106 @@ export const FinOpsMetricsPanel: React.FC = () => {
 								</p>
 							)}
 						</div>
+					</div>
+
+					{/* Sección / Card: Respaldo de Inferencia (Fallback Multi-Proveedor) */}
+					<div className="rounded-xl border border-border bg-secondary/15 p-4 space-y-3.5">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+							<div className="space-y-0.5">
+								<h4 className="text-xs font-bold text-foreground flex items-center gap-2">
+									<ShieldAlert className="h-4 w-4 text-amber-500" />
+									<span>Respaldo de Inferencia (Fallback Multi-Proveedor)</span>
+								</h4>
+								<p className="text-[11px] text-muted-foreground">
+									Conmutación automática hacia un segundo proveedor ante fallos
+									o demoras en el proveedor principal.
+								</p>
+							</div>
+							{backupProvider && (
+								<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30 self-start sm:self-auto">
+									<span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+									Respaldo Configurado
+								</span>
+							)}
+						</div>
+
+						{eligibleBackupProviders.length === 0 ? (
+							<div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+								💡 Para habilitar conmutación automática de respaldo ante fallos
+								o demoras de{" "}
+								{selectedProvider === "google"
+									? "Google Gemini"
+									: selectedProvider === "groq"
+										? "Groq Cloud"
+										: selectedProvider === "opencode_zen"
+											? "Opencode Zen"
+											: "Nvidia NIM"}
+								, ingresa la API Key de un segundo proveedor (ej. Groq o
+								Google).
+							</div>
+						) : (
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+								{/* Selector Proveedor de Respaldo */}
+								<div>
+									<label
+										htmlFor="backup-provider-select"
+										className="block text-xs font-semibold text-muted-foreground mb-1.5"
+									>
+										Proveedor de Respaldo
+									</label>
+									<select
+										id="backup-provider-select"
+										value={backupProvider || ""}
+										onChange={handleBackupProviderChange}
+										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+									>
+										<option value="">
+											Sin respaldo (Solo proveedor principal)
+										</option>
+										{eligibleBackupProviders.map((bp) => (
+											<option key={bp} value={bp}>
+												{bp === "google" && "Google Gemini (API Key activa)"}
+												{bp === "groq" && "Groq Cloud (API Key activa)"}
+												{bp === "opencode_zen" &&
+													"Opencode Zen (API Key activa)"}
+												{bp === "nvidia" && "Nvidia NIM (API Key activa)"}
+											</option>
+										))}
+									</select>
+									<p className="text-[10px] text-muted-foreground mt-1">
+										Solo disponible para proveedores con clave API ingresada.
+									</p>
+								</div>
+
+								{/* Selector Modelo de Respaldo */}
+								{backupProvider && (
+									<div>
+										<label
+											htmlFor="backup-model-select"
+											className="block text-xs font-semibold text-muted-foreground mb-1.5"
+										>
+											Modelo de Respaldo ({backupProvider.toUpperCase()})
+										</label>
+										<select
+											id="backup-model-select"
+											value={backupModel || ""}
+											onChange={(e) => setBackupModel(e.target.value)}
+											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+										>
+											{backupAvailableModels.map((m) => (
+												<option key={m} value={m}>
+													{m}
+												</option>
+											))}
+										</select>
+										<p className="text-[10px] text-muted-foreground mt-1">
+											Modelo recomendado por costo y velocidad para inferencia
+											de respaldo.
+										</p>
+									</div>
+								)}
+							</div>
+						)}
 					</div>
 
 					{/* Save footer */}

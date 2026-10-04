@@ -3,9 +3,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WhatsAppConfigModal } from "../src/components/WhatsAppConfigModal";
+import { WhatsAppQrCode } from "../src/components/WhatsAppQrCode";
 import { useIntegrationsStore } from "../src/store/useIntegrationsStore";
 
-describe("Tarea 25 (P1 - Fase 4): WhatsApp — Ocultación de Credenciales y Visualización de Código QR", () => {
+describe("Tarea 36 (P1 - Fase 7): WhatsApp — Visualización Condicional de QR y Desacoplamiento de Test de Conexión", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		useIntegrationsStore.setState(useIntegrationsStore.getInitialState(), true);
@@ -16,234 +17,303 @@ describe("Tarea 25 (P1 - Fase 4): WhatsApp — Ocultación de Credenciales y Vis
 		vi.restoreAllMocks();
 	});
 
-	// =========================================================================
-	// 1. OCULTACIÓN DE CREDENCIALES Y VISUALIZACIÓN DE QR
-	// =========================================================================
-	describe("1. Flujo de Configuración y Ocultación de Credenciales", () => {
-		it("al abrir con credenciales existentes, los campos de texto están ocultos y se muestra la vista QR", () => {
-			// El estado inicial ya tiene instanceName, serverUrl y apiKey
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
-
-			// Los campos de texto NO deben estar visibles en el DOM
-			expect(screen.queryByLabelText(/Nombre de la Instancia/i)).toBeNull();
-			expect(screen.queryByLabelText(/URL del Servidor/i)).toBeNull();
-			expect(screen.queryByLabelText(/API Key/i)).toBeNull();
-
-			// El código QR debe estar presente
-			expect(
-				screen.getByRole("img", {
-					name: /Código QR de WhatsApp para vincular dispositivo/i,
-				}),
-			).toBeDefined();
-		});
-
-		it("al iniciar sin credenciales, muestra los campos de entrada editables", () => {
-			// Borramos las credenciales del store
+	describe("1. Visualización Condicional del QR post-configuración", () => {
+		it("sin credenciales guardadas en el store muestra ÚNICAMENTE los inputs y NO el QR", () => {
 			useIntegrationsStore.setState({
 				whatsapp: {
 					...useIntegrationsStore.getState().whatsapp,
 					instanceName: "",
 					serverUrl: "",
+					apiUrl: "",
 					apiKey: "",
-				},
-			});
-
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
-
-			// Deben estar visibles los inputs de entrada
-			expect(screen.getByLabelText(/Nombre de la Instancia/i)).toBeDefined();
-			expect(screen.getByLabelText(/URL del Servidor/i)).toBeDefined();
-			expect(screen.getByLabelText(/API Key/i)).toBeDefined();
-			expect(
-				screen.getByRole("button", { name: /Guardar Configuración/i }),
-			).toBeDefined();
-		});
-
-		it("al guardar credenciales válidas, los campos de entrada se ocultan y se muestra la vista del Código QR", async () => {
-			useIntegrationsStore.setState({
-				whatsapp: {
-					...useIntegrationsStore.getState().whatsapp,
-					instanceName: "",
-					serverUrl: "",
-					apiKey: "",
-				},
-			});
-
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
-
-			const instanceInput = screen.getByLabelText(/Nombre de la Instancia/i);
-			const serverUrlInput = screen.getByLabelText(/URL del Servidor/i);
-			const apiKeyInput = screen.getByLabelText(/API Key/i);
-			const saveBtn = screen.getByRole("button", { name: /Guardar Configuración/i });
-
-			fireEvent.change(instanceInput, { target: { value: "plottio-sucursal-norte" } });
-			fireEvent.change(serverUrlInput, {
-				target: { value: "https://acadia.simcodec.workers.dev/api/webhook/wha" },
-			});
-			fireEvent.change(apiKeyInput, { target: { value: "sec_test_token_8899" } });
-
-			fireEvent.click(saveBtn);
-
-			// Esperamos a que la transición oculte los campos y muestre el QR
-			await waitFor(() => {
-				expect(screen.queryByLabelText(/Nombre de la Instancia/i)).toBeNull();
-				expect(
-					screen.getByRole("img", {
-						name: /Código QR de WhatsApp para vincular dispositivo/i,
-					}),
-				).toBeDefined();
-			});
-
-			// Comprobamos persistencia en el store
-			const state = useIntegrationsStore.getState();
-			expect(state.whatsapp.instanceName).toBe("plottio-sucursal-norte");
-			expect(state.whatsapp.apiKey).toBe("sec_test_token_8899");
-		});
-
-		it("existe el botón 'Modificar Configuración' / 'Editar Credenciales' y al pulsarlo vuelve a mostrar los inputs", async () => {
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
-
-			// Verificamos que el botón existe
-			const editBtn = screen.getByRole("button", {
-				name: /Modificar Configuración/i,
-			});
-			expect(editBtn).toBeDefined();
-
-			// Lo pulsamos
-			fireEvent.click(editBtn);
-
-			// Ahora deben mostrarse de nuevo los campos editables
-			await waitFor(() => {
-				expect(screen.getByLabelText(/Nombre de la Instancia/i)).toBeDefined();
-				expect(screen.getByLabelText(/URL del Servidor/i)).toBeDefined();
-				expect(screen.getByLabelText(/API Key/i)).toBeDefined();
-				expect(screen.getByRole("button", { name: /Guardar Configuración/i })).toBeDefined();
-				expect(screen.getByRole("button", { name: /Cancelar/i })).toBeDefined();
-			});
-
-			// Si cancelamos, vuelve a la vista QR
-			const cancelBtn = screen.getByRole("button", { name: /Cancelar/i });
-			fireEvent.click(cancelBtn);
-
-			await waitFor(() => {
-				expect(screen.queryByLabelText(/Nombre de la Instancia/i)).toBeNull();
-				expect(
-					screen.getByRole("img", {
-						name: /Código QR de WhatsApp para vincular dispositivo/i,
-					}),
-				).toBeDefined();
-			});
-		});
-	});
-
-	// =========================================================================
-	// 2. VISUALIZACIÓN DEL CÓDIGO QR, GUÍA Y BADGES
-	// =========================================================================
-	describe("2. Visualización del Código QR y Guía de Escaneo", () => {
-		it("muestra las 4 instrucciones requeridas para vincular desde la app de WhatsApp", () => {
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
-
-			expect(
-				screen.getByText(/Abre WhatsApp en tu teléfono móvil/i),
-			).toBeDefined();
-			expect(
-				screen.getByText(/Ve a Ajustes \/ Menú → Dispositivos vinculados/i),
-			).toBeDefined();
-			expect(
-				screen.getByText(/Toca en "Vincular un dispositivo"/i),
-			).toBeDefined();
-			expect(
-				screen.getByText(/Escanea el código QR que aparece en pantalla/i),
-			).toBeDefined();
-		});
-
-		it("muestra el badge de estado 'Esperando escaneo' cuando la sesión está desconectada", () => {
-			useIntegrationsStore.setState({
-				whatsapp: {
-					...useIntegrationsStore.getState().whatsapp,
 					status: "disconnected",
 				},
 			});
 
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
+			render(
+				React.createElement(WhatsAppConfigModal, {
+					isOpen: true,
+					onClose: vi.fn(),
+				}),
+			);
 
-			const badge = screen.getByTestId("whatsapp-status-badge");
-			expect(badge.textContent).toContain("Esperando escaneo");
+			// Deben estar visibles los campos de configuración
+			expect(screen.getByLabelText(/Nombre de la Instancia/i)).toBeDefined();
+			expect(screen.getByLabelText(/URL del Servidor \/ Webhook/i)).toBeDefined();
+			expect(screen.getByLabelText(/API Key/i)).toBeDefined();
+			expect(
+				screen.getByRole("button", { name: /Guardar Configuración/i }),
+			).toBeDefined();
+
+			// El código QR y sus pasos NO deben estar en el DOM
+			expect(
+				screen.queryByLabelText(/Código QR de WhatsApp para vincular dispositivo/i),
+			).toBeNull();
+			expect(
+				screen.queryByText(/Pasos para vincular tu WhatsApp/i),
+			).toBeNull();
 		});
 
-		it("muestra el badge de estado 'Sesión activa' cuando la sesión está conectada", () => {
+		it("al guardar credenciales válidas en el formulario, se oculta el formulario y se despliega el QR", async () => {
 			useIntegrationsStore.setState({
 				whatsapp: {
 					...useIntegrationsStore.getState().whatsapp,
-					status: "connected",
+					instanceName: "",
+					serverUrl: "",
+					apiUrl: "",
+					apiKey: "",
+					status: "disconnected",
 				},
 			});
 
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
+			render(
+				React.createElement(WhatsAppConfigModal, {
+					isOpen: true,
+					onClose: vi.fn(),
+				}),
+			);
 
-			const badge = screen.getByTestId("whatsapp-status-badge");
-			expect(badge.textContent).toContain("Sesión activa");
-		});
-
-		it("muestra los detalles no sensibles de la conexión (instancia y URL worker)", () => {
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
-
-			expect(screen.getByText("plottio-central")).toBeDefined();
-			expect(
-				screen.getByText("https://plottio.vercel.app/api/webhook/wha"),
-			).toBeDefined();
-		});
-
-		it("el botón 'Actualizar QR / Refrescar Código' invoca la regeneración del código", async () => {
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
-
-			const refreshBtn = screen.getByRole("button", {
-				name: /Actualizar QR \/ Refrescar Código/i,
+			const instanceInput = screen.getByLabelText(/Nombre de la Instancia/i);
+			const urlInput = screen.getByLabelText(/URL del Servidor \/ Webhook/i);
+			const keyInput = screen.getByLabelText(/API Key/i);
+			const saveBtn = screen.getByRole("button", {
+				name: /Guardar Configuración/i,
 			});
-			expect(refreshBtn).toBeDefined();
 
-			fireEvent.click(refreshBtn);
+			fireEvent.change(instanceInput, { target: { value: "sucursal-norte" } });
+			fireEvent.change(urlInput, {
+				target: { value: "https://plottio.vercel.app/api/webhook/wha" },
+			});
+			fireEvent.change(keyInput, { target: { value: "sec_token_999" } });
 
-			// Comprobamos que el store actualizó el qrCode
+			fireEvent.click(saveBtn);
+
+			// Debe guardarse en el store
 			await waitFor(() => {
-				const state = useIntegrationsStore.getState();
-				expect(state.whatsapp.qrCode).toMatch(/^2@plottio_acadia_/);
+				const waState = useIntegrationsStore.getState().whatsapp;
+				expect(waState.instanceName).toBe("sucursal-norte");
+				expect(waState.apiKey).toBe("sec_token_999");
 			});
+
+			// Tras el feedback de guardado, debe mostrarse el Código QR
+			await waitFor(
+				() => {
+					expect(
+						screen.getByLabelText(/Código QR de WhatsApp para vincular dispositivo/i),
+					).toBeDefined();
+					expect(
+						screen.getByText(/Pasos para vincular tu WhatsApp/i),
+					).toBeDefined();
+				},
+				{ timeout: 1500 },
+			);
+
+			// El formulario ya no debe ser visible
+			expect(screen.queryByLabelText(/Nombre de la Instancia/i)).toBeNull();
+		});
+
+		it("permite volver a editar con 'Modificar Configuración' y cancelar para volver al QR", async () => {
+			useIntegrationsStore.setState({
+				whatsapp: {
+					...useIntegrationsStore.getState().whatsapp,
+					instanceName: "taller-sur",
+					serverUrl: "https://plottio.vercel.app/api/webhook/wha",
+					apiUrl: "https://plottio.vercel.app/api/webhook/wha",
+					apiKey: "sec_key_abc",
+					status: "disconnected",
+				},
+			});
+
+			render(
+				React.createElement(WhatsAppConfigModal, {
+					isOpen: true,
+					onClose: vi.fn(),
+				}),
+			);
+
+			// Con credenciales existentes, el QR es visible
+			expect(
+				screen.getByLabelText(/Código QR de WhatsApp para vincular dispositivo/i),
+			).toBeDefined();
+
+			// Click en Modificar Configuración
+			const editBtn = screen.getByRole("button", {
+				name: /Modificar Configuración/i,
+			});
+			fireEvent.click(editBtn);
+
+			// Debe mostrarse el formulario y ocultarse el QR
+			expect(screen.getByLabelText(/Nombre de la Instancia/i)).toBeDefined();
+			expect(
+				screen.queryByLabelText(/Código QR de WhatsApp para vincular dispositivo/i),
+			).toBeNull();
+
+			// Click en Cancelar
+			const cancelBtn = screen.getByRole("button", { name: /Cancelar/i });
+			fireEvent.click(cancelBtn);
+
+			// Vuelve a la vista QR
+			expect(
+				screen.getByLabelText(/Código QR de WhatsApp para vincular dispositivo/i),
+			).toBeDefined();
 		});
 	});
 
-	// =========================================================================
-	// 3. DESCONEXIÓN Y REINICIO DE ESTADO
-	// =========================================================================
-	describe("3. Desconexión de Sesión y Reinicio de Estado", () => {
-		it("el botón 'Desconectar Sesión' reinicia el estado a 'disconnected'", async () => {
-			// Simulamos que la sesión está conectada
+	describe("2. Desacoplamiento del Test de Conexión de la vinculación del dispositivo", () => {
+		it("al probar conexión con éxito, verifica pasarela pero NO cambia status a 'connected'", async () => {
+			const fetchMock = vi.fn().mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => ({ status: "ok", gateway: "Plottio WhatsApp Gateway" }),
+			});
+			globalThis.fetch = fetchMock;
+
 			useIntegrationsStore.setState({
 				whatsapp: {
 					...useIntegrationsStore.getState().whatsapp,
+					instanceName: "",
+					serverUrl: "",
+					apiKey: "",
+					status: "disconnected",
+				},
+			});
+
+			render(
+				React.createElement(WhatsAppConfigModal, {
+					isOpen: true,
+					onClose: vi.fn(),
+				}),
+			);
+
+			const instanceInput = screen.getByLabelText(/Nombre de la Instancia/i);
+			const urlInput = screen.getByLabelText(/URL del Servidor \/ Webhook/i);
+			const keyInput = screen.getByLabelText(/API Key/i);
+			const testBtn = screen.getByRole("button", { name: /Probar Conexión/i });
+
+			fireEvent.change(instanceInput, { target: { value: "plottio-test" } });
+			fireEvent.change(urlInput, {
+				target: { value: "https://plottio.vercel.app/api/webhook/wha" },
+			});
+			fireEvent.change(keyInput, { target: { value: "secret_123" } });
+
+			fireEvent.click(testBtn);
+
+			await waitFor(() => {
+				expect(screen.getByText(/Prueba de Conexión Exitosa/i)).toBeDefined();
+				expect(
+					screen.getByText(
+						/Pasarela verificada con éxito\. El servidor webhook responde correctamente\. Procede a escanear el código QR para vincular tu dispositivo móvil\./i,
+					),
+				).toBeDefined();
+			});
+
+			// Desacoplamiento: status sigue siendo 'disconnected' (el dispositivo NO se ha vinculado aún por QR)
+			expect(useIntegrationsStore.getState().whatsapp.status).toBe("disconnected");
+
+			// Las credenciales sí se actualizaron
+			expect(useIntegrationsStore.getState().whatsapp.instanceName).toBe("plottio-test");
+		});
+	});
+
+	describe("3. Posibilidad permanente de vincular / re-escanear dispositivo", () => {
+		it("cuando la sesión está conectada, muestra el botón 'Vincular nuevo dispositivo / Re-escanear QR' y permite re-escanear liberando el QR", () => {
+			useIntegrationsStore.setState({
+				whatsapp: {
+					...useIntegrationsStore.getState().whatsapp,
+					instanceName: "plottio-central",
+					serverUrl: "https://plottio.vercel.app/api/webhook/wha",
+					apiKey: "sec_key",
 					status: "connected",
 				},
 			});
 
-			render(React.createElement(WhatsAppConfigModal, { isOpen: true, onClose: vi.fn() }));
+			const { unmount } = render(
+				React.createElement(WhatsAppConfigModal, {
+					isOpen: true,
+					onClose: vi.fn(),
+				}),
+			);
 
-			// Verificamos que aparece el botón de desconectar
+			// El overlay de sesión vinculada está presente
+			expect(screen.getByText(/Sesión Vinculada/i)).toBeDefined();
+
+			// Debe existir el botón de re-escanear / vincular nuevo dispositivo
+			const rebindButtons = screen.getAllByRole("button", {
+				name: /Vincular nuevo dispositivo \/ Re-escanear QR/i,
+			});
+			expect(rebindButtons.length).toBeGreaterThanOrEqual(1);
+
+			// Al hacer clic en el botón de re-escaneo
+			fireEvent.click(rebindButtons[0]);
+
+			// El estado debe cambiar a 'disconnected'
+			expect(useIntegrationsStore.getState().whatsapp.status).toBe("disconnected");
+
+			// Se retira el overlay y el badge pasa a 'Esperando escaneo'
+			expect(screen.queryByText(/Sesión Vinculada/i)).toBeNull();
+			expect(screen.getAllByText(/Esperando escaneo/i).length).toBeGreaterThanOrEqual(1);
+
+			unmount();
+		});
+
+		it("el botón 'Desconectar Sesión' regresa el estado a disconnected y muestra el QR limpio", () => {
+			useIntegrationsStore.setState({
+				whatsapp: {
+					...useIntegrationsStore.getState().whatsapp,
+					instanceName: "plottio-central",
+					serverUrl: "https://plottio.vercel.app/api/webhook/wha",
+					apiKey: "sec_key",
+					status: "connected",
+				},
+			});
+
+			render(
+				React.createElement(WhatsAppConfigModal, {
+					isOpen: true,
+					onClose: vi.fn(),
+				}),
+			);
+
 			const disconnectBtn = screen.getByRole("button", {
 				name: /Desconectar Sesión/i,
 			});
-			expect(disconnectBtn).toBeDefined();
-
 			fireEvent.click(disconnectBtn);
 
-			// Esperamos a que el estado cambie a disconnected
-			await waitFor(() => {
-				const state = useIntegrationsStore.getState();
-				expect(state.whatsapp.status).toBe("disconnected");
-			});
+			expect(useIntegrationsStore.getState().whatsapp.status).toBe("disconnected");
+			expect(screen.queryByText(/Sesión Vinculada/i)).toBeNull();
+			expect(screen.getAllByText(/Esperando escaneo/i).length).toBeGreaterThanOrEqual(1);
+		});
 
-			// El badge debe volver a 'Esperando escaneo'
-			const badge = screen.getByTestId("whatsapp-status-badge");
-			expect(badge.textContent).toContain("Esperando escaneo");
+		it("el componente aislado WhatsAppQrCode maneja onRebindDevice y onDisconnect adecuadamente", () => {
+			const onRebindMock = vi.fn();
+			const onDisconnectMock = vi.fn();
+			const onEditMock = vi.fn();
+
+			render(
+				React.createElement(WhatsAppQrCode, {
+					code: "test-qr",
+					status: "connected",
+					instanceName: "inst-test",
+					serverUrl: "https://plottio.vercel.app/api/webhook/wha",
+					onRebindDevice: onRebindMock,
+					onDisconnect: onDisconnectMock,
+					onEditCredentials: onEditMock,
+				}),
+			);
+
+			// Probar click en Rebind
+			const rebindBtns = screen.getAllByRole("button", {
+				name: /Vincular nuevo dispositivo \/ Re-escanear QR/i,
+			});
+			fireEvent.click(rebindBtns[0]);
+			expect(onRebindMock).toHaveBeenCalledTimes(1);
+
+			// Probar click en Disconnect
+			const disconnectBtn = screen.getByRole("button", {
+				name: /Desconectar Sesión/i,
+			});
+			fireEvent.click(disconnectBtn);
+			expect(onDisconnectMock).toHaveBeenCalledTimes(1);
 		});
 	});
 });

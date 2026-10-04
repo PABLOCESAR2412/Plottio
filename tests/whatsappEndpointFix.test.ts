@@ -342,7 +342,7 @@ describe("Tarea 31 (P0 - Fase 6): Endpoint Webhook WhatsApp en Vercel y Bloqueo 
 				expect(screen.getByText(/Prueba de Conexión Exitosa/i)).toBeDefined();
 				expect(
 					screen.getByText(
-						/Conexión exitosa con la pasarela de WhatsApp\. HTTP 200 OK/i,
+						/Pasarela verificada con éxito\. El servidor webhook responde correctamente/i,
 					),
 				).toBeDefined();
 			});
@@ -360,8 +360,8 @@ describe("Tarea 31 (P0 - Fase 6): Endpoint Webhook WhatsApp en Vercel y Bloqueo 
 				}),
 			);
 
-			// Status en el store pasa a 'connected'
-			expect(useIntegrationsStore.getState().whatsapp.status).toBe("connected");
+			// Desacoplamiento: Status en el store NO pasa a 'connected' en la prueba de conexión
+			expect(useIntegrationsStore.getState().whatsapp.status).toBe("disconnected");
 		});
 	});
 });

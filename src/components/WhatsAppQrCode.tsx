@@ -19,6 +19,7 @@ interface WhatsAppQrCodeProps {
 	onRefresh?: () => void;
 	onDisconnect?: () => void;
 	onConnect?: () => void;
+	onRebindDevice?: () => void;
 	onEditCredentials: () => void;
 }
 
@@ -114,6 +115,7 @@ export const WhatsAppQrCode: React.FC<WhatsAppQrCodeProps> = ({
 	onRefresh,
 	onDisconnect,
 	onConnect,
+	onRebindDevice,
 	onEditCredentials,
 }) => {
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -142,6 +144,15 @@ export const WhatsAppQrCode: React.FC<WhatsAppQrCodeProps> = ({
 		setTimeout(() => {
 			setIsRefreshing(false);
 		}, 500);
+	};
+
+	const handleRebind = () => {
+		if (onRebindDevice) {
+			onRebindDevice();
+		} else if (onDisconnect) {
+			onDisconnect();
+			if (onRefresh) onRefresh();
+		}
 	};
 
 	const isConnected = status === "connected";
@@ -268,16 +279,25 @@ export const WhatsAppQrCode: React.FC<WhatsAppQrCodeProps> = ({
 
 						{/* Overlay de estado Conectado */}
 						{isConnected && (
-							<div className="absolute inset-0 bg-emerald-950/80 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center p-4 text-center animate-fade-in text-white">
+							<div className="absolute inset-0 bg-emerald-950/85 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center p-4 text-center animate-fade-in text-white">
 								<div className="h-12 w-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2 border border-emerald-500/40">
 									<CheckCircle2 className="h-7 w-7" />
 								</div>
 								<span className="font-bold text-sm text-white">
 									Sesión Vinculada
 								</span>
-								<p className="text-[11px] text-emerald-200/90 mt-1 max-w-[170px]">
-									WhatsApp está sincronizado activamente.
+								<p className="text-[11px] text-emerald-200/90 mt-1 max-w-[180px]">
+									WhatsApp está sincronizado activamente con este dispositivo.
 								</p>
+								<button
+									type="button"
+									onClick={handleRebind}
+									aria-label="Vincular nuevo dispositivo / Re-escanear QR"
+									className="mt-3 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-colors"
+								>
+									<Smartphone className="h-3.5 w-3.5" />
+									<span>Vincular nuevo dispositivo / Re-escanear QR</span>
+								</button>
 							</div>
 						)}
 					</div>
@@ -300,15 +320,26 @@ export const WhatsAppQrCode: React.FC<WhatsAppQrCodeProps> = ({
 						</button>
 
 						{isConnected ? (
-							<button
-								type="button"
-								onClick={onDisconnect}
-								aria-label="Desconectar Sesión"
-								className="px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-							>
-								<Power className="h-3.5 w-3.5" />
-								<span>Desconectar Sesión</span>
-							</button>
+							<>
+								<button
+									type="button"
+									onClick={handleRebind}
+									aria-label="Vincular nuevo dispositivo / Re-escanear QR"
+									className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+								>
+									<Smartphone className="h-3.5 w-3.5" />
+									<span>Vincular nuevo dispositivo / Re-escanear QR</span>
+								</button>
+								<button
+									type="button"
+									onClick={onDisconnect}
+									aria-label="Desconectar Sesión"
+									className="px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+								>
+									<Power className="h-3.5 w-3.5" />
+									<span>Desconectar Sesión</span>
+								</button>
+							</>
 						) : (
 							onConnect && (
 								<button

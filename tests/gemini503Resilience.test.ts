@@ -294,16 +294,18 @@ describe("Tarea 33 (P0 - Fase 6): Resiliencia ante HTTP 503 / 429 en Google AI S
 	describe("3. Catálogo oficial de Google y configuración canónica", () => {
 		it("AI_MODELS_BY_PROVIDER.google contiene el catálogo canónico actualizado", () => {
 			expect(AI_MODELS_BY_PROVIDER.google).toEqual([
-				"Gemini 3.8 Flash",
+				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
 				"Gemini 3.7 Flash",
+				"Gemini Flash Lite",
 				"Gemini Flash Latest",
-				"Gemini Pro Latest",
 			]);
 		});
 
 		it("el store useIntegrationsStore inicia con Gemini 3.8 Flash por defecto", () => {
 			const state = useIntegrationsStore.getState();
-			expect(state.ai.activeModel).toBe("Gemini 3.8 Flash");
+			expect(state.ai.activeModel).toBe(
+				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
+			);
 			expect(state.agent.model).toBe("gemini-3.8-flash");
 			expect(state.rag.model).toBe("gemini-3.8-flash");
 		});

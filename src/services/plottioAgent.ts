@@ -1,3 +1,5 @@
+import type { AiProvider } from "../store/useIntegrationsStore";
+
 /**
  * Plottio Asistente - Agentic RAG de Negocio
  *
@@ -667,6 +669,361 @@ export interface LiveAgentOptions {
 	temperature?: number;
 	model?: string;
 	businessData?: BusinessDataContext;
+	backupProvider?: AiProvider | null;
+	backupModel?: string | null;
+	backupApiKey?: string;
+}
+
+interface ProviderCallResult {
+	ok: boolean;
+	text: string;
+	promptTokens: number;
+	completionTokens: number;
+	totalTokens: number;
+	model: string;
+	providerName: string;
+	errorType?: "timeout" | "http" | "network";
+	status?: number;
+}
+
+function normalizeModelName(
+	rawModel: string | undefined,
+	provider: string,
+): string {
+	const modelLower = (rawModel || "").toLowerCase().trim();
+	if (provider === "google" || provider === "gemini") {
+		if (
+			modelLower === "gemini-flash-latest" ||
+			modelLower === "gemini flash latest"
+		) {
+			return "gemini-flash-latest";
+		}
+		if (modelLower.includes("3.8")) return "gemini-3.8-flash";
+		if (modelLower.includes("3.7")) return "gemini-3.7-flash";
+		if (modelLower.includes("lite")) return "gemini-flash-lite-latest";
+		if (modelLower.includes("pro")) return "gemini-pro-latest";
+		if (modelLower.includes("1.5") || modelLower === "gemini-2.0-flash")
+			return "gemini-3.8-flash";
+		const cleaned = modelLower
+			.replace(/^models\//, "")
+			.trim()
+			.replace(/\s+/g, "-");
+		if (
+			!cleaned ||
+			cleaned.includes("recomendado") ||
+			cleaned.includes("flash")
+		) {
+			return "gemini-3.8-flash";
+		}
+		return cleaned;
+	}
+	if (provider === "groq") {
+		if (modelLower.includes("3.3") || modelLower.includes("versatile"))
+			return "llama-3.3-70b-versatile";
+		if (
+			modelLower.includes("3.1") ||
+			modelLower.includes("instant") ||
+			modelLower.includes("8b")
+		)
+			return "llama-3.1-8b-instant";
+		if (modelLower.includes("mixtral") || modelLower.includes("8x7b"))
+			return "mixtral-8x7b-32768";
+		return rawModel || "llama-3.3-70b-versatile";
+	}
+	if (provider === "opencode_zen") {
+		if (modelLower.includes("deepseek") || modelLower.includes("v3"))
+			return "deepseek-ai/deepseek-v3";
+		if (modelLower.includes("qwen") || modelLower.includes("coder"))
+			return "qwen/qwen-2.5-coder-32b-instruct";
+		return rawModel || "deepseek-ai/deepseek-v3";
+	}
+	if (provider === "nvidia") {
+		if (modelLower.includes("nemotron") || modelLower.includes("llama"))
+			return "nvidia/llama-3.1-nemotron-70b-instruct";
+		if (modelLower.includes("mistral") || modelLower.includes("nemo"))
+			return "mistralai/mistral-nemo-12b-instruct";
+		return rawModel || "nvidia/llama-3.1-nemotron-70b-instruct";
+	}
+	return rawModel || "";
+}
+
+function getProviderDisplayName(provider?: string | null): string {
+	switch (provider?.toLowerCase()) {
+		case "google":
+		case "gemini":
+			return "Google Gemini";
+		case "groq":
+			return "Groq Cloud";
+		case "opencode_zen":
+			return "Opencode Zen";
+		case "nvidia":
+			return "Nvidia NIM";
+		default:
+			return provider || "Proveedor IA";
+	}
+}
+
+async function callGoogleProvider(
+	apiKey: string,
+	model: string | undefined,
+	query: string,
+	combinedContext: string,
+	temperature: number,
+	signal: AbortSignal,
+): Promise<ProviderCallResult> {
+	const selectedModel = normalizeModelName(model, "google");
+	let executedModel = selectedModel;
+	const isRetryableStatus = (status?: number) =>
+		status === 503 || status === 429 || status === 404;
+
+	const fallbackCandidates =
+		selectedModel !== "gemini-3.8-flash"
+			? ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-lite-latest"]
+			: ["gemini-3.7-flash", "gemini-flash-lite-latest", "gemini-flash-latest"];
+
+	const sendReq = async (modelName: string) => {
+		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${apiKey}`;
+		return fetch(url, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				contents: [
+					{
+						role: "user",
+						parts: [
+							{
+								text: `${combinedContext}\n\nConsulta del operador: ${query}`,
+							},
+						],
+					},
+				],
+				generationConfig: { temperature },
+			}),
+			signal,
+		});
+	};
+
+	let res: Response | null = null;
+	let networkError = false;
+	let lastStatus: number | null = null;
+
+	try {
+		res = await sendReq(selectedModel);
+		lastStatus = res.status;
+		if (res.ok) {
+			executedModel = selectedModel;
+		}
+	} catch (_err) {
+		networkError = true;
+	}
+
+	if (networkError || (res && isRetryableStatus(res.status))) {
+		for (const fallbackModel of fallbackCandidates) {
+			try {
+				networkError = false;
+				res = await sendReq(fallbackModel);
+				lastStatus = res.status;
+				if (res.ok) {
+					executedModel = fallbackModel;
+					break;
+				}
+				if (!isRetryableStatus(res.status)) {
+					break;
+				}
+			} catch (_err) {
+				networkError = true;
+			}
+		}
+	}
+
+	if (res?.ok) {
+		try {
+			const data = (await res.json()) as {
+				candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+				usageMetadata?: {
+					promptTokenCount?: number;
+					candidatesTokenCount?: number;
+					totalTokenCount?: number;
+				};
+			};
+			const partText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+			if (partText && typeof partText === "string" && partText.trim()) {
+				return {
+					ok: true,
+					text: partText.trim(),
+					promptTokens: data.usageMetadata?.promptTokenCount || 0,
+					completionTokens: data.usageMetadata?.candidatesTokenCount || 0,
+					totalTokens: data.usageMetadata?.totalTokenCount || 0,
+					model: executedModel,
+					providerName: "Google Gemini",
+				};
+			}
+		} catch {
+			// json parse fallback
+		}
+	}
+
+	return {
+		ok: false,
+		text: "",
+		promptTokens: 0,
+		completionTokens: 0,
+		totalTokens: 0,
+		model: executedModel,
+		providerName: "Google Gemini",
+		errorType: networkError ? "network" : "http",
+		status: lastStatus || undefined,
+	};
+}
+
+async function callOpenAiCompatibleProvider(
+	endpoint: string,
+	apiKey: string,
+	rawModel: string | undefined,
+	providerKey: string,
+	providerDisplayName: string,
+	query: string,
+	combinedContext: string,
+	temperature: number,
+	signal: AbortSignal,
+): Promise<ProviderCallResult> {
+	const modelName = normalizeModelName(rawModel, providerKey);
+	let res: Response | null = null;
+	let networkError = false;
+	let lastStatus: number | null = null;
+
+	try {
+		res = await fetch(endpoint, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify({
+				model: modelName,
+				messages: [
+					{ role: "system", content: combinedContext },
+					{ role: "user", content: query },
+				],
+				temperature,
+			}),
+			signal,
+		});
+		lastStatus = res.status;
+	} catch (_err) {
+		networkError = true;
+	}
+
+	if (res?.ok) {
+		try {
+			const data = (await res.json()) as {
+				choices?: Array<{ message?: { content?: string } }>;
+				usage?: {
+					prompt_tokens?: number;
+					completion_tokens?: number;
+					total_tokens?: number;
+				};
+			};
+			const choiceText = data.choices?.[0]?.message?.content;
+			if (choiceText && typeof choiceText === "string" && choiceText.trim()) {
+				return {
+					ok: true,
+					text: choiceText.trim(),
+					promptTokens: data.usage?.prompt_tokens || 0,
+					completionTokens: data.usage?.completion_tokens || 0,
+					totalTokens: data.usage?.total_tokens || 0,
+					model: modelName,
+					providerName: providerDisplayName,
+				};
+			}
+		} catch {
+			// json parse fallback
+		}
+	}
+
+	return {
+		ok: false,
+		text: "",
+		promptTokens: 0,
+		completionTokens: 0,
+		totalTokens: 0,
+		model: modelName,
+		providerName: providerDisplayName,
+		errorType: networkError ? "network" : "http",
+		status: lastStatus || undefined,
+	};
+}
+
+async function invokeProvider(
+	provider: string,
+	apiKey: string,
+	model: string | undefined,
+	query: string,
+	combinedContext: string,
+	temperature: number,
+	signal: AbortSignal,
+): Promise<ProviderCallResult> {
+	const prov = provider.toLowerCase();
+	if (prov === "google" || prov === "gemini") {
+		return callGoogleProvider(
+			apiKey,
+			model,
+			query,
+			combinedContext,
+			temperature,
+			signal,
+		);
+	}
+	if (prov === "groq") {
+		return callOpenAiCompatibleProvider(
+			"https://api.groq.com/openai/v1/chat/completions",
+			apiKey,
+			model || "llama-3.3-70b-versatile",
+			"groq",
+			"Groq Cloud",
+			query,
+			combinedContext,
+			temperature,
+			signal,
+		);
+	}
+	if (prov === "opencode_zen") {
+		return callOpenAiCompatibleProvider(
+			"https://api.opencodezen.com/v1/chat/completions",
+			apiKey,
+			model || "deepseek-ai/deepseek-v3",
+			"opencode_zen",
+			"Opencode Zen",
+			query,
+			combinedContext,
+			temperature,
+			signal,
+		);
+	}
+	if (prov === "nvidia") {
+		return callOpenAiCompatibleProvider(
+			"https://integrate.api.nvidia.com/v1/chat/completions",
+			apiKey,
+			model || "nvidia/llama-3.1-nemotron-70b-instruct",
+			"nvidia",
+			"Nvidia NIM",
+			query,
+			combinedContext,
+			temperature,
+			signal,
+		);
+	}
+
+	return {
+		ok: false,
+		text: "",
+		promptTokens: 0,
+		completionTokens: 0,
+		totalTokens: 0,
+		model: model || "",
+		providerName: getProviderDisplayName(provider),
+		errorType: "network",
+	};
 }
 
 /**
@@ -702,12 +1059,13 @@ export async function executeLiveBusinessAgent(
 		businessData: options.businessData,
 	});
 
-	// Si no hay API Key, retornar respuesta base veraz con telemetría
-	if (!options.apiKey || !options.apiKey.trim()) {
+	// Si no hay API Key activa para el primario ni para el respaldo, retornar baseExecution
+	const primaryApiKey = options.apiKey?.trim() || "";
+	const backupApiKey = options.backupApiKey?.trim() || "";
+	if (!primaryApiKey && !backupApiKey) {
 		return baseExecution;
 	}
 
-	const apiKey = options.apiKey.trim();
 	const provider = options.provider?.toLowerCase() || "google";
 
 	// Construir resumen verídico de la base de datos real del taller
@@ -819,189 +1177,96 @@ export async function executeLiveBusinessAgent(
 	const startTime = performance.now();
 
 	try {
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 10000);
+		let primaryResult: ProviderCallResult = {
+			ok: false,
+			text: "",
+			promptTokens: 0,
+			completionTokens: 0,
+			totalTokens: 0,
+			model: normalizeModelName(options.model, provider),
+			providerName: getProviderDisplayName(provider),
+		};
+
+		if (primaryApiKey) {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10000);
+			try {
+				primaryResult = await invokeProvider(
+					provider,
+					primaryApiKey,
+					options.model,
+					query,
+					combinedContext,
+					options.temperature ?? 0.2,
+					controller.signal,
+				);
+			} finally {
+				clearTimeout(timeoutId);
+			}
+		}
 
 		let liveText = "";
-		let promptTokens = 0;
-		let completionTokens = 0;
-		let totalTokens = 0;
-		let executedModel = options.model || "gemini-3.8-flash";
-		let executedProvider = "Google Gemini";
+		let executedModel = primaryResult.model;
+		let executedProvider = primaryResult.providerName;
+		let promptTokens = primaryResult.promptTokens;
+		let completionTokens = primaryResult.completionTokens;
+		let totalTokens = primaryResult.totalTokens;
 
-		if (provider === "google" || provider === "gemini") {
-			executedProvider = "Google Gemini";
-			let selectedModel = options.model?.toLowerCase() || "gemini-3.8-flash";
-			if (
-				selectedModel.includes("1.5") ||
-				selectedModel === "gemini-2.0-flash"
-			) {
-				selectedModel = "gemini-3.8-flash";
-			} else if (selectedModel.includes("pro")) {
-				selectedModel = "gemini-pro-latest";
-			}
-			selectedModel = selectedModel
-				.replace(/^models\//, "")
-				.trim()
-				.replace(/\s+/g, "-");
-			if (!selectedModel) {
-				selectedModel = "gemini-3.8-flash";
-			}
-			executedModel = selectedModel;
-
-			const sendGoogleRequest = async (modelName: string) => {
-				const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${apiKey}`;
-				return fetch(url, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						contents: [
-							{
-								role: "user",
-								parts: [
-									{
-										text: `${combinedContext}\n\nConsulta del operador: ${query}`,
-									},
-								],
-							},
-						],
-						generationConfig: {
-							temperature: options.temperature ?? 0.2,
-						},
-					}),
-					signal: controller.signal,
-				});
-			};
-
-			const isRetryableStatus = (status?: number) =>
-				status === 503 || status === 429 || status === 404;
-
-			const fallbackCandidates =
-				selectedModel !== "gemini-3.8-flash"
-					? ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-lite-latest"]
-					: [
-							"gemini-3.7-flash",
-							"gemini-flash-lite-latest",
-							"gemini-flash-latest",
-						];
-
-			let res: Response | null = null;
-			let networkError = false;
-			let lastStatus: number | null = null;
-
-			try {
-				res = await sendGoogleRequest(selectedModel);
-				lastStatus = res.status;
-				if (res.ok) {
-					executedModel = selectedModel;
-				}
-			} catch (_err) {
-				networkError = true;
-			}
-
-			if (networkError || (res && isRetryableStatus(res.status))) {
-				for (const fallbackModel of fallbackCandidates) {
-					try {
-						networkError = false;
-						res = await sendGoogleRequest(fallbackModel);
-						lastStatus = res.status;
-						if (res.ok) {
-							selectedModel = fallbackModel;
-							executedModel = fallbackModel;
-							break;
-						}
-						if (!isRetryableStatus(res.status)) {
-							break;
-						}
-					} catch (_err) {
-						networkError = true;
-					}
-				}
-			}
-			clearTimeout(timeoutId);
-
-			if (res?.ok) {
-				const data = (await res.json()) as {
-					candidates?: Array<{
-						content?: { parts?: Array<{ text?: string }> };
-					}>;
-					usageMetadata?: {
-						promptTokenCount?: number;
-						candidatesTokenCount?: number;
-						totalTokenCount?: number;
-					};
-				};
-				const partText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-				if (partText && typeof partText === "string" && partText.trim()) {
-					liveText = partText.trim();
-				}
-
-				if (data.usageMetadata) {
-					promptTokens = data.usageMetadata.promptTokenCount || 0;
-					completionTokens = data.usageMetadata.candidatesTokenCount || 0;
-					totalTokens = data.usageMetadata.totalTokenCount || 0;
-				}
-			}
-
-			// Si todos los intentos remotos a Google arrojan 503 / 429 o falla la red: degeneración transparente
-			if (
-				!liveText &&
-				(networkError ||
-					lastStatus === 503 ||
-					lastStatus === 429 ||
-					lastStatus === 404)
-			) {
-				liveText =
-					"(Aviso de disponibilidad: El servicio de Google AI Studio se encuentra temporalmente saturado [HTTP 503]. Respuesta generada a partir de los datos operacionales de tu taller:)\n\n" +
-					baseExecution.response;
-				executedModel = `${executedModel} (Google 503 -> Respaldo Local)`;
-				executedProvider = "Google Gemini (Respaldo Local Plottio)";
-			}
-		} else if (provider === "groq") {
-			executedProvider = "Groq Cloud";
-			const modelName = options.model || "llama-3.3-70b-versatile";
-			executedModel = modelName;
-			const url = "https://api.groq.com/openai/v1/chat/completions";
-			const res = await fetch(url, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${apiKey}`,
-				},
-				body: JSON.stringify({
-					model: modelName,
-					messages: [
-						{ role: "system", content: combinedContext },
-						{ role: "user", content: query },
-					],
-					temperature: options.temperature ?? 0.2,
-				}),
-				signal: controller.signal,
-			});
-			clearTimeout(timeoutId);
-
-			if (res.ok) {
-				const data = (await res.json()) as {
-					choices?: Array<{ message?: { content?: string } }>;
-					usage?: {
-						prompt_tokens?: number;
-						completion_tokens?: number;
-						total_tokens?: number;
-					};
-				};
-				const choiceText = data.choices?.[0]?.message?.content;
-				if (choiceText && typeof choiceText === "string" && choiceText.trim()) {
-					liveText = choiceText.trim();
-				}
-
-				if (data.usage) {
-					promptTokens = data.usage.prompt_tokens || 0;
-					completionTokens = data.usage.completion_tokens || 0;
-					totalTokens = data.usage.total_tokens || 0;
-				}
-			}
+		if (primaryResult.ok && primaryResult.text) {
+			liveText = primaryResult.text;
 		} else {
-			clearTimeout(timeoutId);
+			// Falla el proveedor principal. Intentar conmutación a respaldo si está configurado
+			const backupProv = options.backupProvider?.toLowerCase();
+			let backupSuccess = false;
+
+			if (backupProv && backupApiKey && backupProv !== provider) {
+				const backupController = new AbortController();
+				const backupTimeoutId = setTimeout(
+					() => backupController.abort(),
+					10000,
+				);
+				try {
+					const backupRes = await invokeProvider(
+						backupProv,
+						backupApiKey,
+						options.backupModel || undefined,
+						query,
+						combinedContext,
+						options.temperature ?? 0.2,
+						backupController.signal,
+					);
+					if (backupRes.ok && backupRes.text) {
+						backupSuccess = true;
+						const primaryName = getProviderDisplayName(provider);
+						const backupName = getProviderDisplayName(backupProv);
+						liveText = `(Aviso: Respuesta generada por el proveedor de respaldo ${backupName} debido a congestión temporal en ${primaryName}.)\n\n${backupRes.text}`;
+						executedModel = options.backupModel || backupRes.model;
+						executedProvider = `${backupName} (Respaldo por falla en ${primaryName})`;
+						promptTokens = backupRes.promptTokens;
+						completionTokens = backupRes.completionTokens;
+						totalTokens = backupRes.totalTokens;
+					}
+				} finally {
+					clearTimeout(backupTimeoutId);
+				}
+			}
+
+			// Si no hubo respaldo o falló el de respaldo:
+			if (!backupSuccess) {
+				if (
+					(provider === "google" || provider === "gemini") &&
+					(primaryResult.errorType === "network" ||
+						primaryResult.status === 503 ||
+						primaryResult.status === 429 ||
+						primaryResult.status === 404)
+				) {
+					liveText =
+						"(Aviso de disponibilidad: El servicio de Google AI Studio se encuentra temporalmente saturado [HTTP 503]. Respuesta generada a partir de los datos operacionales de tu taller:)\n\n" +
+						baseExecution.response;
+					executedModel = `${primaryResult.model} (Google 503 -> Respaldo Local)`;
+					executedProvider = "Google Gemini (Respaldo Local Plottio)";
+				}
+			}
 		}
 
 		const latencyMs = Math.max(Math.round(performance.now() - startTime), 25);

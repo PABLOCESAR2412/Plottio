@@ -19,6 +19,7 @@ import { LoginView } from "../components/LoginView";
 import { LotesProduccionView } from "../components/LotesProduccionView";
 import { OrdenesTrabajoView } from "../components/OrdenesTrabajoView";
 import { PlottioAsistenteModal } from "../components/PlottioAsistenteModal";
+import { PlottioAsistenteView } from "../components/PlottioAsistenteView";
 import PlottioLogo from "../components/PlottioLogo";
 import { Sidebar } from "../components/Sidebar";
 import { BreadcrumbNavegacion } from "../components/SucursalesAdmin";
@@ -41,9 +42,10 @@ type TabId =
 	| "inventario"
 	| "catalogo"
 	| "lotes"
-	| "kits";
+	| "kits"
+	| "asistente";
 
-function AppLayout() {
+export function AppLayout() {
 	const currentUser = useSessionStore((s) => s.currentUser);
 	const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
 
@@ -69,9 +71,24 @@ function AppLayout() {
 		null,
 	);
 
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+				e.preventDefault();
+				setActiveTab((prev) =>
+					prev === "asistente" ? "dashboard" : "asistente",
+				);
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, []);
+
 	// Switch between tabs
 	const renderActiveView = () => {
 		switch (activeTab) {
+			case "asistente":
+				return <PlottioAsistenteView onNavigate={setActiveTab} />;
 			case "clientes":
 				return (
 					<ClientesView
@@ -138,6 +155,8 @@ function AppLayout() {
 
 	const getPageTitle = () => {
 		switch (activeTab) {
+			case "asistente":
+				return "Plottio Asistente";
 			case "clientes":
 				return "Clientes";
 			case "empresas":
@@ -216,19 +235,47 @@ function AppLayout() {
 						<div className="flex items-center gap-3">
 							<button
 								type="button"
-								onClick={() => setIsPlottioAsistenteOpen(true)}
-								className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-xs text-muted-foreground transition-colors cursor-pointer shadow-xs"
+								onClick={() => setActiveTab("asistente")}
+								className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors cursor-pointer shadow-xs ${
+									activeTab === "asistente"
+										? "bg-primary text-primary-foreground border-primary"
+										: "border-border bg-background hover:bg-secondary text-xs text-muted-foreground"
+								}`}
 								title="Consultar con Plottio Asistente (Cmd+K)"
 							>
-								<Sparkles className="h-3.5 w-3.5 text-primary" />
-								<span className="font-semibold text-foreground">
+								<Sparkles
+									className={`h-3.5 w-3.5 ${
+										activeTab === "asistente"
+											? "text-primary-foreground"
+											: "text-primary"
+									}`}
+								/>
+								<span
+									className={`font-semibold ${
+										activeTab === "asistente"
+											? "text-primary-foreground"
+											: "text-foreground"
+									}`}
+								>
 									Plottio Asistente
 								</span>
-								<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+								<span
+									className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+										activeTab === "asistente"
+											? "bg-white/20 text-white border border-white/30"
+											: "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+									}`}
+								>
 									<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
 									RAG Operacional
 								</span>
-								<kbd className="px-1.5 py-0.5 rounded bg-secondary text-[10px] font-mono border border-border">
+								<kbd
+									className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+										activeTab === "asistente"
+											? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30"
+											: "bg-secondary text-muted-foreground border-border"
+									}`}
+								>
 									⌘K
 								</kbd>
 							</button>

@@ -360,7 +360,7 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     4. Desplegar con `bunx convex deploy --yes` y ejecutar la purga de datos en producción.
   - **Criterios de Aceptación:** Cero Server Error en `createClienteConEmpresa`; contexto de empresa garantizado siempre; clientes y empresas de prueba purgados en producción.
 
-- [ ] **Tarea 35 (P0): Plottio Asistente como Vista Principal (`activeTab === "asistente"`) con Historial Persistente de Conversaciones**
+- [x] **Tarea 35 (P0): Plottio Asistente como Vista Principal (`activeTab === "asistente"`) con Historial Persistente de Conversaciones**
   - **Archivos:** `src/components/PlottioAsistenteView.tsx`, `src/routes/index.tsx`, `src/components/Sidebar.tsx`, `src/store/useIntegrationsStore.ts`, `tests/plottioAsistenteView.test.ts`
   - **Requerimiento:**
     1. Convertir Plottio Asistente en una VISTA de navegación completa (`activeTab === "asistente"`) en lugar de un modal emergente.
@@ -373,7 +373,7 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
        - Los mensajes se guardan en el hilo activo y no se borran al cambiar de pestaña ni al recargar.
   - **Criterios de Aceptación:** Plottio Asistente opera como vista completa integrada; historial de conversaciones persistente con múltiples hilos; cero pérdidas de mensajes.
 
-- [ ] **Tarea 36 (P1): WhatsApp — Visualización Condicional de QR post-configuración y Desacoplamiento de Test de Conexión**
+- [x] **Tarea 36 (P1): WhatsApp — Visualización Condicional de QR post-configuración y Desacoplamiento de Test de Conexión**
   - **Archivos:** `src/components/WhatsAppConfigModal.tsx`, `src/components/WhatsAppQrCode.tsx`, `tests/whatsappQrFlow.test.ts`
   - **Requerimiento:**
     1. El Código QR debe mostrarse ÚNICAMENTE cuando la configuración está guardada (`hasSavedCredentials && !isEditingCredentials`), nunca antes.
@@ -381,7 +381,7 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     3. Permitir vincular y re-vincular dispositivos: si el estado es `connected` o `disconnected`, mostrar siempre botón accesible "Vincular nuevo dispositivo / Re-escanear QR" que libere el visor para un nuevo escaneo sin bloquear al operador.
   - **Criterios de Aceptación:** QR visible solo tras guardar credenciales; prueba de conexión no bloquea el escaneo; re-escaneo accesible en todo momento.
 
-- [ ] **Tarea 37 (P1): Respaldo Multi-Proveedor (Fallback Chaining) y Catálogo de Modelos Recomendados por Costo/Velocidad**
+- [x] **Tarea 37 (P1): Respaldo Multi-Proveedor (Fallback Chaining) y Catálogo de Modelos Recomendados por Costo/Velocidad**
   - **Archivos:** `src/store/useIntegrationsStore.ts`, `src/services/plottioAgent.ts`, `src/components/FinOpsMetricsPanel.tsx`, `src/services/aiModelsDiscovery.ts`, `tests/multiProviderFallback.test.ts`
   - **Requerimiento:**
     1. En `useIntegrationsStore.ts`: Añadir campos en `ai`: `backupProvider: AiProvider | null`, `backupModel: string | null`.

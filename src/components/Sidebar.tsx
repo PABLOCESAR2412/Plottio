@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import {
 	Bell,
+	Bot,
 	Building2,
 	CalendarDays,
 	Car,
@@ -29,6 +30,7 @@ import PlottioLogo from "./PlottioLogo";
 interface SidebarProps {
 	activeTab:
 		| "dashboard"
+		| "asistente"
 		| "clientes"
 		| "empresas"
 		| "vehiculos"
@@ -43,6 +45,7 @@ interface SidebarProps {
 	onNavigate: (
 		tab:
 			| "dashboard"
+			| "asistente"
 			| "clientes"
 			| "empresas"
 			| "vehiculos"
@@ -164,6 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 	type MenuItem = {
 		id:
 			| "dashboard"
+			| "asistente"
 			| "clientes"
 			| "empresas"
 			| "vehiculos"
@@ -183,6 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 	const menuItems: readonly MenuItem[] = [
 		{ id: "dashboard", label: "Panel", icon: LayoutDashboard },
+		{ id: "asistente", label: "Plottio Asistente", icon: Bot },
 		{ id: "clientes", label: "Clientes", icon: Users },
 		{ id: "empresas", label: "Empresas", icon: Building2 },
 		{ id: "vehiculos", label: "Vehículos", icon: Car },

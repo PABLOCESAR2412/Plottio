@@ -1,5 +1,48 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type {
+	AgentTelemetry,
+	BusinessCitation,
+	ToolCallExecution,
+} from "../services/plottioAgent";
+
+export interface ChatMessage {
+	id: string;
+	role: "user" | "assistant";
+	text: string;
+	isStreaming?: boolean;
+	citations?: BusinessCitation[];
+	toolsCalled?: ToolCallExecution[];
+	telemetry?: AgentTelemetry;
+	isSecurityAlert?: boolean;
+	timestamp: string;
+}
+
+export interface ConversationThread {
+	id: string;
+	title: string;
+	createdAt: string;
+	updatedAt: string;
+	messages: ChatMessage[];
+}
+
+export const createInitialConversationThread = (): ConversationThread => {
+	const now = new Date().toISOString();
+	return {
+		id: `conv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+		title: "Nueva conversación",
+		createdAt: now,
+		updatedAt: now,
+		messages: [
+			{
+				id: "welcome",
+				role: "assistant",
+				text: "¡Hola! Soy Plottio Asistente, tu copiloto operacional con Agentic RAG. Cuento con herramientas de negocio para consultar y gestionar órdenes de trabajo, inventario de vinilos, clientes, cotizaciones y vehículos de flota.",
+				timestamp: "Ahora",
+			},
+		],
+	};
+};
 
 export interface WhatsAppMessage {
 	id: string;
@@ -46,14 +89,21 @@ export type AiTimeFilter = "dia" | "semana" | "15dias" | "1mes" | "intervalos";
 
 export const AI_MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
 	google: [
-		"Gemini 3.8 Flash",
+		"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
 		"Gemini 3.7 Flash",
+		"Gemini Flash Lite",
 		"Gemini Flash Latest",
-		"Gemini Pro Latest",
 	],
-	groq: ["Llama 3.3 70B Versatile", "Llama 3.1 8B Instant", "Mixtral 8x7B"],
-	opencode_zen: ["DeepSeek R1", "DeepSeek V3", "Qwen 2.5 Coder"],
-	nvidia: ["Nemotron 70B", "Llama 3.1 Nemotron 70B Ultra", "Mistral NeMo"],
+	groq: [
+		"Llama 3.3 70B Versatile (Recomendado · Alto Rendimiento)",
+		"Llama 3.1 8B Instant (Ultra Rápido y Económico)",
+		"Mixtral 8x7B",
+	],
+	opencode_zen: ["DeepSeek V3 (Recomendado · Económico)", "Qwen 2.5 Coder 32B"],
+	nvidia: [
+		"Llama 3.1 Nemotron 70B (Recomendado)",
+		"Mistral NeMo 12B (Económico)",
+	],
 };
 
 interface IntegrationsState {
@@ -96,6 +146,8 @@ interface IntegrationsState {
 	// 3. Modelos de IA & FinOps Multi-Proveedor
 	ai: {
 		provider: AiProvider | "gemini" | "openai" | "custom";
+		backupProvider: AiProvider | null;
+		backupModel: string | null;
 		googleApiKey: string;
 		groqApiKey: string;
 		opencodeZenApiKey: string;
@@ -143,6 +195,19 @@ interface IntegrationsState {
 	updateRagConfig: (config: Partial<IntegrationsState["rag"]>) => void;
 	indexKnowledgeBase: () => Promise<void>;
 	clearKnowledgeIndex: () => void;
+
+	// Historial de Conversaciones Persistente
+	conversations: ConversationThread[];
+	activeConversationId: string | null;
+	createConversation: (title?: string) => string;
+	selectConversation: (id: string) => void;
+	deleteConversation: (id: string) => void;
+	addMessageToActiveConversation: (message: ChatMessage) => void;
+	updateActiveConversationMessage: (
+		messageId: string,
+		updates: Partial<ChatMessage>,
+	) => void;
+	clearActiveConversation: () => void;
 
 	// 5. Hub Centralizado de Webhooks
 	webhooks: WebhookConfig[];
@@ -301,6 +366,8 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			// 3. IA & FinOps Multi-Proveedor
 			ai: {
 				provider: "google",
+				backupProvider: null,
+				backupModel: null,
 				googleApiKey:
 					getEnv("VITE_GEMINI_API_KEY") || getEnv("VITE_GOOGLE_API_KEY"),
 				groqApiKey: getEnv("VITE_GROQ_API_KEY"),
@@ -311,7 +378,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					getEnv("VITE_GEMINI_API_KEY") || getEnv("VITE_GOOGLE_API_KEY"),
 				openaiApiKey: getEnv("VITE_OPENAI_API_KEY"),
 				customEndpoint: "https://ai.internal.plottio.com/v1",
-				activeModel: "Gemini 3.8 Flash",
+				activeModel: "Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
 				monthlyBudgetUSD: 150.0,
 				currentSpendUSD: 0,
 				tokensToday: 0,
@@ -474,6 +541,162 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					},
 				})),
 
+			// Historial de Conversaciones Persistente
+			conversations: [createInitialConversationThread()],
+			activeConversationId: null,
+			createConversation: (title?: string) => {
+				const newThread = createInitialConversationThread();
+				if (title) {
+					newThread.title = title;
+				}
+				set((state) => ({
+					conversations: [newThread, ...(state.conversations || [])],
+					activeConversationId: newThread.id,
+				}));
+				return newThread.id;
+			},
+			selectConversation: (id: string) => {
+				set(() => ({
+					activeConversationId: id,
+				}));
+			},
+			deleteConversation: (id: string) => {
+				set((state) => {
+					const remaining = (state.conversations || []).filter(
+						(c) => c.id !== id,
+					);
+					if (remaining.length === 0) {
+						const newThread = createInitialConversationThread();
+						return {
+							conversations: [newThread],
+							activeConversationId: newThread.id,
+						};
+					}
+					const nextActiveId =
+						state.activeConversationId === id
+							? remaining[0].id
+							: state.activeConversationId;
+					return {
+						conversations: remaining,
+						activeConversationId: nextActiveId,
+					};
+				});
+			},
+			addMessageToActiveConversation: (message: ChatMessage) => {
+				set((state) => {
+					let currentConversations = [...(state.conversations || [])];
+					let activeId = state.activeConversationId;
+
+					if (currentConversations.length === 0) {
+						const initial = createInitialConversationThread();
+						currentConversations = [initial];
+						activeId = initial.id;
+					} else if (
+						!activeId ||
+						!currentConversations.some((c) => c.id === activeId)
+					) {
+						activeId = currentConversations[0].id;
+					}
+
+					const convIndex = currentConversations.findIndex(
+						(c) => c.id === activeId,
+					);
+					if (convIndex === -1) return state;
+
+					const conv = currentConversations[convIndex];
+					let nextTitle = conv.title;
+
+					if (
+						message.role === "user" &&
+						(conv.messages.length <= 1 || conv.title === "Nueva conversación")
+					) {
+						const textClean = message.text.trim();
+						if (textClean) {
+							const words = textClean.split(/\s+/).slice(0, 6).join(" ");
+							nextTitle =
+								words.length > 36 ? `${words.substring(0, 36)}...` : words;
+						}
+					}
+
+					const updatedConv: ConversationThread = {
+						...conv,
+						title: nextTitle,
+						updatedAt: new Date().toISOString(),
+						messages: [...conv.messages, message],
+					};
+
+					currentConversations[convIndex] = updatedConv;
+
+					return {
+						conversations: currentConversations,
+						activeConversationId: activeId,
+					};
+				});
+			},
+			updateActiveConversationMessage: (
+				messageId: string,
+				updates: Partial<ChatMessage>,
+			) => {
+				set((state) => {
+					const activeId =
+						state.activeConversationId || state.conversations[0]?.id;
+					if (!activeId) return state;
+
+					const convIndex = state.conversations.findIndex(
+						(c) => c.id === activeId,
+					);
+					if (convIndex === -1) return state;
+
+					const conv = state.conversations[convIndex];
+					const updatedMessages = conv.messages.map((m) =>
+						m.id === messageId ? { ...m, ...updates } : m,
+					);
+
+					const updatedConversations = [...state.conversations];
+					updatedConversations[convIndex] = {
+						...conv,
+						messages: updatedMessages,
+						updatedAt: new Date().toISOString(),
+					};
+
+					return {
+						conversations: updatedConversations,
+					};
+				});
+			},
+			clearActiveConversation: () => {
+				set((state) => {
+					const activeId =
+						state.activeConversationId || state.conversations[0]?.id;
+					if (!activeId) return state;
+
+					const convIndex = state.conversations.findIndex(
+						(c) => c.id === activeId,
+					);
+					if (convIndex === -1) return state;
+
+					const conv = state.conversations[convIndex];
+					const initialWelcome: ChatMessage = {
+						id: "welcome",
+						role: "assistant",
+						text: "¡Hola! Soy Plottio Asistente, tu copiloto operacional con Agentic RAG. Cuento con herramientas de negocio para consultar y gestionar órdenes de trabajo, inventario de vinilos, clientes, cotizaciones y vehículos de flota.",
+						timestamp: "Ahora",
+					};
+
+					const updatedConversations = [...state.conversations];
+					updatedConversations[convIndex] = {
+						...conv,
+						title: "Nueva conversación",
+						updatedAt: new Date().toISOString(),
+						messages: [initialWelcome],
+					};
+
+					return {
+						conversations: updatedConversations,
+					};
+				});
+			},
+
 			// 7. Webhooks
 			webhooks: [
 				{
@@ -590,15 +813,28 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					if (
 						state.ai.activeModel === "Gemini 2.0 Flash" ||
 						state.ai.activeModel === "Gemini 1.5 Flash" ||
-						state.ai.activeModel === "Gemini 2.5 Flash"
+						state.ai.activeModel === "Gemini 2.5 Flash" ||
+						state.ai.activeModel === "Gemini 3.8 Flash"
 					) {
-						state.ai.activeModel = "Gemini 3.8 Flash";
+						state.ai.activeModel =
+							"Gemini 3.8 Flash (Recomendado · Rápido y Económico)";
 					} else if (
 						state.ai.activeModel === "Gemini 1.5 Pro" ||
 						state.ai.activeModel === "Gemini 2.5 Pro"
 					) {
 						state.ai.activeModel = "Gemini Pro Latest";
 					}
+				}
+				// Historial de Conversaciones Persistente
+				if (!state.conversations || state.conversations.length === 0) {
+					const initialThread = createInitialConversationThread();
+					state.conversations = [initialThread];
+					state.activeConversationId = initialThread.id;
+				} else if (
+					!state.activeConversationId ||
+					!state.conversations.some((c) => c.id === state.activeConversationId)
+				) {
+					state.activeConversationId = state.conversations[0].id;
 				}
 			},
 		},
