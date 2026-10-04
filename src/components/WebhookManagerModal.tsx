@@ -192,8 +192,9 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 											</button>
 										</div>
 										<p className="text-[11px] text-muted-foreground mt-1">
-											Configura esta URL en el Cloudflare Worker o pasarela de
-											WhatsApp para recibir eventos entrantes.
+											Configura esta URL canónica
+											(https://plottio.vercel.app/api/webhooks) en tus pasarelas
+											y servicios externos para recibir eventos entrantes.
 										</p>
 									</div>
 
@@ -219,14 +220,14 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 												id="inbound-secret-field"
 												type="text"
 												readOnly
-												value={inboundSecret || "whsec_acadia_wha_2026"}
+												value={inboundSecret || "whsec_plottio_wha_2026"}
 												className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground select-all focus:outline-none"
 											/>
 											<button
 												type="button"
 												onClick={() =>
 													handleCopy(
-														inboundSecret || "whsec_acadia_wha_2026",
+														inboundSecret || "whsec_plottio_wha_2026",
 														"inSecret",
 													)
 												}

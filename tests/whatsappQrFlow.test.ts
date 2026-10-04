@@ -190,7 +190,7 @@ describe("Tarea 25 (P1 - Fase 4): WhatsApp — Ocultación de Credenciales y Vis
 
 			expect(screen.getByText("plottio-central")).toBeDefined();
 			expect(
-				screen.getByText("https://acadia.simcodec.workers.dev/api/webhook/wha"),
+				screen.getByText("https://plottio.vercel.app/api/webhook/wha"),
 			).toBeDefined();
 		});
 

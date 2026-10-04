@@ -432,16 +432,19 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 			fireEvent.click(configTab);
 
 			expect(
-				screen.getByText(/Configuración del Asistente & Modelo LLM/i),
+				screen.getByText(/Configuración del Asistente/i),
 			).toBeDefined();
 
-			// Inputs de configuración
+			// Verifica que 'Modelo LLM Asignado:' fue eliminado de la interfaz
+			expect(screen.queryByLabelText(/Modelo LLM Asignado:/i)).toBeNull();
+
+			// Inputs de configuración disponibles
 			const nameInput = screen.getByLabelText(/Nombre del Asistente:/i);
 			fireEvent.change(nameInput, { target: { value: "Plottio AI Master" } });
 
-			const modelSelect = screen.getByLabelText(/Modelo LLM Asignado:/i);
-			fireEvent.change(modelSelect, {
-				target: { value: "llama-3.3-70b-versatile" },
+			const promptInput = screen.getByLabelText(/Prompt del Sistema \/ Instrucciones:/i);
+			fireEvent.change(promptInput, {
+				target: { value: "Instrucciones de prueba para el agente maestro." },
 			});
 
 			const saveButton = screen.getByRole("button", {
@@ -457,7 +460,7 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 			// Store actualizado
 			const updatedAgent = useIntegrationsStore.getState().agent;
 			expect(updatedAgent.nombre).toBe("Plottio AI Master");
-			expect(updatedAgent.model).toBe("llama-3.3-70b-versatile");
+			expect(updatedAgent.systemPrompt).toBe("Instrucciones de prueba para el agente maestro.");
 		});
 	});
 

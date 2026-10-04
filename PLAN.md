@@ -255,4 +255,26 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
        - Input de mensaje con auto-resize, botones de acción rápida y atajos visuales accesibles.
   - **Criterios de Aceptación:** Chat de Plottio Asistente con estética premium, responsive, accesible y sin clutter visual.
 
+---
+
+## Fase 5: Correcciones de Producción — Webhooks Plottio, Sanitización WhatsApp y Asistente Real
+
+- [x] **Tarea 27 (P1): Webhooks de Dominio Plottio, Sanitización de URLs de WhatsApp y Activación Real de Plottio Asistente**
+  - **Archivos:** `src/store/useIntegrationsStore.ts`, `src/components/WhatsAppConfigModal.tsx`, `src/components/WebhookManagerModal.tsx`, `src/components/PlottioAsistenteModal.tsx`, `src/services/plottioAgent.ts`, `tests/produccionCorrections.test.ts`
+  - **Requerimiento:**
+    1. **Sanitización de URL de WhatsApp & Fix error 404:**
+       - Purgar y auto-sanitizar cualquier residuo de `evolution-api-0q39.onrender.com` o URLs obsoletas en localStorage y estado inicial.
+       - Establecer URL oficial por defecto bajo el dominio canónico: `https://plottio.vercel.app/api/webhook/wha`.
+       - En `handleTestConnection`, si el servidor responde 404, no silenciar ni romper, sino desplegar advertencia clara sobre endpoint no encontrado.
+    2. **Dominio Oficial para Webhooks:**
+       - En `useIntegrationsStore.ts` y `WebhookManagerModal.tsx`, usar el dominio de producción actual `https://plottio.vercel.app/` (`https://plottio.vercel.app/api/webhooks`).
+    3. **Plottio Asistente en Modo Real con API Key:**
+       - Detectar reactivamente si existe API key (`googleApiKey`, `groqApiKey`, `nvidiaApiKey`, `opencodeZenApiKey`, `geminiApiKey`).
+       - Si tiene API key, remover banner y badge de "Modo Demostración / Sandbox", mostrando estado "IA Conectada / Operacional".
+       - Conectar llamada a la API del proveedor configurado cuando la API key esté presente, integrando la respuesta con las herramientas y guardrails de negocio.
+    4. **Limpieza de Configuración del Asistente:**
+       - En la pestaña de Configuración de `PlottioAsistenteModal.tsx`, eliminar el selector `Modelo LLM Asignado:`, preservando `Nombre del Asistente` y `Prompt del Sistema / Instrucciones`.
+  - **Criterios de Aceptación:** Cero llamadas fallidas a onrender; webhooks con dominio `plottio.vercel.app`; asistente en modo operacional real cuando hay API key; configuración sin selector de modelo.
+
+
 

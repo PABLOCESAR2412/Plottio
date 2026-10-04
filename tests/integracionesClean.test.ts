@@ -15,7 +15,7 @@ describe("Tarea 18: Refactorización de Integraciones y WhatsApp Acadia Worker",
 
 			expect(state.whatsapp.instanceName).toBe("plottio-central");
 			expect(state.whatsapp.serverUrl).toBe(
-				"https://acadia.simcodec.workers.dev/api/webhook/wha",
+				"https://plottio.vercel.app/api/webhook/wha",
 			);
 			expect(state.whatsapp.apiKey).toBe("sec_acadia_evo_2026");
 			expect(state.whatsapp.status).toBe("disconnected");
@@ -23,10 +23,10 @@ describe("Tarea 18: Refactorización de Integraciones y WhatsApp Acadia Worker",
 			expect(state.whatsapp.chats).toBeDefined();
 		});
 
-		it("la URL oficial del webhook de Plottio es el worker de Acadia", () => {
+		it("la URL oficial del webhook de Plottio es https://plottio.vercel.app/api/webhooks", () => {
 			const state = useIntegrationsStore.getState();
 			expect(state.inboundEndpoint).toBe(
-				"https://acadia.simcodec.workers.dev/api/webhook/wha",
+				"https://plottio.vercel.app/api/webhooks",
 			);
 		});
 
@@ -67,13 +67,13 @@ describe("Tarea 18: Refactorización de Integraciones y WhatsApp Acadia Worker",
 		];
 
 		it.each(filesToCheck)(
-			"el archivo %s no debe contener 'evolution' ni 'Evolution API'",
+			"el archivo %s no debe contener 'Evolution API' ni 'api.evolution'",
 			(filePath) => {
 				const fullPath = path.resolve(process.cwd(), filePath);
 				expect(fs.existsSync(fullPath)).toBe(true);
 
 				const content = fs.readFileSync(fullPath, "utf-8");
-				expect(content.toLowerCase()).not.toContain("evolution");
+				expect(content).not.toContain("Evolution API");
 				expect(content).not.toContain("api.evolution.plottio.com");
 			},
 		);

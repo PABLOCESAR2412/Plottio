@@ -186,8 +186,8 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			// 1. WhatsApp
 			whatsapp: {
 				instanceName: "plottio-central",
-				serverUrl: "https://acadia.simcodec.workers.dev/api/webhook/wha",
-				apiUrl: "https://acadia.simcodec.workers.dev/api/webhook/wha",
+				serverUrl: "https://plottio.vercel.app/api/webhook/wha",
+				apiUrl: "https://plottio.vercel.app/api/webhook/wha",
 				apiKey: getEnv("VITE_WHATSAPP_API_KEY") || "sec_acadia_evo_2026",
 				status: "disconnected",
 				qrCode: null,
@@ -490,7 +490,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					createdAt: "2026-05-20",
 				},
 			],
-			inboundEndpoint: "https://acadia.simcodec.workers.dev/api/webhook/wha",
+			inboundEndpoint: "https://plottio.vercel.app/api/webhooks",
 			inboundSecret: getEnv("VITE_INBOUND_SECRET"),
 			inboundLogs: [],
 			addWebhook: (name, url, events) =>
@@ -529,6 +529,30 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 		}),
 		{
 			name: "plottio_integrations_store_v1",
+			onRehydrateStorage: () => (state) => {
+				if (!state) return;
+				if (
+					state.whatsapp?.serverUrl?.includes("onrender.com") ||
+					state.whatsapp?.serverUrl?.includes("evolution") ||
+					state.whatsapp?.serverUrl?.includes("acadia.simcodec.workers.dev")
+				) {
+					state.whatsapp.serverUrl =
+						"https://plottio.vercel.app/api/webhook/wha";
+				}
+				if (
+					state.whatsapp?.apiUrl?.includes("onrender.com") ||
+					state.whatsapp?.apiUrl?.includes("evolution") ||
+					state.whatsapp?.apiUrl?.includes("acadia.simcodec.workers.dev")
+				) {
+					state.whatsapp.apiUrl = "https://plottio.vercel.app/api/webhook/wha";
+				}
+				if (
+					state.inboundEndpoint?.includes("acadia.simcodec.workers.dev") ||
+					state.inboundEndpoint?.includes("plottio.app")
+				) {
+					state.inboundEndpoint = "https://plottio.vercel.app/api/webhooks";
+				}
+			},
 		},
 	),
 );

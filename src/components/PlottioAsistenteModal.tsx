@@ -28,7 +28,7 @@ import {
 	ASISTENTE_SEGURIDAD_RECHAZO,
 	BUSINESS_TOOLS,
 	type BusinessCitation,
-	executeBusinessAgent,
+	executeLiveBusinessAgent,
 	isRestrictedAction,
 	type ToolCallExecution,
 } from "../services/plottioAgent";
@@ -88,12 +88,21 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	const {
 		agent,
 		rag,
+		ai,
 		updateAgentConfig,
 		updateRagConfig,
 		indexKnowledgeBase,
 		clearKnowledgeIndex,
 		recordAiUsage,
 	} = useIntegrationsStore();
+
+	const hasApiKey = Boolean(
+		ai?.googleApiKey ||
+			ai?.groqApiKey ||
+			ai?.nvidiaApiKey ||
+			ai?.opencodeZenApiKey ||
+			ai?.geminiApiKey,
+	);
 
 	const [query, setQuery] = useState("");
 	const [activeTab, setActiveTab] = useState<"chat" | "config" | "tools">(
@@ -201,7 +210,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	};
 
 	// Envío de consulta y orquestación de herramientas
-	const executeQuery = (textToSubmit: string) => {
+	const executeQuery = async (textToSubmit: string) => {
 		const currentText = textToSubmit.trim();
 		if (!currentText || rag.indexedDocumentsCount === 0) return;
 
@@ -235,12 +244,17 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			return;
 		}
 
-		// 2. Ejecutar Agentic RAG de Negocio
-		const executionResult = executeBusinessAgent(currentText, {
-			assistantName: configNombre,
-			model: configModel,
-			temperature: configTemperature,
-		});
+		// 2. Determinar API Key activa
+		const activeApiKey =
+			ai?.provider === "google"
+				? ai?.googleApiKey || ai?.geminiApiKey
+				: ai?.provider === "groq"
+					? ai?.groqApiKey
+					: ai?.provider === "nvidia"
+						? ai?.nvidiaApiKey
+						: ai?.provider === "opencode_zen"
+							? ai?.opencodeZenApiKey
+							: ai?.googleApiKey || ai?.geminiApiKey || ai?.groqApiKey || "";
 
 		const assistantMsgId = `assistant-${Date.now()}`;
 		const assistantMsg: ChatMessage = {
@@ -248,8 +262,6 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			role: "assistant",
 			text: "",
 			isStreaming: true,
-			toolsCalled: executionResult.toolsCalled,
-			citations: executionResult.citations,
 			timestamp: new Date().toLocaleTimeString([], {
 				hour: "2-digit",
 				minute: "2-digit",
@@ -261,6 +273,31 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		if (textareaRef.current) {
 			textareaRef.current.style.height = "auto";
 		}
+
+		// 3. Ejecutar Agentic RAG de Negocio (en vivo si hay apiKey o con fallback automático)
+		const startTime = Date.now();
+		const executionResult = await executeLiveBusinessAgent(currentText, {
+			assistantName: configNombre,
+			systemPrompt: configSystemPrompt,
+			apiKey: activeApiKey,
+			provider: ai?.provider || "google",
+			temperature: configTemperature,
+			model: configModel,
+		});
+		const latencyMs = Date.now() - startTime;
+
+		// Actualizar mensaje con herramientas y citas
+		setMessages((prev) =>
+			prev.map((m) =>
+				m.id === assistantMsgId
+					? {
+							...m,
+							toolsCalled: executionResult.toolsCalled,
+							citations: executionResult.citations,
+						}
+					: m,
+			),
+		);
 
 		// Efecto máquina de escribir (Streaming interactivo)
 		const words = executionResult.response.split(" ");
@@ -288,9 +325,13 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							: m,
 					),
 				);
-				recordAiUsage(rag.maxTokens, Number(getCostPerCallUSD(rag.maxTokens)));
+				recordAiUsage(
+					rag.maxTokens,
+					Number(getCostPerCallUSD(rag.maxTokens)),
+					latencyMs,
+				);
 			}
-		}, 25);
+		}, 20);
 	};
 
 	const handleSubmit = (e: React.FormEvent) => {
@@ -343,9 +384,24 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 								<h3 className="text-base font-bold text-foreground tracking-tight">
 									{configNombre || "Plottio Asistente"}
 								</h3>
-								<span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-									Modo Demostración / Sandbox
-								</span>
+								{hasApiKey ? (
+									<span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+										<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+										IA Conectada (
+										{ai?.provider === "google"
+											? "Google Gemini"
+											: ai?.provider === "groq"
+												? "Groq Cloud"
+												: ai?.provider === "nvidia"
+													? "Nvidia NIM"
+													: "Opencode Zen"}
+										)
+									</span>
+								) : (
+									<span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+										Modo Demostración / Sandbox
+									</span>
+								)}
 								{rag.indexedDocumentsCount > 0 ? (
 									<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
 										<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -420,19 +476,21 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 					</div>
 				</div>
 
-				{/* Sandbox / Demo Mode Banner */}
-				<div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300 shrink-0">
-					<div className="flex items-center gap-2">
-						<span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 uppercase tracking-wide">
-							Modo Demostración / Sandbox (IA Simulada)
-						</span>
-						<span className="text-[11px] leading-tight">
-							Aviso para el operador: Los análisis, inferencias y
-							recomendaciones son una maqueta interactiva simulada con ejecución
-							autónoma de herramientas de negocio.
-						</span>
+				{/* Sandbox / Demo Mode Banner - Solo visible si NO hay API Key */}
+				{!hasApiKey && (
+					<div className="bg-amber-500/10 border-b border-amber-500/20 px-5 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300 shrink-0">
+						<div className="flex items-center gap-2">
+							<span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 uppercase tracking-wide">
+								Modo Demostración / Sandbox (IA Simulada)
+							</span>
+							<span className="text-[11px] leading-tight">
+								Aviso para el operador: Los análisis, inferencias y
+								recomendaciones son una maqueta interactiva simulada con
+								ejecución autónoma de herramientas de negocio.
+							</span>
+						</div>
 					</div>
-				</div>
+				)}
 
 				{/* TAB 1: HERRAMIENTAS DE NEGOCIO */}
 				{activeTab === "tools" && (
@@ -527,50 +585,22 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							</button>
 						</div>
 
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							{/* Nombre del Asistente */}
-							<div className="space-y-1.5">
-								<label
-									htmlFor="agent-name-input"
-									className="font-semibold text-foreground text-xs"
-								>
-									Nombre del Asistente:
-								</label>
-								<input
-									id="agent-name-input"
-									type="text"
-									value={configNombre}
-									onChange={(e) => setConfigNombre(e.target.value)}
-									className="w-full bg-background border border-border/80 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary shadow-2xs"
-									placeholder="Plottio Asistente"
-								/>
-							</div>
-
-							{/* Modelo LLM */}
-							<div className="space-y-1.5">
-								<label
-									htmlFor="agent-model-select"
-									className="font-semibold text-foreground text-xs"
-								>
-									Modelo LLM Asignado:
-								</label>
-								<select
-									id="agent-model-select"
-									value={configModel}
-									onChange={(e) => setConfigModel(e.target.value)}
-									className="w-full bg-background border border-border/80 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary shadow-2xs cursor-pointer"
-								>
-									<option value="gemini-1.5-pro">Google Gemini 1.5 Pro</option>
-									<option value="gemini-1.5-flash">
-										Google Gemini 1.5 Flash
-									</option>
-									<option value="llama-3.3-70b-versatile">
-										Groq Llama 3.3 70B
-									</option>
-									<option value="gpt-4o">OpenAI GPT-4o</option>
-									<option value="gpt-4o-mini">OpenAI GPT-4o Mini</option>
-								</select>
-							</div>
+						{/* Nombre del Asistente */}
+						<div className="space-y-1.5">
+							<label
+								htmlFor="agent-name-input"
+								className="font-semibold text-foreground text-xs"
+							>
+								Nombre del Asistente:
+							</label>
+							<input
+								id="agent-name-input"
+								type="text"
+								value={configNombre}
+								onChange={(e) => setConfigNombre(e.target.value)}
+								className="w-full bg-background border border-border/80 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary shadow-2xs"
+								placeholder="Plottio Asistente"
+							/>
 						</div>
 
 						{/* Prompt del Sistema / Instrucciones */}

@@ -385,3 +385,155 @@ export function executeBusinessAgent(
 		timestamp,
 	};
 }
+
+export interface LiveAgentOptions {
+	assistantName: string;
+	systemPrompt?: string;
+	apiKey?: string;
+	provider?: string;
+	temperature?: number;
+	model?: string;
+}
+
+/**
+ * Ejecuta el agente operacional combinando llamadas reales a LLMs con proveedores
+ * oficiales (Google Gemini, Groq) cuando existe API Key y fallback transparente
+ * ante fallos o ausencia de credenciales.
+ */
+export async function executeLiveBusinessAgent(
+	query: string,
+	options: LiveAgentOptions,
+): Promise<AgentExecutionResult> {
+	const timestamp = new Date().toLocaleTimeString([], {
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+
+	// 1. Guardrail de seguridad: rechazo temprano
+	if (isRestrictedAction(query)) {
+		return {
+			allowed: false,
+			response: ASISTENTE_SEGURIDAD_RECHAZO,
+			toolsCalled: [],
+			citations: [],
+			timestamp,
+		};
+	}
+
+	// 2. Ejecución base de herramientas y citas
+	const baseExecution = executeBusinessAgent(query, {
+		assistantName: options.assistantName,
+		model: options.model,
+		temperature: options.temperature,
+	});
+
+	// Si no hay API Key, retornar respuesta base
+	if (!options.apiKey || !options.apiKey.trim()) {
+		return baseExecution;
+	}
+
+	const apiKey = options.apiKey.trim();
+	const provider = options.provider?.toLowerCase() || "google";
+	const systemPrompt =
+		options.systemPrompt ||
+		"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.";
+
+	const toolsContext = baseExecution.toolsCalled
+		.map((t) => `[Herramienta ${t.toolName}]: ${t.outputSummary}`)
+		.join("\n");
+	const citationsContext = baseExecution.citations
+		.map((c) => `[Referencia ${c.title}]: ${c.snippet}`)
+		.join("\n");
+
+	const combinedContext = `${systemPrompt}\n\nContexto operacional y herramientas ejecutadas:\n${toolsContext}\n${citationsContext}\n\nInstrucción: Integra estos datos y genera una respuesta profesional y técnica para el operador.`;
+
+	try {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+		let liveText = "";
+
+		if (provider === "google" || provider === "gemini") {
+			const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+			const res = await fetch(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					contents: [
+						{
+							role: "user",
+							parts: [
+								{
+									text: `${combinedContext}\n\nConsulta del operador: ${query}`,
+								},
+							],
+						},
+					],
+					generationConfig: {
+						temperature: options.temperature ?? 0.2,
+					},
+				}),
+				signal: controller.signal,
+			});
+			clearTimeout(timeoutId);
+
+			if (res.ok) {
+				const data = (await res.json()) as {
+					candidates?: Array<{
+						content?: { parts?: Array<{ text?: string }> };
+					}>;
+				};
+				const partText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+				if (partText && typeof partText === "string" && partText.trim()) {
+					liveText = partText.trim();
+				}
+			}
+		} else if (provider === "groq") {
+			const modelName = options.model || "llama-3.3-70b-versatile";
+			const url = "https://api.groq.com/openai/v1/chat/completions";
+			const res = await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${apiKey}`,
+				},
+				body: JSON.stringify({
+					model: modelName,
+					messages: [
+						{ role: "system", content: combinedContext },
+						{ role: "user", content: query },
+					],
+					temperature: options.temperature ?? 0.2,
+				}),
+				signal: controller.signal,
+			});
+			clearTimeout(timeoutId);
+
+			if (res.ok) {
+				const data = (await res.json()) as {
+					choices?: Array<{ message?: { content?: string } }>;
+				};
+				const choiceText = data.choices?.[0]?.message?.content;
+				if (choiceText && typeof choiceText === "string" && choiceText.trim()) {
+					liveText = choiceText.trim();
+				}
+			}
+		} else {
+			clearTimeout(timeoutId);
+		}
+
+		if (liveText) {
+			return {
+				allowed: true,
+				response: liveText,
+				toolsCalled: baseExecution.toolsCalled,
+				citations: baseExecution.citations,
+				timestamp,
+			};
+		}
+
+		return baseExecution;
+	} catch {
+		return baseExecution;
+	}
+}

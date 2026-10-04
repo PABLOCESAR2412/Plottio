@@ -20,6 +20,19 @@ interface WhatsAppConfigModalProps {
 	onClose: () => void;
 }
 
+const sanitizeWhatsAppUrl = (url?: string) => {
+	if (!url || !url.trim()) return "https://plottio.vercel.app/api/webhook/wha";
+	const val = url.trim();
+	if (
+		val.includes("onrender.com") ||
+		val.includes("evolution") ||
+		val.includes("acadia.simcodec.workers.dev")
+	) {
+		return "https://plottio.vercel.app/api/webhook/wha";
+	}
+	return val;
+};
+
 export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 	isOpen,
 	onClose,
@@ -42,8 +55,8 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 		() => !hasSavedCredentials,
 	);
 	const [instanceName, setInstanceName] = useState(whatsapp.instanceName || "");
-	const [serverUrl, setServerUrl] = useState(
-		whatsapp.serverUrl || whatsapp.apiUrl || "",
+	const [serverUrl, setServerUrl] = useState(() =>
+		sanitizeWhatsAppUrl(whatsapp.serverUrl || whatsapp.apiUrl),
 	);
 	const [apiKey, setApiKey] = useState(whatsapp.apiKey || "");
 	const [showApiKey, setShowApiKey] = useState(false);
@@ -59,7 +72,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 	useEffect(() => {
 		if (isOpen) {
 			setInstanceName(whatsapp.instanceName || "");
-			setServerUrl(whatsapp.serverUrl || whatsapp.apiUrl || "");
+			setServerUrl(sanitizeWhatsAppUrl(whatsapp.serverUrl || whatsapp.apiUrl));
 			setApiKey(whatsapp.apiKey || "");
 			setTestResult(null);
 
@@ -152,6 +165,10 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 				if (res.ok || res.status === 200 || res.status === 204) {
 					isSuccess = true;
 					statusDetail = `HTTP ${res.status} OK`;
+				} else if (res.status === 404) {
+					isSuccess = false;
+					statusDetail =
+						"Error HTTP 404: Endpoint no encontrado en el servidor. Verifica que la URL esté configurada correctamente hacia https://plottio.vercel.app/api/webhook/wha.";
 				} else if (res.status === 401 || res.status === 403) {
 					isSuccess = false;
 					statusDetail = `Fallo de autenticación (HTTP ${res.status}): Secreto 'x-webhook-secret' no reconocido.`;
@@ -273,7 +290,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 							instanceName={whatsapp.instanceName}
 							serverUrl={
 								whatsapp.serverUrl ||
-								"https://acadia.simcodec.workers.dev/api/webhook/wha"
+								"https://plottio.vercel.app/api/webhook/wha"
 							}
 							onRefresh={refreshWhatsAppQr}
 							onDisconnect={handleDisconnect}
@@ -328,12 +345,11 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 									required
 									value={serverUrl}
 									onChange={(e) => setServerUrl(e.target.value)}
-									placeholder="https://acadia.simcodec.workers.dev/api/webhook/wha"
+									placeholder="https://plottio.vercel.app/api/webhook/wha"
 									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
 								/>
 								<p className="text-[11px] text-muted-foreground mt-1">
-									Endpoint receptor del Cloudflare Worker (por defecto: Acadia
-									Worker).
+									Endpoint receptor oficial de WhatsApp (Plottio Gateway).
 								</p>
 							</div>
 

@@ -15,7 +15,7 @@ describe("useIntegrationsStore - Seguridad y Gestión de Credenciales", () => {
 		// WhatsApp
 		expect(initialState.whatsapp.apiKey).toBe("sec_acadia_evo_2026");
 		expect(initialState.whatsapp.serverUrl).toBe(
-			"https://acadia.simcodec.workers.dev/api/webhook/wha",
+			"https://plottio.vercel.app/api/webhook/wha",
 		);
 		expect(initialState.whatsapp.instanceName).toBe("plottio-central");
 		expect(initialState.whatsapp.status).toBe("disconnected");
