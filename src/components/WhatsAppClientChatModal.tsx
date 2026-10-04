@@ -78,7 +78,7 @@ export const WhatsAppClientChatModal: React.FC<
 									Modo Demostración / Sandbox
 								</span>
 								<span className="text-[10px] px-1.5 py-0.2 rounded bg-white/20 font-mono">
-									Evolution API
+									WhatsApp
 								</span>
 							</div>
 							<div className="text-[11px] opacity-85 flex items-center gap-1">
@@ -134,7 +134,7 @@ export const WhatsAppClientChatModal: React.FC<
 				<div className="flex-1 overflow-y-auto p-4 space-y-3 bg-secondary/15">
 					<div className="text-center my-1">
 						<span className="text-[10px] px-2.5 py-1 rounded-full bg-card border border-border text-muted-foreground shadow-xs">
-							Canal seguro con Evolution API • Instancia {whatsapp.instanceName}
+							Canal seguro WhatsApp • Instancia {whatsapp.instanceName}
 						</span>
 					</div>
 

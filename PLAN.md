@@ -155,3 +155,63 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     5. Asegurar paso del 100% de los tests (`bun run test`) y compilación limpia (`bun run build`).
   - **Criterios de Aceptación:** Sesiones corruptas o IDs huérfanos se auto-purgan limpiamente hacia `LoginView` sin romper con errores fatales de Convex ni bloquear al usuario.
 
+---
+
+## Fase 3: Integraciones, Plottio Asistente RAG, Limpieza de Dominio y Bug de Clientes/Empresas
+
+- [x] **Tarea 17 (P0): Corrección del bug de creación simultánea de Cliente y Empresa en `ClientesView.tsx`**
+  - **Archivos:** `src/components/ClientesView.tsx`, `convex/clientes.ts`, `convex/organizacion.ts`, `tests/clienteEmpresaCreation.test.ts`
+  - **Requerimiento:**
+    1. En `ClientesView.tsx`, al seleccionar "Crear cliente y empresa" tras la consulta de identidad, asegurar que se creen y guarden AMBOS registros: el cliente y la empresa.
+    2. Evitar que `empresaId` del cliente sobrescriba el ID del tenant de la organización (el taller); vincular la empresa cliente a través de `empresaVinculadaId` conservando `cliente.empresaId` del tenant actual.
+    3. Asegurar que `createEmpresa` o una mutación dedicada de Empresa Cliente no bloquee a usuarios no-SuperAdmin al registrar clientes corporativos del taller.
+    4. Ambos registros deben quedar visibles inmediatamente en la lista de clientes y empresas del taller.
+  - **Criterios de Aceptación:** Al crear cliente con empresa asociada, ambos se crean en la BD de Convex y aparecen de inmediato en sus vistas correspondientes sin perderse el cliente.
+
+- [x] **Tarea 18 (P1): Refactorización de Integraciones — Webhooks limpios y Configuración de WhatsApp (Acadia / Cloudflare Worker)**
+  - **Archivos:** `src/components/ConfiguracionView.tsx`, `src/store/useIntegrationsStore.ts`, `src/components/WhatsAppClientChatModal.tsx`, `tests/integracionesClean.test.ts`
+  - **Requerimiento:**
+    1. En la pestaña de Webhooks de Integraciones: eliminar completamente el simulador de Lead CRM, los logs falsos/registro en vivo (`inboundLogs`) y la guía paso a paso ficticia. Dejar únicamente la gestión real de Webhooks salientes/entrantes.
+    2. Configurar la ruta canónica del webhook de Plottio.
+    3. En WhatsApp: erradicar cualquier referencia a "Evolution API" (nombrarlo únicamente "WhatsApp").
+    4. Integrar protocolo Cloudflare Worker Acadia (`https://acadia.simcodec.workers.dev/api/webhook/wha`) y agregar campos configurables en la UI:
+       - Nombre de la instancia (`instanceName`)
+       - URL del servidor / Webhook (`serverUrl`)
+       - API Key / Secret (`apiKey`)
+  - **Criterios de Aceptación:** UI de webhooks sin simuladores de juguete; WhatsApp configurable con los 3 campos exactos y sin mención a Evolution API.
+
+- [x] **Tarea 19 (P1): Eliminación total de la Integración de Correo Electrónico**
+  - **Archivos:** `src/components/EmailIntegrationModal.tsx`, `src/components/ClientEmailThreadModal.tsx`, `src/routes/index.tsx`, `src/components/ClientesView.tsx`, `src/store/useIntegrationsStore.ts`, `tests/emailRemoval.test.ts`
+  - **Requerimiento:**
+    1. Eliminar los modales y accesos de correo: `EmailIntegrationModal.tsx`, `ClientEmailThreadModal.tsx`.
+    2. Eliminar el botón y shortcut de correo del header global en `src/routes/index.tsx`.
+    3. Eliminar botones de enviar correo en `ClientesView.tsx` y referencias en `useIntegrationsStore.ts`.
+  - **Criterios de Aceptación:** Cero componentes, botones o código huérfano de integración de correo en la aplicación.
+
+- [x] **Tarea 20 (P1): Transformación de APEX Brain a "Plottio Asistente", Erradicación de pgvector y Agentic RAG de Negocio**
+  - **Archivos:** `src/components/ApexBrainModal.tsx` (renombrar o refactorizar a `PlottioAsistenteModal.tsx`), `src/routes/index.tsx`, `src/store/useIntegrationsStore.ts`, `tests/plottioAsistente.test.ts`
+  - **Requerimiento:**
+    1. Renombrar en toda la aplicación "APEX Brain" por "Plottio Asistente".
+    2. Erradicar toda mención y etiqueta de `pgvector` y `768d`.
+    3. Implementar patrón Agentic RAG operacional: el asistente debe tener herramientas/acciones para interactuar exclusivamente con la lógica de negocio (consultar, crear, modificar órdenes, clientes, vehículos, cotizaciones, inventario), bloqueando cualquier acceso a la configuración del sistema, usuarios o roles.
+    4. Agregar opción en la UI para modificar la configuración del asistente (nombre, prompt del sistema/instrucciones, modelo y temperatura).
+  - **Criterios de Aceptación:** UI consistente bajo "Plottio Asistente", sin menciones a pgvector, con configuración editable y límites estrictos a lógica de negocio.
+
+- [x] **Tarea 21 (P1): Panel IA / FinOps Multi-Proveedor (Google, Groq, Opencode Zen, Nvidia) con Métricas y Filtros Temporales**
+  - **Archivos:** `src/components/FinOpsMetricsPanel.tsx`, `src/store/useIntegrationsStore.ts`, `tests/finopsMultiProvider.test.ts`, `tests/integrationsStore.test.ts`
+  - **Requerimiento:**
+    1. En el panel de IA / FinOps, soportar exactamente 4 proveedores: Google, Groq, Opencode Zen y Nvidia.
+    2. Reconocer y permitir selección de los modelos correspondientes a cada proveedor.
+    3. Mostrar métricas de consumo: usos/solicitudes, tokens usados, tokens por segundo, rendimiento/latencia y costo/inversión estimado.
+    4. Implementar filtros temporales: Día (Hoy), Semana (7 días), 15 días, 1 mes (30 días) e Intervalos.
+  - **Criterios de Aceptación:** Panel FinOps operacional con los 4 proveedores, selector dinámico de modelos, métricas y los 5 filtros temporales requeridos.
+
+- [x] **Tarea 22 (P2): Clarificación de Dominio Multi-Tenant (Organización del Taller vs Empresas Clientes B2B)**
+  - **Archivos:** `convex/schema.ts`, `convex/organizacion.ts`, `convex/clientes.ts`, `src/components/EmpresasView.tsx`, `src/components/SucursalesAdmin.tsx`
+  - **Requerimiento:**
+    1. Clarificar la separación de dominio:
+       - Estructura Multi-tenant del Taller: Empresa Matriz, Sucursales y Puntos de Venta (gestión de sedes físicas y empleados).
+       - Empresas Clientes / Flotas: Cooperativas de transporte y clientes B2B (entidad comercial del negocio que posee vehículos y clientes).
+    2. Garantizar que la gestión de Empresas Clientes no requiera rol SuperAdmin del tenant y no altere la configuración de sedes/sucursales del taller.
+  - **Criterios de Aceptación:** Separación limpia de conceptos en UI y backend; usuarios autorizados del taller pueden gestionar flotas y empresas clientes sin conflicto con la estructura multi-sucursal interna.
+

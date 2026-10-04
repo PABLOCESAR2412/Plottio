@@ -1,25 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Mail, Menu, Sparkles } from "lucide-react";
+import { Menu, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { AceptarInvitacionView } from "../components/AceptarInvitacionView";
 import { AgendaView } from "../components/AgendaView";
-import { ApexBrainModal } from "../components/ApexBrainModal";
 import { BugReporter } from "../components/BugReporter";
 import { CatalogoView } from "../components/CatalogoView";
 import { ClientesView } from "../components/ClientesView";
 import { ConfiguracionView } from "../components/ConfiguracionView";
 import { CotizacionesView } from "../components/CotizacionesView";
 import { DashboardView } from "../components/DashboardView";
-import { EmailIntegrationModal } from "../components/EmailIntegrationModal";
 import { EmpresasView } from "../components/EmpresasView";
 import { InventarioView } from "../components/InventarioView";
 import { KitsFlotaView } from "../components/KitsFlotaView";
 import { LoginView } from "../components/LoginView";
 import { LotesProduccionView } from "../components/LotesProduccionView";
 import { OrdenesTrabajoView } from "../components/OrdenesTrabajoView";
+import { PlottioAsistenteModal } from "../components/PlottioAsistenteModal";
 import PlottioLogo from "../components/PlottioLogo";
 import { Sidebar } from "../components/Sidebar";
 import {
@@ -66,8 +65,7 @@ function AppLayout() {
 
 	const [activeTab, setActiveTab] = useState<TabId>("dashboard");
 	const [isOpenMobile, setIsOpenMobile] = useState(false);
-	const [isApexBrainOpen, setIsApexBrainOpen] = useState(false);
-	const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+	const [isPlottioAsistenteOpen, setIsPlottioAsistenteOpen] = useState(false);
 	const [preselectedVehicleId, setPreselectedVehicleId] = useState<
 		string | null
 	>(null);
@@ -222,30 +220,21 @@ function AppLayout() {
 						<div className="flex items-center gap-3">
 							<button
 								type="button"
-								onClick={() => setIsApexBrainOpen(true)}
+								onClick={() => setIsPlottioAsistenteOpen(true)}
 								className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-xs text-muted-foreground transition-colors cursor-pointer shadow-xs"
-								title="Buscar semánticamente con APEX Brain (Cmd+K)"
+								title="Consultar con Plottio Asistente (Cmd+K)"
 							>
 								<Sparkles className="h-3.5 w-3.5 text-primary" />
 								<span className="font-semibold text-foreground">
-									APEX Brain
+									Plottio Asistente
 								</span>
 								<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
 									<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-									Activo (pgvector 768d)
+									RAG Operacional
 								</span>
 								<kbd className="px-1.5 py-0.5 rounded bg-secondary text-[10px] font-mono border border-border">
 									⌘K
 								</kbd>
-							</button>
-
-							<button
-								type="button"
-								onClick={() => setIsEmailModalOpen(true)}
-								className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background hover:bg-secondary text-foreground transition-colors cursor-pointer shrink-0 shadow-xs"
-								title="Configurar Correo Corporativo (SMTP/OAuth2)"
-							>
-								<Mail className="h-4 w-4" />
 							</button>
 
 							<div className="hidden sm:block">
@@ -273,17 +262,11 @@ function AppLayout() {
 			{/* Global Floating Actions */}
 			<BugReporter currentSection={getPageTitle()} />
 
-			{/* APEX BRAIN GLOBAL SEARCH MODAL */}
-			<ApexBrainModal
-				isOpen={isApexBrainOpen}
-				onClose={() => setIsApexBrainOpen(false)}
-				onNavigate={setActiveTab}
-			/>
-
-			{/* CORPORATE EMAIL GLOBAL MODAL */}
-			<EmailIntegrationModal
-				isOpen={isEmailModalOpen}
-				onClose={() => setIsEmailModalOpen(false)}
+			{/* PLOTTIO ASISTENTE GLOBAL MODAL */}
+			<PlottioAsistenteModal
+				isOpen={isPlottioAsistenteOpen}
+				onClose={() => setIsPlottioAsistenteOpen(false)}
+				onNavigate={(tab) => setActiveTab(tab as TabId)}
 			/>
 		</div>
 	);

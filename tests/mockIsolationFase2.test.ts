@@ -5,8 +5,8 @@ import path from "node:path";
 describe("Tarea 13 (P2 - Fase 2): Aislamiento de lógica simulada / Mock Demo Mode", () => {
 	const componentsDir = path.resolve(__dirname, "../src/components");
 
-	describe("ApexBrainModal.tsx", () => {
-		const filePath = path.join(componentsDir, "ApexBrainModal.tsx");
+	describe("PlottioAsistenteModal.tsx", () => {
+		const filePath = path.join(componentsDir, "PlottioAsistenteModal.tsx");
 		const content = fs.readFileSync(filePath, "utf-8");
 
 		it("contiene badge y banner explícito de Sandbox / Modo Demostración (IA Simulada)", () => {
@@ -32,19 +32,6 @@ describe("Tarea 13 (P2 - Fase 2): Aislamiento de lógica simulada / Mock Demo Mo
 
 		it("muestra un estado informativo de envío simulado sin webhook real conectado", () => {
 			expect(content).toMatch(/Simulado - Sin webhook real conectado/);
-		});
-	});
-
-	describe("ClientEmailThreadModal.tsx", () => {
-		const filePath = path.join(componentsDir, "ClientEmailThreadModal.tsx");
-		const content = fs.readFileSync(filePath, "utf-8");
-
-		it("contiene badge superior visible de Sandbox / Modo Demostración", () => {
-			expect(content).toMatch(/Modo Demostración \/ Sandbox/);
-		});
-
-		it("incluye aviso claro de operación en modo simulado sin SMTP externo", () => {
-			expect(content).toMatch(/modo simulado/i);
 		});
 	});
 

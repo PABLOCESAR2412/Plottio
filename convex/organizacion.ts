@@ -34,8 +34,9 @@ export const createEmpresa = mutation({
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
-    if (!isSuperAdmin) {
-      throw new ConvexError("Solo SuperAdmin puede crear empresas");
+    const canCreateCliente = userContext.permisos.includes("crear_cliente");
+    if (!isSuperAdmin && !canCreateCliente) {
+      throw new ConvexError("Solo SuperAdmin o usuarios con permiso 'crear_cliente' pueden crear empresas");
     }
 
     const { usuarioId: _u, ...empresaData } = args;
@@ -79,8 +80,17 @@ export const updateEmpresa = mutation({
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
-    if (!isSuperAdmin) {
-      throw new ConvexError("Solo SuperAdmin puede actualizar empresas");
+    const isOwnEmpresa = Boolean(userContext.empresa && userContext.empresa.id === args.id);
+
+    if (isOwnEmpresa) {
+      if (!isSuperAdmin) {
+        throw new ConvexError("Solo SuperAdmin puede actualizar la empresa del taller");
+      }
+    } else {
+      const canCreateCliente = userContext.permisos.includes("crear_cliente");
+      if (!isSuperAdmin && !canCreateCliente) {
+        throw new ConvexError("Solo SuperAdmin o usuarios con permiso 'crear_cliente' pueden actualizar empresas clientes");
+      }
     }
 
     if (args.ruc && args.ruc.trim() !== "") {
@@ -298,8 +308,17 @@ export const deleteEmpresa = mutation({
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
-    if (!isSuperAdmin) {
-      throw new ConvexError("Solo SuperAdmin puede desactivar empresas");
+    const isOwnEmpresa = Boolean(userContext.empresa && userContext.empresa.id === args.id);
+
+    if (isOwnEmpresa) {
+      if (!isSuperAdmin) {
+        throw new ConvexError("Solo SuperAdmin puede desactivar la empresa del taller");
+      }
+    } else {
+      const canCreateCliente = userContext.permisos.includes("crear_cliente");
+      if (!isSuperAdmin && !canCreateCliente) {
+        throw new ConvexError("Solo SuperAdmin o usuarios con permiso 'crear_cliente' pueden desactivar empresas clientes");
+      }
     }
 
     const empresa = await ctx.db.get(args.id);

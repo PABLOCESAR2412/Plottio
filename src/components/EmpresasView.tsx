@@ -556,8 +556,8 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 	const handleDeleteClick = (emp: LocalEmpresa) => {
 		setAlertConfig({
 			isOpen: true,
-			title: "¿Desactivar Empresa?",
-			message: `¿Quieres desactivar a "${emp.nombre}"? Dejará de aparecer en las listas operativas, pero se conservarán sus sucursales, vehículos e historial.`,
+			title: "¿Desactivar Empresa Cliente?",
+			message: `¿Quieres desactivar la empresa cliente "${emp.nombre}"? Dejará de aparecer en las listas operativas, pero se conservarán sus vehículos e historial.`,
 			type: "delete",
 			onConfirm: async () => {
 				if (!currentUser) return;
@@ -572,9 +572,9 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					}
 					setAlertConfig({
 						isOpen: true,
-						title: "Empresa Desactivada",
+						title: "Empresa Cliente Desactivada",
 						message:
-							"La empresa fue retirada de las listas operativas. Su historial se conserva.",
+							"La empresa cliente fue retirada de las listas operativas. Su historial se conserva.",
 						type: "success",
 					});
 				} catch (err) {
@@ -597,12 +597,19 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		<div className="space-y-6">
 			{/* Header */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				<div>
-					<h1 className="text-3xl font-bold tracking-tight text-foreground">
-						Empresas (Flotas)
-					</h1>
-					<p className="text-muted-foreground">
-						Gestiona flotas de transporte público, cooperativas y corporaciones.
+				<div className="space-y-1">
+					<div className="flex flex-wrap items-center gap-2.5">
+						<h1 className="text-3xl font-bold tracking-tight text-foreground">
+							Empresas Clientes & Flotas Corporativas (B2B)
+						</h1>
+						<span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
+							Clientes B2B
+						</span>
+					</div>
+					<p className="text-muted-foreground text-sm max-w-3xl">
+						Gestión de cuentas comerciales y flotas vehiculares atendidas en el
+						taller. Para administrar las sedes físicas del taller, dirígete a
+						Configuración → Sucursales.
 					</p>
 				</div>
 				<button
@@ -611,7 +618,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 sm:py-2.5 text-[16px] sm:text-sm font-medium text-primary-foreground shadow hover:opacity-90 transition-colors w-full sm:w-auto justify-center"
 				>
 					<Plus className="h-4 w-4" />
-					Nueva Empresa
+					Nueva Empresa Cliente
 				</button>
 			</div>
 
@@ -696,7 +703,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 										type="button"
 										onClick={() => handleOpenEdit(selectedEmpresa)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-secondary transition-colors"
-										title="Editar Empresa"
+										title="Editar Empresa Cliente"
 									>
 										<Edit2 className="h-4 w-4" />
 									</button>
@@ -704,7 +711,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 										type="button"
 										onClick={() => handleDeleteClick(selectedEmpresa)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors"
-										title="Desactivar Empresa"
+										title="Desactivar Empresa Cliente"
 									>
 										<Trash2 className="h-4 w-4" />
 									</button>
@@ -881,7 +888,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					/>
 					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
-							Registrar Nueva Empresa / Flota
+							Registrar Nueva Empresa Cliente / Flota (B2B)
 						</h3>
 						<form onSubmit={handleCreate} className="space-y-4">
 							{/* 1. RUC (PRIMER CAMPO) */}
@@ -1041,7 +1048,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 									type="submit"
 									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
 								>
-									Registrar Empresa
+									Registrar Empresa Cliente
 								</button>
 							</div>
 						</form>
@@ -1060,7 +1067,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					/>
 					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
-							Editar Datos de la Empresa
+							Editar Empresa Cliente / Flota
 						</h3>
 						<form onSubmit={handleEdit} className="space-y-4">
 							<div className="flex items-center gap-4">
@@ -1080,7 +1087,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 										htmlFor="empresa-logo"
 										className="block text-xs font-semibold text-muted-foreground mb-1"
 									>
-										Logo de la Empresa
+										Logo / Distintivo Comercial
 									</label>
 									<input
 										id="empresa-logo"
@@ -1090,8 +1097,8 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 										className="w-full text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground hover:file:bg-secondary/70"
 									/>
 									<p className="text-[10px] text-muted-foreground mt-1">
-										Se reemplazará en la barra lateral y en el favicon. Sube una
-										imagen cuadrada de preferencia.
+										Distintivo visual o marca corporativa de la cuenta comercial
+										cliente.
 									</p>
 								</div>
 							</div>

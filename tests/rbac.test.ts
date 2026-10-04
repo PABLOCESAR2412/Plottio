@@ -473,7 +473,7 @@ describe("RBAC: Protección en convex/organizacion.ts", () => {
 				ruc: "0999999999001",
 				razonSocial: "Nueva Co S.A.",
 			}),
-		).rejects.toThrow("Solo SuperAdmin puede crear empresas");
+		).rejects.toThrow(/Solo SuperAdmin.*crear empresas/);
 
 		// Usuario regular falla al actualizar empresa
 		await expect(
@@ -482,7 +482,7 @@ describe("RBAC: Protección en convex/organizacion.ts", () => {
 				id: "emp_1",
 				nombre: "Empresa Modificada",
 			}),
-		).rejects.toThrow("Solo SuperAdmin puede actualizar empresas");
+		).rejects.toThrow("Solo SuperAdmin puede actualizar la empresa del taller");
 
 		// Usuario regular falla al eliminar empresa
 		await expect(
@@ -490,7 +490,7 @@ describe("RBAC: Protección en convex/organizacion.ts", () => {
 				usuarioId: "u_regular",
 				id: "emp_1",
 			}),
-		).rejects.toThrow("Solo SuperAdmin puede desactivar empresas");
+		).rejects.toThrow("Solo SuperAdmin puede desactivar la empresa del taller");
 
 		// SuperAdmin puede crear empresa
 		const nuevaId = await (createEmpresa as any)._handler(ctx, {

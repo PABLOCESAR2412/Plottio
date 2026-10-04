@@ -24,7 +24,6 @@ import {
 import { validarIdentificacion } from "../lib/identificacion";
 import { useSessionStore } from "../store/useSessionStore";
 import type { Cliente, Empresa, Vehiculo } from "../types/data";
-import { ClientEmailThreadModal } from "./ClientEmailThreadModal";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
 import { WhatsAppClientChatModal } from "./WhatsAppClientChatModal";
@@ -60,6 +59,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
 
 	const createClienteMut = useMutation(api.clientes.createCliente);
+	const createClienteConEmpresaMut = useMutation(
+		api.clientes.createClienteConEmpresa,
+	);
 	const updateClienteMut = useMutation(api.clientes.updateCliente);
 	const deleteClienteMut = useMutation(api.clientes.deleteCliente);
 	const createEmpresaMut = useMutation(api.organizacion.createEmpresa);
@@ -159,9 +161,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	// Selected client for editing
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
 
-	// Modals para integraciones (WhatsApp & Email)
+	// Modal para integración (WhatsApp)
 	const [chatClient, setChatClient] = useState<Cliente | null>(null);
-	const [emailClient, setEmailClient] = useState<Cliente | null>(null);
 
 	// Filter clients by Role and Search Term
 	const filteredClientes = clientes.filter((c) => {
@@ -392,67 +393,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			});
 			return;
 		}
-		let newCli: { _id: string } | null = null;
-		try {
-			newCli = (await createClienteMut({
-				usuarioId: currentUser.id as Id<"usuarios">,
-				nombre: nombre.trim(),
-				telefono: telefono.trim() || "+593 ",
-				email:
-					email.trim() ||
-					`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
-				direccion: direccion.trim(),
-				identificacion: identificacion.trim(),
-			})) as unknown as { _id: string };
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			if (msg.includes("Ya existe un cliente")) {
-				const existing = clientes.find(
-					(c) => c.identificacion?.trim() === identificacion.trim(),
-				);
-				if (existing && pendienteEmpresa && pendingEmpresaData) {
-					setSelectedClientId(existing.id);
-					setLastCreatedClienteId(existing.id);
-					const rucEmpresa =
-						pendingEmpresaData.identificacion.length === 13
-							? pendingEmpresaData.identificacion
-							: `${pendingEmpresaData.identificacion}001`;
-					setEmpresaNombre(
-						pendingEmpresaData.nombreFantasiaComercial ||
-							pendingEmpresaData.nombres,
-					);
-					setEmpresaRuc(rucEmpresa);
-					setEmpresaContactoNombre(pendingEmpresaData.nombres);
-					setEmpresaContactoTelefono(telefono.trim());
-					setEmpresaDireccion(pendingEmpresaData.direccion);
-					setIsCreateOpen(false);
-					setIsEmpresaCreateOpen(true);
-					setPendienteEmpresa(false);
-					return;
-				}
-				setAlertConfig({
-					isOpen: true,
-					title: "Error de Validación",
-					message: `La identificación "${identificacion.trim()}" ya está registrada.`,
-					type: "error",
-				});
-				return;
-			}
-			setAlertConfig({
-				isOpen: true,
-				title: "Error al crear cliente",
-				message: msg,
-				type: "error",
-			});
-			return;
-		}
 
-		if (newCli) {
-			setSelectedClientId(newCli._id);
-			setLastCreatedClienteId(newCli._id);
-		}
-
-		// Si viene del flujo cliente+empresa, abrir modal de empresa prellenado
+		// Si viene del flujo cliente+empresa, abrir modal de empresa para creación simultánea
 		if (pendienteEmpresa && pendingEmpresaData) {
 			const rucEmpresa =
 				pendingEmpresaData.identificacion.length === 13
@@ -468,8 +410,34 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			setEmpresaDireccion(pendingEmpresaData.direccion);
 			setIsCreateOpen(false);
 			setIsEmpresaCreateOpen(true);
-			setPendienteEmpresa(false);
 			return;
+		}
+
+		let newCli: { _id: string } | null = null;
+		try {
+			newCli = (await createClienteMut({
+				usuarioId: currentUser.id as Id<"usuarios">,
+				nombre: nombre.trim(),
+				telefono: telefono.trim() || "+593 ",
+				email:
+					email.trim() ||
+					`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
+				direccion: direccion.trim(),
+				identificacion: identificacion.trim(),
+			})) as unknown as { _id: string };
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			setAlertConfig({
+				isOpen: true,
+				title: "Error al crear cliente",
+				message: msg,
+				type: "error",
+			});
+			return;
+		}
+
+		if (newCli) {
+			setSelectedClientId(newCli._id);
 		}
 
 		setIsCreateOpen(false);
@@ -488,57 +456,68 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		e.preventDefault();
 		if (!empresaNombre.trim() || !empresaRuc.trim() || !currentUser) return;
 
-		const isDuplicate = empresas.some(
-			(em) => em.ruc && em.ruc.trim() === empresaRuc.trim(),
-		);
-		if (isDuplicate) {
-			setAlertConfig({
-				isOpen: true,
-				title: "Error de Validación",
-				message: `El RUC "${empresaRuc.trim()}" ya está registrado en otra empresa.`,
-				type: "error",
-			});
-			return;
-		}
-
 		try {
-			const newEmp = (await createEmpresaMut({
-				usuarioId: currentUser?.id as Id<"usuarios">,
-				nombre: empresaNombre.trim(),
-				ruc: empresaRuc.trim(),
-				razonSocial: empresaContactoNombre.trim() || empresaNombre.trim(),
-				email: "",
-				telefono: empresaContactoTelefono.trim() || "",
-				direccion: empresaDireccion.trim() || "",
-			})) as unknown as { _id: string };
+			let finalClienteId: string | null = lastCreatedClienteId;
 
-			// Vincular empresa al cliente recién creado si existe
 			if (lastCreatedClienteId) {
-				try {
-					await updateClienteMut({
-						usuarioId: currentUser?.id as Id<"usuarios">,
-						clienteId: lastCreatedClienteId as Id<"clientes">,
-						nombre: nombre.trim(),
-						telefono: telefono.trim() || "+593 ",
-						email:
-							email.trim() ||
-							`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
-						direccion: direccion.trim(),
-						identificacion: identificacion.trim(),
-						empresaId: newEmp._id as Id<"empresas">,
-					});
-				} catch {
-					// no bloquear si falla el vínculo
-				}
+				// El cliente ya fue registrado previamente; registramos la empresa y lo vinculamos
+				const newEmpId = (await createEmpresaMut({
+					usuarioId: currentUser.id as Id<"usuarios">,
+					nombre: empresaNombre.trim(),
+					ruc: empresaRuc.trim(),
+					razonSocial: empresaContactoNombre.trim() || empresaNombre.trim(),
+					email: "",
+					telefono: empresaContactoTelefono.trim() || "",
+					direccion: empresaDireccion.trim() || "",
+				})) as unknown as string;
+
+				await updateClienteMut({
+					usuarioId: currentUser.id as Id<"usuarios">,
+					clienteId: lastCreatedClienteId as Id<"clientes">,
+					nombre: nombre.trim(),
+					telefono: telefono.trim() || "+593 ",
+					email:
+						email.trim() ||
+						`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
+					direccion: direccion.trim(),
+					identificacion: identificacion.trim(),
+					empresaId: newEmpId as Id<"empresas">,
+					empresaVinculadaId: newEmpId as Id<"empresas">,
+				});
+			} else {
+				// Creación simultánea y atómica de Cliente y Empresa en una sola transacción
+				const res = await createClienteConEmpresaMut({
+					usuarioId: currentUser.id as Id<"usuarios">,
+					nombre: nombre.trim(),
+					telefono: telefono.trim() || "+593 ",
+					email:
+						email.trim() ||
+						`${nombre.trim().toLowerCase().replace(/\s+/g, ".")}@email.com`,
+					direccion: direccion.trim() || undefined,
+					identificacion: identificacion.trim() || undefined,
+					empresaNombre: empresaNombre.trim(),
+					empresaRuc: empresaRuc.trim(),
+					empresaRazonSocial:
+						empresaContactoNombre.trim() || empresaNombre.trim(),
+					empresaTelefono: empresaContactoTelefono.trim() || undefined,
+					empresaDireccion: empresaDireccion.trim() || undefined,
+				});
+
+				finalClienteId = res.cliente?._id || null;
+			}
+
+			if (finalClienteId) {
+				setSelectedClientId(finalClienteId);
 			}
 
 			setIsEmpresaCreateOpen(false);
+			setPendienteEmpresa(false);
 			setPendingEmpresaData(null);
 			setLastCreatedClienteId(null);
 			setAlertConfig({
 				isOpen: true,
-				title: "Empresa Registrada",
-				message: `La empresa "${empresaNombre.trim()}" ha sido creada y vinculada al cliente.`,
+				title: "Cliente y Empresa Registrados",
+				message: `La empresa "${empresaNombre.trim()}" y el cliente "${nombre.trim()}" han sido registrados y vinculados con éxito.`,
 				type: "success",
 			});
 		} catch (err) {
@@ -546,9 +525,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 				isOpen: true,
 				title: "Error al registrar empresa",
 				message: err instanceof Error ? err.message : "Error desconocido",
-				type: "alert",
+				type: "error",
 			});
 		}
+	};
+
+	const handleCloseEmpresaCreate = () => {
+		setIsEmpresaCreateOpen(false);
+		setPendienteEmpresa(false);
+		setPendingEmpresaData(null);
+		setLastCreatedClienteId(null);
 	};
 
 	const handleOpenEdit = (client: Cliente) => {
@@ -741,17 +727,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 										type="button"
 										onClick={() => setChatClient(selectedClient)}
 										className="flex h-9 w-9 items-center justify-center rounded-lg border border-green-500/30 bg-green-500/10 text-green-600 hover:bg-green-500 hover:text-white transition-colors cursor-pointer shadow-xs"
-										title="Chat de WhatsApp (Evolution API)"
+										title="Chat de WhatsApp"
 									>
 										<MessageSquare className="h-4 w-4" />
-									</button>
-									<button
-										type="button"
-										onClick={() => setEmailClient(selectedClient)}
-										className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors cursor-pointer shadow-xs"
-										title="Bandeja de Correo Corporativo"
-									>
-										<Mail className="h-4 w-4" />
 									</button>
 									<button
 										type="button"
@@ -1201,7 +1179,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 						type="button"
 						aria-label="Cerrar"
 						className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-						onClick={() => setIsEmpresaCreateOpen(false)}
+						onClick={handleCloseEmpresaCreate}
 					/>
 					<div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xl animate-slide-in mx-0 sm:mx-4">
 						<h3 className="text-lg font-bold text-foreground mb-4">
@@ -1296,7 +1274,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 							<div className="flex gap-3 justify-end pt-2">
 								<button
 									type="button"
-									onClick={() => setIsEmpresaCreateOpen(false)}
+									onClick={handleCloseEmpresaCreate}
 									className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
 								>
 									Cancelar
@@ -1445,18 +1423,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 				confirmText={alertConfig.onConfirm ? "Eliminar" : "Entendido"}
 			/>
 
-			{/* WHATSAPP CLIENT CHAT MODAL (EVOLUTION API) */}
+			{/* WHATSAPP CLIENT CHAT MODAL */}
 			<WhatsAppClientChatModal
 				isOpen={Boolean(chatClient)}
 				onClose={() => setChatClient(null)}
 				cliente={chatClient}
-			/>
-
-			{/* CORPORATE EMAIL CLIENT THREAD MODAL */}
-			<ClientEmailThreadModal
-				isOpen={Boolean(emailClient)}
-				onClose={() => setEmailClient(null)}
-				cliente={emailClient}
 			/>
 		</div>
 	);

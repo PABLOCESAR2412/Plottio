@@ -276,10 +276,11 @@ export const SucursalesAdminView: React.FC<SucursalesAdminProps> = () => {
 				<div>
 					<h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
 						<Network className="h-8 w-8 text-primary" />
-						Jerarquía Organizacional
+						Sedes & Sucursales del Taller (Estructura Organizacional)
 					</h1>
 					<p className="text-muted-foreground mt-1">
-						Gestiona Matrices, Sucursales y Puntos de Venta.
+						Administración de sedes físicas, matriz y puntos de venta del
+						taller.
 					</p>
 				</div>
 				<button

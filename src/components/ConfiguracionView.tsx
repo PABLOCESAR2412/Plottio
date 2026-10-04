@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import {
 	Bell,
-	BookOpen,
 	Bot,
 	Brain,
 	Bug as BugIcon,
@@ -11,7 +10,6 @@ import {
 	DollarSign,
 	Download,
 	FileText,
-	Mail,
 	MessageSquare,
 	Moon,
 	Settings,
@@ -31,17 +29,17 @@ import { generarPdfReporte } from "../lib/pdf/reportePdf";
 import { useIntegrationsStore } from "../store/useIntegrationsStore";
 import { useSessionStore } from "../store/useSessionStore";
 import type { Bug as BugType, ComentarioBug } from "../types/data";
-import { ApexBrainModal } from "./ApexBrainModal";
 import { AuditoriaView } from "./AuditoriaView";
 import { ConfigPlantillas } from "./configuracion/ConfigPlantillas";
-import { EmailIntegrationModal } from "./EmailIntegrationModal";
 import { FinOpsMetricsPanel } from "./FinOpsMetricsPanel";
 import { GestionUsuariosView } from "./GestionUsuariosView";
+import { PlottioAsistenteModal } from "./PlottioAsistenteModal";
 import { RolesView } from "./RolesView";
 import { SuccessDialog } from "./SuccessDialog";
 import { SucursalesAdminView } from "./SucursalesAdmin";
 import { TelegramConfigModal } from "./TelegramConfigModal";
 import { WebhookManagerModal } from "./WebhookManagerModal";
+import { WhatsAppConfigModal } from "./WhatsAppConfigModal";
 
 type LocalOrden = {
 	id: string;
@@ -163,15 +161,12 @@ export const ConfiguracionView: React.FC = () => {
 		| "integraciones"
 		| "ia_finops"
 	>("general");
+	const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 	const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
-	const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 	const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
-	const [isApexBrainModalOpen, setIsApexBrainModalOpen] = useState(false);
-	const [showGuidesSection, setShowGuidesSection] = useState(false);
-	const [selectedGuideTab, setSelectedGuideTab] = useState<
-		"whatsapp" | "telegram" | "email" | "ai" | "pgvector" | "webhooks"
-	>("whatsapp");
-	const { rag } = useIntegrationsStore();
+	const [isPlottioAsistenteModalOpen, setIsPlottioAsistenteModalOpen] =
+		useState(false);
+	const { whatsapp, rag } = useIntegrationsStore();
 
 	const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 	const [newComment, setNewComment] = useState("");
@@ -307,10 +302,6 @@ export const ConfiguracionView: React.FC = () => {
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
 						<span>Configuración</span>
-						<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-							<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-							Activo (pgvector 768d)
-						</span>
 					</h1>
 					<p className="text-muted-foreground">
 						Personaliza el comportamiento del sistema, notificaciones y
@@ -454,10 +445,6 @@ export const ConfiguracionView: React.FC = () => {
 					>
 						<Bot className="h-4 w-4" />
 						<span>IA / FinOps</span>
-						<span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-							<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-							Activo (pgvector 768d)
-						</span>
 					</button>
 				</div>
 			</div>
@@ -471,13 +458,12 @@ export const ConfiguracionView: React.FC = () => {
 							Integraciones Empresariales & Conectores
 						</h2>
 						<p className="text-sm text-muted-foreground">
-							Configuración centralizada de WhatsApp, Telegram, Correo
-							Corporativo y Webhooks.
+							Configuración centralizada de WhatsApp, Telegram y Webhooks.
 						</p>
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-						{/* WhatsApp Evolution API Card */}
+						{/* WhatsApp Card */}
 						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
 							<div className="space-y-3">
 								<div className="flex items-center justify-between">
@@ -487,13 +473,25 @@ export const ConfiguracionView: React.FC = () => {
 										</div>
 										<div>
 											<div className="font-bold text-foreground text-sm flex items-center gap-2">
-												<span>WhatsApp (Evolution API)</span>
-												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-500/15 text-green-600">
-													Conectado
+												<span>WhatsApp</span>
+												<span
+													className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+														whatsapp.status === "connected"
+															? "bg-green-500/15 text-green-600"
+															: whatsapp.status === "connecting"
+																? "bg-amber-500/15 text-amber-500"
+																: "bg-muted text-muted-foreground"
+													}`}
+												>
+													{whatsapp.status === "connected"
+														? "Conectado"
+														: whatsapp.status === "connecting"
+															? "Conectando..."
+															: "Desconectado"}
 												</span>
 											</div>
 											<div className="text-xs text-muted-foreground">
-												Instancia: plottio-central
+												Instancia: {whatsapp.instanceName}
 											</div>
 										</div>
 									</div>
@@ -506,23 +504,18 @@ export const ConfiguracionView: React.FC = () => {
 							</div>
 
 							<div className="pt-3 border-t border-border flex items-center justify-between gap-2">
-								<span className="text-xs text-muted-foreground font-mono">
-									https://api.evolution.plottio.com
+								<span
+									className="text-xs text-muted-foreground font-mono truncate max-w-[200px]"
+									title={whatsapp.serverUrl}
+								>
+									{whatsapp.serverUrl}
 								</span>
 								<button
 									type="button"
-									onClick={() => {
-										setAlertConfig({
-											isOpen: true,
-											title: "WhatsApp Sincronizado",
-											message:
-												"La instancia Evolution API responde con estado 200 OK y sesión activa.",
-											type: "success",
-										});
-									}}
+									onClick={() => setIsWhatsAppModalOpen(true)}
 									className="px-3 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-600 text-xs font-semibold hover:bg-green-500 hover:text-white transition-colors cursor-pointer shadow-xs"
 								>
-									Verificar Sesión
+									Configurar WhatsApp
 								</button>
 							</div>
 						</div>
@@ -568,47 +561,6 @@ export const ConfiguracionView: React.FC = () => {
 							</div>
 						</div>
 
-						{/* Corporate Email Card */}
-						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
-							<div className="space-y-3">
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
-											<Mail className="h-5 w-5" />
-										</div>
-										<div>
-											<div className="font-bold text-foreground text-sm flex items-center gap-2">
-												<span>Correo Corporativo (SMTP/OAuth2)</span>
-												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary/15 text-primary">
-													Outlook / 365
-												</span>
-											</div>
-											<div className="text-xs text-muted-foreground">
-												contacto@plottio.com
-											</div>
-										</div>
-									</div>
-								</div>
-								<p className="text-xs text-muted-foreground leading-relaxed">
-									Servidor SMTP transaccional para el despacho de presupuestos
-									adjuntos en PDF y seguimiento de trabajos.
-								</p>
-							</div>
-
-							<div className="pt-3 border-t border-border flex items-center justify-between gap-2">
-								<span className="text-xs text-muted-foreground font-mono">
-									Puerto 587 (TLS)
-								</span>
-								<button
-									type="button"
-									onClick={() => setIsEmailModalOpen(true)}
-									className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold hover:bg-primary hover:text-white transition-colors cursor-pointer shadow-xs"
-								>
-									Credenciales SMTP
-								</button>
-							</div>
-						</div>
-
 						{/* Central Webhooks Hub Card */}
 						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
 							<div className="space-y-3">
@@ -650,7 +602,7 @@ export const ConfiguracionView: React.FC = () => {
 								</button>
 							</div>
 						</div>
-						{/* APEX Brain RAG pgvector Card */}
+						{/* Plottio Asistente (Agentic RAG) Card */}
 						<div className="rounded-xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4">
 							<div className="space-y-3">
 								<div className="flex items-center justify-between">
@@ -660,10 +612,7 @@ export const ConfiguracionView: React.FC = () => {
 										</div>
 										<div>
 											<div className="font-bold text-foreground text-sm flex items-center gap-2">
-												<span>APEX Brain (RAG con pgvector)</span>
-												<span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-													Activo (pgvector 768d)
-												</span>
+												<span>Plottio Asistente (Agentic RAG)</span>
 											</div>
 											<div className="text-xs text-muted-foreground">
 												{rag.indexedDocumentsCount} entidades indexadas ·
@@ -673,9 +622,10 @@ export const ConfiguracionView: React.FC = () => {
 									</div>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
-									Recuperación semántica sobre órdenes, cotizaciones y acuerdos
-									comerciales. Genera respuestas contextualizadas citando los
-									antecedentes del taller.
+									Recuperación semántica y herramientas de negocio sobre
+									órdenes, cotizaciones, clientes e inventario. Genera
+									respuestas contextualizadas citando los antecedentes del
+									taller.
 								</p>
 							</div>
 
@@ -685,325 +635,13 @@ export const ConfiguracionView: React.FC = () => {
 								</span>
 								<button
 									type="button"
-									onClick={() => setIsApexBrainModalOpen(true)}
+									onClick={() => setIsPlottioAsistenteModalOpen(true)}
 									className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer shadow-xs"
 								>
-									Abrir APEX Brain
+									Abrir Asistente
 								</button>
 							</div>
 						</div>
-					</div>
-
-					{/* STEP-BY-STEP OFFICIAL GUIDES SECTION */}
-					<div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
-							<div className="space-y-1">
-								<h3 className="text-base font-bold text-foreground flex items-center gap-2">
-									<BookOpen className="h-5 w-5 text-primary" />
-									<span>Guías Oficiales de Conexión & Despliegue</span>
-								</h3>
-								<p className="text-xs text-muted-foreground">
-									Comandos Docker, scripts SQL de pgvector, credenciales OAuth2
-									y parámetros de configuración paso a paso.
-								</p>
-							</div>
-
-							<button
-								type="button"
-								onClick={() => setShowGuidesSection((v) => !v)}
-								className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-xs font-bold text-foreground transition-colors cursor-pointer self-start sm:self-auto shadow-xs"
-							>
-								{showGuidesSection ? "Ocultar Guías" : "Ver Guías Paso a Paso"}
-							</button>
-						</div>
-
-						{showGuidesSection && (
-							<div className="space-y-4 animate-fade-in text-xs sm:text-sm">
-								{/* Guides Sub-tabs */}
-								<div className="flex gap-2 overflow-x-auto pb-2 border-b border-border/60 text-xs font-bold">
-									{[
-										{ id: "whatsapp", label: "1. WhatsApp (Evolution)" },
-										{ id: "telegram", label: "2. Telegram Bot" },
-										{ id: "email", label: "3. Correo Corporativo" },
-										{ id: "ai", label: "4. Modelos IA & FinOps" },
-										{ id: "pgvector", label: "5. pgvector (RAG)" },
-										{ id: "webhooks", label: "6. Hub Webhooks" },
-									].map((tab) => (
-										<button
-											key={tab.id}
-											type="button"
-											onClick={() => setSelectedGuideTab(tab.id as any)}
-											className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap border ${
-												selectedGuideTab === tab.id
-													? "bg-primary text-primary-foreground border-primary shadow-xs"
-													: "bg-secondary/20 text-muted-foreground border-border hover:text-foreground"
-											}`}
-										>
-											{tab.label}
-										</button>
-									))}
-								</div>
-
-								{/* Guide 1: WhatsApp */}
-								{selectedGuideTab === "whatsapp" && (
-									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
-										<div className="font-bold text-foreground text-sm">
-											1. WhatsApp Empresarial (Evolution API con Docker)
-										</div>
-										<p className="text-muted-foreground">
-											Evolution API es un servidor open source para automatizar
-											WhatsApp sin suscripciones por mensaje.
-										</p>
-										<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
-											<li>
-												Levanta el contenedor de Evolution API en tu servidor
-												VPS:
-												<pre className="p-2 mt-1 rounded bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto">
-													docker run -d --name evolution-api -p 8080:8080 \
-													<br />
-													&nbsp;&nbsp;-e
-													AUTHENTICATION_API_KEY=tu_clave_super_secreta \<br />
-													&nbsp;&nbsp;atendai/evolution-api:latest
-												</pre>
-											</li>
-											<li>
-												Crea la instancia vinculando el número de la empresa:
-												<pre className="p-2 mt-1 rounded bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto">
-													curl -X POST http://tu-servidor:8080/instance/create \
-													<br />
-													&nbsp;&nbsp;-H "apikey: tu_clave_super_secreta" \
-													<br />
-													&nbsp;&nbsp;-d '&#123;"instanceName":
-													"plottio-central"&#125;'
-												</pre>
-											</li>
-											<li>
-												Abre el código QR retornado y escanéalo con WhatsApp en
-												tu teléfono corporativo.
-											</li>
-											<li>
-												Configura el webhook de sincronización en Evolution API
-												apuntando a la URL de tu instancia de PLOTTIO.
-											</li>
-										</ol>
-									</div>
-								)}
-
-								{/* Guide 2: Telegram */}
-								{selectedGuideTab === "telegram" && (
-									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
-										<div className="font-bold text-foreground text-sm">
-											2. Telegram Bot API (ChatOps & Notificaciones Críticas)
-										</div>
-										<p className="text-muted-foreground">
-											Configura un bot dedicado en menos de 2 minutos para
-											recibir avisos de nuevas órdenes, asignaciones de taller y
-											cambios de estado.
-										</p>
-										<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
-											<li>
-												Abre Telegram y busca{" "}
-												<strong className="text-foreground">@BotFather</strong>.
-												Envía el comando <code>/newbot</code>.
-											</li>
-											<li>
-												Ingresa el nombre de tu bot (ej. <em>Plottio Taller</em>
-												) y un usuario que termine en <code>bot</code>.
-											</li>
-											<li>
-												Copia el <strong>HTTP API Token</strong> que te entrega
-												BotFather.
-											</li>
-											<li>
-												Para obtener tu <strong>Chat ID</strong>:
-												<ul className="list-disc list-inside ml-4 mt-0.5 space-y-0.5">
-													<li>
-														Para chat personal: escribe a <em>@userinfobot</em>{" "}
-														y copia tu Id numérico.
-													</li>
-													<li>
-														Para grupo de trabajo: añade tu bot al grupo, agrega
-														temporalmente a <em>@RawDataBot</em> y copia el ID
-														del chat (ej. <code>-100...</code>).
-													</li>
-												</ul>
-											</li>
-											<li>
-												Pega las credenciales en la pestaña{" "}
-												<em>2. Notificaciones Telegram</em> de esta pantalla o
-												en el modal de ChatOps y pulsa{" "}
-												<em>Probar Alerta Instantánea</em>.
-											</li>
-										</ol>
-									</div>
-								)}
-
-								{/* Guide 3: Email */}
-								{selectedGuideTab === "email" && (
-									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
-										<div className="font-bold text-foreground text-sm">
-											3. Bandeja de Correo Corporativo (Google Workspace,
-											Microsoft 365 & SMTP)
-										</div>
-										<div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
-											<div className="p-3 rounded-lg bg-card border border-border space-y-1">
-												<strong className="text-foreground">
-													Google Workspace (OAuth2)
-												</strong>
-												<p className="text-muted-foreground text-[10px]">
-													• Habilita Gmail API en Google Cloud Console.
-													<br />• Scopes: <code>gmail.modify</code> y{" "}
-													<code>gmail.send</code>.<br />• Callback URI:{" "}
-													<code>
-														https://tudominio.com/api/email/oauth/google/callback
-													</code>
-												</p>
-											</div>
-											<div className="p-3 rounded-lg bg-card border border-border space-y-1">
-												<strong className="text-foreground">
-													Microsoft 365 / Azure AD
-												</strong>
-												<p className="text-muted-foreground text-[10px]">
-													• Azure Portal → Microsoft Entra ID → App
-													registrations.
-													<br />• Callback:{" "}
-													<code>
-														https://tudominio.com/api/email/oauth/microsoft/callback
-													</code>
-													<br />• Permisos Graph: <code>Mail.ReadWrite</code>,{" "}
-													<code>Mail.Send</code>.
-												</p>
-											</div>
-											<div className="p-3 rounded-lg bg-card border border-border space-y-1">
-												<strong className="text-foreground">
-													SMTP Gmail Clásico
-												</strong>
-												<p className="text-muted-foreground text-[10px]">
-													• Cuenta Google → Seguridad → Verificación en 2 pasos.
-													<br />• Contraseñas de aplicaciones → Genera clave
-													para <em>APEX Suite</em>.<br />• Host:{" "}
-													<code>smtp.gmail.com</code>, Puerto: <code>465</code>.
-												</p>
-											</div>
-										</div>
-									</div>
-								)}
-
-								{/* Guide 4: AI Models */}
-								{selectedGuideTab === "ai" && (
-									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
-										<div className="font-bold text-foreground text-sm">
-											4. Modelos de Inteligencia Artificial & Optimización
-											FinOps
-										</div>
-										<ul className="space-y-1.5 text-muted-foreground text-[11px]">
-											<li>
-												<strong>Google Gemini API:</strong> Entra a{" "}
-												<a
-													href="https://aistudio.google.com/"
-													target="_blank"
-													rel="noreferrer"
-													className="text-primary underline"
-												>
-													aistudio.google.com
-												</a>
-												, haz clic en <em>Get API Key</em>, pulsa{" "}
-												<em>Create API Key</em> y copia la clave.
-											</li>
-											<li>
-												<strong>OpenAI API:</strong> Entra a{" "}
-												<a
-													href="https://platform.openai.com/"
-													target="_blank"
-													rel="noreferrer"
-													className="text-primary underline"
-												>
-													platform.openai.com
-												</a>{" "}
-												→ API Keys → <em>+ Create new secret key</em>.
-											</li>
-											<li>
-												<strong>Groq & Ollama:</strong> Groq en{" "}
-												<a
-													href="https://console.groq.com/"
-													target="_blank"
-													rel="noreferrer"
-													className="text-primary underline"
-												>
-													console.groq.com
-												</a>{" "}
-												para Llama 3 ultra-rápido, u Ollama local en{" "}
-												<code>http://localhost:11434/v1</code>.
-											</li>
-										</ul>
-									</div>
-								)}
-
-								{/* Guide 5: pgvector */}
-								{selectedGuideTab === "pgvector" && (
-									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
-										<div className="font-bold text-foreground text-sm">
-											5. Base de Datos con pgvector (APEX Brain RAG)
-										</div>
-										<p className="text-muted-foreground">
-											El motor vectorial requiere una base de datos PostgreSQL
-											con la extensión <code>vector</code> habilitada.
-										</p>
-										<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-											<div className="p-3 rounded-lg bg-card border border-border space-y-1.5">
-												<strong className="text-foreground">
-													Opción A: Supabase
-												</strong>
-												<p className="text-muted-foreground text-[10px]">
-													En supabase.com crea un proyecto y en SQL Editor
-													corre:
-												</p>
-												<pre className="p-2 rounded bg-background border border-border font-mono text-[10px] text-primary">
-													CREATE EXTENSION IF NOT EXISTS vector;
-												</pre>
-											</div>
-											<div className="p-3 rounded-lg bg-card border border-border space-y-1.5">
-												<strong className="text-foreground">
-													Opción B: Docker en tu VPS
-												</strong>
-												<pre className="p-2 rounded bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto">
-													docker run -d --name apex-postgres \<br />
-													&nbsp;&nbsp;-e POSTGRES_PASSWORD=tu_password \<br />
-													&nbsp;&nbsp;-e POSTGRES_DB=apex_db \<br />
-													&nbsp;&nbsp;-p 5432:5432 pgvector/pgvector:pg16
-												</pre>
-											</div>
-										</div>
-									</div>
-								)}
-
-								{/* Guide 6: Webhooks */}
-								{selectedGuideTab === "webhooks" && (
-									<div className="space-y-3 bg-secondary/10 p-4 rounded-xl border border-border leading-relaxed text-xs">
-										<div className="font-bold text-foreground text-sm">
-											6. Hub Centralizado de Webhooks (Zapier, Make &
-											Formularios Web)
-										</div>
-										<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
-											<li>
-												<strong>Zapier / Make:</strong> Crea un módulo{" "}
-												<em>Catch Hook</em> o <em>HTTP POST</em> hacia la URL
-												del webhook con JSON conteniendo <code>name</code>,{" "}
-												<code>email</code>, <code>phone</code>,{" "}
-												<code>company</code>. Se validará la firma HMAC SHA-256
-												automáticamente y se creará el prospecto en el CRM.
-											</li>
-											<li>
-												<strong>Formularios Web / Landing Pages:</strong> Envía
-												solicitudes POST desde tu sitio web o cotizador online
-												hacia la URL de tu webhook. Los datos entrarán de forma
-												inmediata a la base de clientes.
-											</li>
-										</ol>
-									</div>
-								)}
-							</div>
-						)}
 					</div>
 				</div>
 			) : configTab === "roles" ? (
@@ -1551,17 +1189,16 @@ export const ConfiguracionView: React.FC = () => {
 				onConfirm={alertConfig.onConfirm}
 				confirmText={alertConfig.onConfirm ? "Aceptar" : "Entendido"}
 			/>
+			{/* WHATSAPP CONFIG MODAL */}
+			<WhatsAppConfigModal
+				isOpen={isWhatsAppModalOpen}
+				onClose={() => setIsWhatsAppModalOpen(false)}
+			/>
 
 			{/* TELEGRAM CONFIG MODAL */}
 			<TelegramConfigModal
 				isOpen={isTelegramModalOpen}
 				onClose={() => setIsTelegramModalOpen(false)}
-			/>
-
-			{/* CORPORATE EMAIL CONFIG MODAL */}
-			<EmailIntegrationModal
-				isOpen={isEmailModalOpen}
-				onClose={() => setIsEmailModalOpen(false)}
 			/>
 
 			{/* CENTRAL WEBHOOKS MANAGER MODAL */}
@@ -1570,10 +1207,10 @@ export const ConfiguracionView: React.FC = () => {
 				onClose={() => setIsWebhookModalOpen(false)}
 			/>
 
-			{/* APEX BRAIN MODAL */}
-			<ApexBrainModal
-				isOpen={isApexBrainModalOpen}
-				onClose={() => setIsApexBrainModalOpen(false)}
+			{/* PLOTTIO ASISTENTE MODAL */}
+			<PlottioAsistenteModal
+				isOpen={isPlottioAsistenteModalOpen}
+				onClose={() => setIsPlottioAsistenteModalOpen(false)}
 			/>
 		</div>
 	);

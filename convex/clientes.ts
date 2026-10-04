@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
 // 3.5 A) Función fetchClientes() DESPUÉS (con filtro Automático)
@@ -127,6 +128,137 @@ export const createCliente = mutation({
   }
 });
 
+export const createClienteConEmpresa = mutation({
+  args: {
+    usuarioId: v.id("usuarios"),
+    // Datos del cliente
+    nombre: v.string(),
+    telefono: v.string(),
+    email: v.string(),
+    direccion: v.optional(v.string()),
+    identificacion: v.optional(v.string()),
+    // Datos de la empresa vinculada
+    empresaNombre: v.string(),
+    empresaRuc: v.string(),
+    empresaRazonSocial: v.optional(v.string()),
+    empresaTelefono: v.optional(v.string()),
+    empresaDireccion: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // 1. Validar permiso crear_cliente
+    await requirePermission(ctx, args.usuarioId, "crear_cliente");
+
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa || !userContext.sucursal) {
+      throw new ConvexError("El usuario necesita estar asignado a una Empresa y Sucursal");
+    }
+
+    // 2. Validar duplicidad de identificación del cliente dentro del tenant
+    if (args.identificacion && args.identificacion.trim() !== "") {
+      const identificacionLimpia = args.identificacion.trim();
+      const existingCli = await ctx.db
+        .query("clientes")
+        .withIndex("by_empresa_identificacion", (q) =>
+          q.eq("empresaId", userContext.empresa!.id).eq("identificacion", identificacionLimpia),
+        )
+        .first();
+      if (existingCli) {
+        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
+      }
+    }
+
+    // 3. Gestionar Empresa Vinculada (cliente B2B / flota)
+    const rucLimpio = args.empresaRuc.trim();
+    let empresaIdResultante: Id<"empresas">;
+
+    // Buscar si ya existe por RUC
+    const existingEmpresa = await ctx.db
+      .query("empresas")
+      .withIndex("by_ruc", (q) => q.eq("ruc", rucLimpio))
+      .first();
+
+    if (existingEmpresa) {
+      empresaIdResultante = existingEmpresa._id;
+      // Si la empresa existía pero estaba archivada/inactiva, la reactivamos
+      if (!existingEmpresa.activa) {
+        await ctx.db.patch(existingEmpresa._id, {
+          activa: true,
+          nombre: args.empresaNombre.trim(),
+          razonSocial: args.empresaRazonSocial?.trim() || args.empresaNombre.trim(),
+          telefono: args.empresaTelefono?.trim() || existingEmpresa.telefono,
+          direccion: args.empresaDireccion?.trim() || existingEmpresa.direccion,
+        });
+      }
+    } else {
+      empresaIdResultante = await ctx.db.insert("empresas", {
+        nombre: args.empresaNombre.trim(),
+        ruc: rucLimpio,
+        razonSocial: args.empresaRazonSocial?.trim() || args.empresaNombre.trim(),
+        telefono: args.empresaTelefono?.trim() || undefined,
+        direccion: args.empresaDireccion?.trim() || undefined,
+        activa: true,
+      });
+
+      // Auditoría para creación de empresa vinculada
+      await ctx.db.insert("auditoria", {
+        empresaId: userContext.empresa.id,
+        usuarioId: args.usuarioId,
+        tablaAfectada: "empresas",
+        accion: "CREATE",
+        registroId: empresaIdResultante,
+        sucursalId: userContext.sucursal.id,
+        cambios: {
+          nombre: args.empresaNombre.trim(),
+          ruc: rucLimpio,
+          razonSocial: args.empresaRazonSocial?.trim() || args.empresaNombre.trim(),
+          telefono: args.empresaTelefono?.trim() || null,
+          direccion: args.empresaDireccion?.trim() || null,
+        },
+        fecha: new Date().toISOString(),
+      });
+    }
+
+    // 4. Crear cliente vinculado al workspace y a la empresa B2B
+    const newClienteId = await ctx.db.insert("clientes", {
+      nombre: args.nombre.trim(),
+      telefono: args.telefono.trim(),
+      email: args.email.trim(),
+      direccion: args.direccion?.trim(),
+      identificacion: args.identificacion?.trim(),
+      empresaId: userContext.empresa.id, // tenant workspace del taller
+      empresaVinculadaId: empresaIdResultante, // empresa cliente / flota vinculada
+      sucursalId: userContext.sucursal.id,
+      esClienteGlobal: false,
+    });
+
+    // Auditoría para creación de cliente
+    await ctx.db.insert("auditoria", {
+      empresaId: userContext.empresa.id,
+      usuarioId: args.usuarioId,
+      tablaAfectada: "clientes",
+      accion: "CREATE",
+      registroId: newClienteId,
+      sucursalId: userContext.sucursal.id,
+      cambios: {
+        nombre: args.nombre.trim(),
+        telefono: args.telefono.trim(),
+        email: args.email.trim(),
+        direccion: args.direccion?.trim() || null,
+        identificacion: args.identificacion?.trim() || null,
+        empresaId: userContext.empresa.id,
+        empresaVinculadaId: empresaIdResultante,
+      },
+      fecha: new Date().toISOString(),
+    });
+
+    const newCliente = await ctx.db.get(newClienteId);
+    return {
+      cliente: newCliente,
+      empresaId: empresaIdResultante,
+    };
+  },
+});
+
 // 5.5 CREAR FUNCIÓN: fetchClienteGlobal()
 export const fetchClienteGlobal = query({
   args: {
@@ -186,6 +318,7 @@ export const updateCliente = mutation({
     direccion: v.optional(v.string()),
     identificacion: v.optional(v.string()),
     empresaId: v.optional(v.string()), // Or v.id("empresas") if strict
+    empresaVinculadaId: v.optional(v.union(v.id("empresas"), v.string())),
   },
   handler: async (ctx, args) => {
     // Validate permission or context if needed, but for simplicity:
@@ -205,7 +338,10 @@ export const updateCliente = mutation({
       }
     }
 
-    let empId = args.empresaId ? (args.empresaId as import("./_generated/dataModel").Id<"empresas">) : undefined;
+    const rawEmpresaVinculada = args.empresaVinculadaId || args.empresaId;
+    const empId = rawEmpresaVinculada
+      ? (rawEmpresaVinculada as import("./_generated/dataModel").Id<"empresas">)
+      : undefined;
     
     await ctx.db.patch(args.clienteId, {
       nombre: args.nombre,
@@ -217,6 +353,8 @@ export const updateCliente = mutation({
       // Conservar empresaId original (tenant workspace) para que nunca se desvincule ni desaparezca
       ...(userContext.empresa ? { empresaId: userContext.empresa.id } : {}),
     });
+
+    return await ctx.db.get(args.clienteId);
   }
 });
 

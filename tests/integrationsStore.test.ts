@@ -13,8 +13,11 @@ describe("useIntegrationsStore - Seguridad y Gestión de Credenciales", () => {
 		const initialState = useIntegrationsStore.getInitialState();
 
 		// WhatsApp
-		expect(initialState.whatsapp.apiKey).toBe("");
-		expect(initialState.whatsapp.apiKey).not.toContain("evo_live");
+		expect(initialState.whatsapp.apiKey).toBe("sec_acadia_evo_2026");
+		expect(initialState.whatsapp.serverUrl).toBe(
+			"https://acadia.simcodec.workers.dev/api/webhook/wha",
+		);
+		expect(initialState.whatsapp.instanceName).toBe("plottio-central");
 		expect(initialState.whatsapp.status).toBe("disconnected");
 
 		// Telegram
@@ -23,16 +26,19 @@ describe("useIntegrationsStore - Seguridad y Gestión de Credenciales", () => {
 		expect(initialState.telegram.botToken).not.toContain("AAE9xY");
 		expect(initialState.telegram.status).toBe("disconnected");
 
-		// Email SMTP
-		expect(initialState.email.smtpPass).toBe("");
-		expect(initialState.email.smtpPass).not.toBe("••••••••••••");
-		expect(initialState.email.status).toBe("disconnected");
+		// Email eliminado del store
+		expect((initialState as unknown as Record<string, unknown>).email).toBeUndefined();
 
-		// AI (Gemini & OpenAI)
+		// AI (Google, Groq, Opencode Zen, Nvidia)
+		expect(initialState.ai.googleApiKey).toBe("");
+		expect(initialState.ai.googleApiKey).not.toContain("AIzaSy");
+		expect(initialState.ai.groqApiKey).toBe("");
+		expect(initialState.ai.groqApiKey).not.toContain("gsk_");
+		expect(initialState.ai.opencodeZenApiKey).toBe("");
+		expect(initialState.ai.nvidiaApiKey).toBe("");
+		expect(initialState.ai.nvidiaApiKey).not.toContain("nvapi-");
 		expect(initialState.ai.geminiApiKey).toBe("");
-		expect(initialState.ai.geminiApiKey).not.toContain("AIzaSy");
 		expect(initialState.ai.openaiApiKey).toBe("");
-		expect(initialState.ai.openaiApiKey).not.toContain("sk-proj");
 
 		// Webhooks e Inbound Secret
 		expect(initialState.inboundSecret).toBe("");
@@ -72,34 +78,39 @@ describe("useIntegrationsStore - Seguridad y Gestión de Credenciales", () => {
 		expect(state.telegram.status).toBe("connected");
 	});
 
-	it("permite actualizar credenciales de Email corporativo", () => {
-		const { updateEmailConfig } = useIntegrationsStore.getState();
-
-		updateEmailConfig({
-			smtpPass: "SuperSecretPassword123!",
-			smtpUser: "admin@empresa.com",
-			status: "connected",
-		});
-
-		const state = useIntegrationsStore.getState();
-		expect(state.email.smtpPass).toBe("SuperSecretPassword123!");
-		expect(state.email.smtpUser).toBe("admin@empresa.com");
-		expect(state.email.status).toBe("connected");
+	it("no contiene configuración ni métodos de correo corporativo en el store", () => {
+		const state = useIntegrationsStore.getState() as unknown as Record<string, unknown>;
+		expect(state.email).toBeUndefined();
+		expect(state.updateEmailConfig).toBeUndefined();
+		expect(state.sendEmailMessage).toBeUndefined();
 	});
 
-	it("permite actualizar credenciales de Modelos de Inteligencia Artificial", () => {
-		const { updateAiConfig } = useIntegrationsStore.getState();
+	it("permite actualizar credenciales de Modelos de Inteligencia Artificial Multi-Proveedor", () => {
+		const { updateAiConfig, setTimeFilter } = useIntegrationsStore.getState();
 
 		updateAiConfig({
-			geminiApiKey: "custom_gemini_key_999",
-			openaiApiKey: "sk-custom-openai-key-abc",
-			activeModel: "gpt-4o",
+			provider: "groq",
+			googleApiKey: "custom_google_key_999",
+			groqApiKey: "gsk_custom_groq_key_123",
+			opencodeZenApiKey: "zen_key_456",
+			nvidiaApiKey: "nvapi-custom-789",
+			activeModel: "Llama 3.3 70B Versatile",
+			monthlyBudgetUSD: 200,
 		});
 
-		const state = useIntegrationsStore.getState();
-		expect(state.ai.geminiApiKey).toBe("custom_gemini_key_999");
-		expect(state.ai.openaiApiKey).toBe("sk-custom-openai-key-abc");
-		expect(state.ai.activeModel).toBe("gpt-4o");
+		let state = useIntegrationsStore.getState();
+		expect(state.ai.provider).toBe("groq");
+		expect(state.ai.googleApiKey).toBe("custom_google_key_999");
+		expect(state.ai.geminiApiKey).toBe("custom_google_key_999");
+		expect(state.ai.groqApiKey).toBe("gsk_custom_groq_key_123");
+		expect(state.ai.opencodeZenApiKey).toBe("zen_key_456");
+		expect(state.ai.nvidiaApiKey).toBe("nvapi-custom-789");
+		expect(state.ai.activeModel).toBe("Llama 3.3 70B Versatile");
+		expect(state.ai.monthlyBudgetUSD).toBe(200);
+
+		setTimeFilter("semana");
+		state = useIntegrationsStore.getState();
+		expect(state.ai.timeFilter).toBe("semana");
 	});
 
 	it("permite regenerar el inbound secret bajo demanda", () => {

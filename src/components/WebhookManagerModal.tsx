@@ -1,19 +1,14 @@
 import {
-	Activity,
-	BookOpen,
 	Check,
 	Code,
 	Copy,
 	ExternalLink,
-	Play,
 	Plus,
 	RefreshCw,
 	ShieldCheck,
 	Trash2,
-	UserPlus,
 	Webhook,
 	X,
-	Zap,
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
@@ -24,54 +19,32 @@ interface WebhookManagerModalProps {
 	onClose: () => void;
 }
 
-type PlatformType =
-	| "Zapier"
-	| "Make"
-	| "Formulario Web"
-	| "CRM / ERP Externo"
-	| "Webhook Genérico";
-
 export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 	isOpen,
 	onClose,
 }) => {
 	const {
 		webhooks,
-		inboundLogs,
 		inboundEndpoint,
 		inboundSecret,
 		regenerateInboundSecret,
-		clearInboundLogs,
 		addWebhook,
 		toggleWebhook,
 		deleteWebhook,
-		simulateInboundLead,
 	} = useIntegrationsStore();
 
-	const [activeTab, setActiveTab] = useState<
-		"inbound" | "simulator" | "logs" | "outbound" | "guide"
-	>("inbound");
-
-	const [selectedPlatform, setSelectedPlatform] =
-		useState<PlatformType>("Zapier");
-
+	const [activeTab, setActiveTab] = useState<"inbound" | "outbound">("inbound");
 	const [copiedField, setCopiedField] = useState<string | null>(null);
 
 	// Outbound New Webhook state
 	const [outboundName, setOutboundName] = useState("");
 	const [outboundUrl, setOutboundUrl] = useState("");
 	const [selectedEvents, setSelectedEvents] = useState<string[]>([
-		"cliente.nuevo",
-		"orden.creada",
+		"cliente.creado",
+		"orden.actualizada",
+		"cotizacion.aprobada",
 	]);
 	const [isAddingOutbound, setIsAddingOutbound] = useState(false);
-
-	// Simulator state
-	const [simNombre, setSimNombre] = useState("Carlos Mendoza");
-	const [simTelefono, setSimTelefono] = useState("+593987654321");
-	const [simEmpresa, setSimEmpresa] = useState("Andes Tech Logistics");
-	const [simServicio, setSimServicio] = useState("Rotulado Flota 8 Furgonetas");
-	const [simSuccessToast, setSimSuccessToast] = useState(false);
 
 	if (!isOpen) return null;
 
@@ -79,89 +52,6 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 		navigator.clipboard.writeText(text);
 		setCopiedField(fieldId);
 		setTimeout(() => setCopiedField(null), 2000);
-	};
-
-	// Expected Payload example per platform
-	const getPayloadExample = (platform: PlatformType) => {
-		switch (platform) {
-			case "Zapier":
-				return JSON.stringify(
-					{
-						source: "Zapier Form / Catch Hook",
-						name: "Carlos Mendoza",
-						email: "carlos@andestech.com",
-						phone: "+593987654321",
-						company: "Andes Tech Logistics",
-						fleet_size: "12 furgonetas",
-						service: "Rotulado Corporativo Integral",
-					},
-					null,
-					2,
-				);
-			case "Make":
-				return JSON.stringify(
-					{
-						scenario_id: "make_scen_8832",
-						client_name: "Lucía Paredes",
-						phone: "+593976543210",
-						company_name: "Distribuidora Express",
-						interest: "Rotulado Frigorífico Hino",
-					},
-					null,
-					2,
-				);
-			case "Formulario Web":
-				return JSON.stringify(
-					{
-						form_id: "cotizador_web_plottio",
-						submitted_at: 1770547200,
-						lead: {
-							full_name: "Mario Andrade",
-							phone: "+593991234567",
-							email: "mario@transandrade.ec",
-							company: "Transportes Andrade & Hijos",
-							vehicle: "Hino 500 Furgón",
-							service: "Branding de Flota",
-						},
-					},
-					null,
-					2,
-				);
-			case "CRM / ERP Externo":
-				return JSON.stringify(
-					{
-						event: "deal.won_or_qualified",
-						contact: {
-							name: "Kevin Salazar",
-							phone: "+593984123890",
-							tax_id: "1792348590001",
-							company: "Logística Ecuatoriana S.A.",
-						},
-						deal: {
-							vehicle: "Chevrolet D-Max 2025",
-							budget: 2400.0,
-							service: "Wrap Completo Comercial",
-						},
-					},
-					null,
-					2,
-				);
-			case "Webhook Genérico":
-				return JSON.stringify(
-					{
-						event: "customer.lead_created",
-						timestamp: new Date().toISOString(),
-						data: {
-							name: "David Morales",
-							phone: "+593998877665",
-							company: "Agropecuaria del Austro",
-							service: "Gráfica para Camiones",
-						},
-					},
-					null,
-					2,
-				);
-		}
 	};
 
 	const handleAddOutbound = (e: React.FormEvent) => {
@@ -173,22 +63,13 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 		setIsAddingOutbound(false);
 	};
 
-	const handleRunSimulation = (e?: React.FormEvent) => {
-		if (e) e.preventDefault();
-		simulateInboundLead({
-			nombre: simNombre.trim(),
-			telefono: simTelefono.trim(),
-			empresa: simEmpresa.trim(),
-			servicio: simServicio.trim(),
-			vehiculo: simEmpresa.trim(),
-			plataforma: selectedPlatform,
-		});
-		setSimSuccessToast(true);
-		setTimeout(() => {
-			setSimSuccessToast(false);
-			setActiveTab("logs");
-		}, 1400);
-	};
+	const availableEvents = [
+		{ id: "cliente.creado", label: "cliente.creado" },
+		{ id: "orden.actualizada", label: "orden.actualizada" },
+		{ id: "cotizacion.aprobada", label: "cotizacion.aprobada" },
+		{ id: "orden.creada", label: "orden.creada" },
+		{ id: "orden.terminada", label: "orden.terminada" },
+	];
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
@@ -211,12 +92,12 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 									Hub Centralizado de Webhooks
 								</h3>
 								<span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-									Inbound & Outbound HMAC
+									Inbound & Outbound
 								</span>
 							</div>
 							<p className="text-xs text-muted-foreground">
-								Captura prospectos de Zapier, Make, Formularios Web y sincroniza
-								con el CRM de PLOTTIO
+								Gestión de endpoints de recepción y despacho de eventos en
+								tiempo real
 							</p>
 						</div>
 					</div>
@@ -225,114 +106,79 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 						type="button"
 						onClick={onClose}
 						className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+						aria-label="Cerrar"
 					>
 						<X className="h-5 w-5" />
 					</button>
 				</div>
 
-				{/* Navigation Tabs */}
-				<div className="flex items-center gap-1 sm:gap-2 px-5 py-2.5 border-b border-border bg-card overflow-x-auto shrink-0 text-xs font-bold">
+				{/* Navigation Tabs - ONLY Inbound and Outbound */}
+				<div className="flex items-center gap-2 px-5 py-2.5 border-b border-border bg-card shrink-0 text-xs font-bold">
 					<button
 						type="button"
 						onClick={() => setActiveTab("inbound")}
-						className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+						className={`px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2 ${
 							activeTab === "inbound"
 								? "bg-primary text-primary-foreground shadow-xs"
 								: "bg-secondary/40 text-muted-foreground hover:text-foreground"
 						}`}
 					>
-						<ShieldCheck className="h-3.5 w-3.5" />
-						Inbound Webhook (Recepción)
-					</button>
-
-					<button
-						type="button"
-						onClick={() => setActiveTab("simulator")}
-						className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-							activeTab === "simulator"
-								? "bg-primary text-primary-foreground shadow-xs"
-								: "bg-secondary/40 text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						<Play className="h-3.5 w-3.5" />
-						Simulador de Lead CRM
-					</button>
-
-					<button
-						type="button"
-						onClick={() => setActiveTab("logs")}
-						className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-							activeTab === "logs"
-								? "bg-primary text-primary-foreground shadow-xs"
-								: "bg-secondary/40 text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						<Activity className="h-3.5 w-3.5" />
-						Registro en Vivo ({inboundLogs.length})
+						<ShieldCheck className="h-4 w-4" />
+						<span>Webhook de Entrada (Inbound)</span>
 					</button>
 
 					<button
 						type="button"
 						onClick={() => setActiveTab("outbound")}
-						className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+						className={`px-4 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2 ${
 							activeTab === "outbound"
 								? "bg-primary text-primary-foreground shadow-xs"
 								: "bg-secondary/40 text-muted-foreground hover:text-foreground"
 						}`}
 					>
-						<ExternalLink className="h-3.5 w-3.5" />
-						Webhooks Salientes ({webhooks.length})
-					</button>
-
-					<button
-						type="button"
-						onClick={() => setActiveTab("guide")}
-						className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-							activeTab === "guide"
-								? "bg-primary text-primary-foreground shadow-xs"
-								: "bg-secondary/40 text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						<BookOpen className="h-3.5 w-3.5" />
-						Guía Paso a Paso
+						<ExternalLink className="h-4 w-4" />
+						<span>Webhooks Salientes (Outbound)</span>
+						<span className="px-1.5 py-0.2 rounded-full text-[10px] bg-background/50 border border-border">
+							{webhooks.length}
+						</span>
 					</button>
 				</div>
 
 				{/* Body Content */}
 				<div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
-					{/* TAB 1: INBOUND CONFIGURATION */}
+					{/* PESTAÑA 1: WEBHOOK DE ENTRADA (INBOUND) */}
 					{activeTab === "inbound" && (
 						<div className="space-y-6">
 							{/* Connection Parameters */}
-							<div className="rounded-xl border border-border bg-secondary/10 p-4 sm:p-5 space-y-4">
+							<div className="rounded-xl border border-border bg-secondary/10 p-5 space-y-4">
 								<h4 className="text-sm font-bold text-foreground flex items-center gap-2">
 									<ShieldCheck className="h-4 w-4 text-primary" />
-									<span>Parámetros de Conexión Inbound</span>
+									<span>Parámetros del Webhook de Entrada</span>
 								</h4>
 
-								<div className="space-y-3">
-									{/* Webhook URL */}
+								<div className="space-y-4">
+									{/* Canonical Webhook URL */}
 									<div>
 										<label
-											htmlFor="wh-url-field"
-											className="block text-xs font-bold text-muted-foreground mb-1"
+											htmlFor="inbound-url-field"
+											className="block text-xs font-bold text-foreground mb-1"
 										>
-											URL Autogenerada del Webhook (POST Inbound)
+											URL Canónica del Webhook de Plottio (POST)
 										</label>
 										<div className="flex gap-2">
 											<input
-												id="wh-url-field"
+												id="inbound-url-field"
 												type="text"
 												readOnly
 												value={inboundEndpoint}
-												className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground select-all"
+												className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground select-all focus:outline-none"
 											/>
 											<button
 												type="button"
-												onClick={() => handleCopy(inboundEndpoint, "whUrl")}
-												className="px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5 shrink-0 cursor-pointer"
+												onClick={() => handleCopy(inboundEndpoint, "inUrl")}
+												className="px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
 											>
-												{copiedField === "whUrl" ? (
+												{copiedField === "inUrl" ? (
 													<>
 														<Check className="h-3.5 w-3.5" />
 														<span>¡Copiada!</span>
@@ -345,425 +191,194 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 												)}
 											</button>
 										</div>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											Configura esta URL en el Cloudflare Worker o pasarela de
+											WhatsApp para recibir eventos entrantes.
+										</p>
 									</div>
 
-									{/* Webhook Secret HMAC */}
+									{/* Webhook Secret x-webhook-secret */}
 									<div>
 										<div className="flex justify-between items-center mb-1">
 											<label
-												htmlFor="wh-secret-field"
-												className="block text-xs font-bold text-muted-foreground"
+												htmlFor="inbound-secret-field"
+												className="block text-xs font-bold text-foreground"
 											>
-												Clave Secreta HMAC (X-Hub-Signature-256)
+												Secreto de Validación (Header:{" "}
+												<code className="text-primary font-mono text-[11px]">
+													x-webhook-secret
+												</code>
+												)
 											</label>
-											<span className="text-[10px] text-muted-foreground">
-												SHA-256 Cryptographic Verification
+											<span className="text-[10px] text-muted-foreground font-mono">
+												Autenticación de Integraciones
 											</span>
 										</div>
 										<div className="flex gap-2">
 											<input
-												id="wh-secret-field"
+												id="inbound-secret-field"
 												type="text"
 												readOnly
-												value={inboundSecret}
-												className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground select-all"
+												value={inboundSecret || "whsec_acadia_wha_2026"}
+												className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground select-all focus:outline-none"
 											/>
 											<button
 												type="button"
-												onClick={() => handleCopy(inboundSecret, "whSecret")}
-												className="px-3.5 py-2 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+												onClick={() =>
+													handleCopy(
+														inboundSecret || "whsec_acadia_wha_2026",
+														"inSecret",
+													)
+												}
+												className="px-3.5 py-2 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
 											>
-												{copiedField === "whSecret" ? (
+												{copiedField === "inSecret" ? (
 													<Check className="h-3.5 w-3.5 text-emerald-500" />
 												) : (
 													<Copy className="h-3.5 w-3.5" />
 												)}
-												<span>Copiar Secret</span>
+												<span>Copiar Secreto</span>
 											</button>
 											<button
 												type="button"
 												onClick={regenerateInboundSecret}
-												className="px-3 py-2 rounded-lg border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+												className="px-3 py-2 rounded-lg border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors flex items-center gap-1 shrink-0 cursor-pointer shadow-xs"
 												title="Regenerar clave secreta"
 											>
 												<RefreshCw className="h-3.5 w-3.5" />
 												<span className="hidden sm:inline">Regenerar</span>
 											</button>
 										</div>
-									</div>
-								</div>
-							</div>
-
-							{/* Platform Origin Selector & Payload Schema Example */}
-							<div className="rounded-xl border border-border bg-card p-5 space-y-4">
-								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-									<div>
-										<h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-											<Code className="h-4 w-4 text-primary" />
-											<span>Plataforma Origen & Payload Esperado</span>
-										</h4>
-										<p className="text-xs text-muted-foreground">
-											Selecciona la plataforma para visualizar el formato JSON y
-											campos automáticos para el CRM.
+										<p className="text-[11px] text-muted-foreground mt-1">
+											Cada petición HTTP POST entrante debe incluir la cabecera{" "}
+											<code className="bg-secondary px-1 py-0.5 rounded text-[10px] font-mono">
+												x-webhook-secret: &lt;secreto&gt;
+											</code>
+											.
 										</p>
 									</div>
-
-									{/* Quick Simulator CTA */}
-									<button
-										type="button"
-										onClick={() => handleRunSimulation()}
-										className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
-									>
-										<Play className="h-3 w-3" />
-										<span>Simular Lead de Prueba ({selectedPlatform})</span>
-									</button>
-								</div>
-
-								{/* Platform Selector Tabs */}
-								<div className="flex flex-wrap gap-2 pt-1">
-									{(
-										[
-											"Zapier",
-											"Make",
-											"Formulario Web",
-											"CRM / ERP Externo",
-											"Webhook Genérico",
-										] as PlatformType[]
-									).map((plat) => (
-										<button
-											key={plat}
-											type="button"
-											onClick={() => setSelectedPlatform(plat)}
-											className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
-												selectedPlatform === plat
-													? "border-primary bg-primary/10 text-primary"
-													: "border-border bg-background text-muted-foreground hover:bg-secondary"
-											}`}
-										>
-											{plat}
-										</button>
-									))}
-								</div>
-
-								{/* JSON Code Preview */}
-								<div className="relative">
-									<pre className="p-4 rounded-xl bg-secondary/30 border border-border font-mono text-[11px] text-foreground overflow-x-auto max-h-56 leading-relaxed">
-										{getPayloadExample(selectedPlatform)}
-									</pre>
-									<button
-										type="button"
-										onClick={() =>
-											handleCopy(
-												getPayloadExample(selectedPlatform),
-												"payloadCode",
-											)
-										}
-										className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded bg-card border border-border text-[10px] font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer shadow-xs"
-									>
-										{copiedField === "payloadCode" ? (
-											<>
-												<Check className="h-3 w-3 text-emerald-500" />
-												<span>Copiado</span>
-											</>
-										) : (
-											<>
-												<Copy className="h-3 w-3" />
-												<span>Copiar JSON</span>
-											</>
-										)}
-									</button>
 								</div>
 							</div>
-						</div>
-					)}
 
-					{/* TAB 2: SIMULATOR */}
-					{activeTab === "simulator" && (
-						<form
-							onSubmit={handleRunSimulation}
-							className="space-y-4 rounded-xl border border-border bg-card p-5"
-						>
-							<div>
+							{/* Instrucciones de Eventos Inbound */}
+							<div className="rounded-xl border border-border bg-card p-5 space-y-4">
 								<h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-									<UserPlus className="h-4 w-4 text-emerald-500" />
-									<span>
-										Simulador de Leads Entrantes hacia el CRM Comercial
-									</span>
+									<Code className="h-4 w-4 text-primary" />
+									<span>Eventos Soportados & Formato de Solicitud</span>
 								</h4>
-								<p className="text-xs text-muted-foreground mt-0.5">
-									Envía un webhook sintético con firma HMAC SHA-256 válida. Se
-									creará automáticamente la ficha de cliente en el sistema.
+								<p className="text-xs text-muted-foreground leading-relaxed">
+									El endpoint inbound de Plottio procesa automáticamente los
+									siguientes eventos enviados por la pasarela de WhatsApp:
 								</p>
-							</div>
 
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-								<div>
-									<label
-										htmlFor="sim-plat"
-										className="block font-bold text-muted-foreground mb-1"
-									>
-										Plataforma Origen
-									</label>
-									<select
-										id="sim-plat"
-										value={selectedPlatform}
-										onChange={(e) =>
-											setSelectedPlatform(e.target.value as PlatformType)
-										}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:border-primary"
-									>
-										<option value="Zapier">Zapier Catch Hook</option>
-										<option value="Make">Make (Integromat)</option>
-										<option value="Formulario Web">
-											Formulario Web / Landing Page
-										</option>
-										<option value="CRM / ERP Externo">CRM / ERP Externo</option>
-										<option value="Webhook Genérico">Webhook Genérico</option>
-									</select>
-								</div>
-
-								<div>
-									<label
-										htmlFor="sim-nom"
-										className="block font-bold text-muted-foreground mb-1"
-									>
-										Nombre del Prospecto *
-									</label>
-									<input
-										id="sim-nom"
-										type="text"
-										required
-										value={simNombre}
-										onChange={(e) => setSimNombre(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:border-primary"
-									/>
-								</div>
-
-								<div>
-									<label
-										htmlFor="sim-tel"
-										className="block font-bold text-muted-foreground mb-1"
-									>
-										Teléfono WhatsApp *
-									</label>
-									<input
-										id="sim-tel"
-										type="text"
-										required
-										value={simTelefono}
-										onChange={(e) => setSimTelefono(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:border-primary"
-									/>
-								</div>
-
-								<div>
-									<label
-										htmlFor="sim-emp"
-										className="block font-bold text-muted-foreground mb-1"
-									>
-										Empresa o Vehículo
-									</label>
-									<input
-										id="sim-emp"
-										type="text"
-										value={simEmpresa}
-										onChange={(e) => setSimEmpresa(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:border-primary"
-									/>
-								</div>
-
-								<div className="sm:col-span-2">
-									<label
-										htmlFor="sim-srv"
-										className="block font-bold text-muted-foreground mb-1"
-									>
-										Servicio de Interés
-									</label>
-									<input
-										id="sim-srv"
-										type="text"
-										value={simServicio}
-										onChange={(e) => setSimServicio(e.target.value)}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:border-primary"
-									/>
-								</div>
-							</div>
-
-							<div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
-								{simSuccessToast ? (
-									<span className="text-xs text-emerald-500 font-bold flex items-center gap-1.5 animate-fade-in">
-										<Check className="h-4 w-4" />
-										¡Lead creado con éxito en CRM! HTTP 200 OK & HMAC validado.
-									</span>
-								) : (
-									<span className="text-[11px] text-muted-foreground">
-										Se agregará al registro en vivo y al pipeline comercial.
-									</span>
-								)}
-
-								<button
-									type="submit"
-									className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center justify-center gap-2"
-								>
-									<Play className="h-3.5 w-3.5" />
-									<span>Disparar Webhook & Crear Cliente</span>
-								</button>
-							</div>
-						</form>
-					)}
-
-					{/* TAB 3: LIVE LOGS */}
-					{activeTab === "logs" && (
-						<div className="space-y-4">
-							{/* Live Stats Header */}
-							<div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl border border-border bg-secondary/10">
-								<div className="flex items-center gap-3">
-									<span className="text-xs font-bold text-foreground">
-										Total Eventos:{" "}
-										<strong className="text-primary">
-											{inboundLogs.length}
-										</strong>
-									</span>
-									<span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-										Tasa de Éxito: 100% 200 OK
-									</span>
-									<span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-500 border border-purple-500/30">
-										HMAC SHA-256: Válido
-									</span>
-								</div>
-
-								{inboundLogs.length > 0 && (
-									<button
-										type="button"
-										onClick={clearInboundLogs}
-										className="text-xs text-destructive hover:underline cursor-pointer flex items-center gap-1"
-									>
-										<Trash2 className="h-3 w-3" />
-										Limpiar Historial
-									</button>
-								)}
-							</div>
-
-							{/* Logs Table / Cards */}
-							{inboundLogs.length === 0 ? (
-								<div className="p-10 rounded-xl border border-dashed border-border text-center space-y-2">
-									<div className="mx-auto w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground">
-										<Activity className="h-5 w-5" />
-									</div>
-									<div className="text-sm font-bold text-foreground">
-										Esperando primeras solicitudes...
-									</div>
-									<p className="text-xs text-muted-foreground max-w-sm mx-auto">
-										Envía un payload a la URL del webhook o pulsa "Simular Lead
-										de Prueba" para comprobar la recepción en vivo.
-									</p>
-									<div className="pt-2">
-										<button
-											type="button"
-											onClick={() => handleRunSimulation()}
-											className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-										>
-											Simular Lead Ahora
-										</button>
-									</div>
-								</div>
-							) : (
-								<div className="space-y-3">
-									{inboundLogs.map((log) => (
-										<div
-											key={log.id}
-											className="rounded-xl border border-border bg-card p-4 space-y-2.5 shadow-xs"
-										>
-											<div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
-												<div className="flex items-center gap-2">
-													<span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-bold font-mono">
-														{log.source || "Inbound Webhook"}
-													</span>
-													<span className="text-xs font-bold text-foreground">
-														{log.leadName || log.event}
-													</span>
-													{log.leadCompany && (
-														<span className="text-xs text-muted-foreground">
-															({log.leadCompany})
-														</span>
-													)}
-												</div>
-
-												<div className="flex items-center gap-2 text-xs">
-													<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">
-														<Check className="h-3 w-3" />
-														HTTP 200 OK
-													</span>
-													<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">
-														<ShieldCheck className="h-3 w-3" />
-														HMAC Válida
-													</span>
-													<span className="text-[11px] text-muted-foreground font-mono">
-														{log.receivedAt}
-													</span>
-												</div>
-											</div>
-
-											{/* Extra details line */}
-											<div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-												<span className="font-mono">
-													IP:{" "}
-													<strong className="text-foreground">
-														{log.ip || "192.168.1.1"}
-													</strong>
-												</span>
-												{log.leadPhone && (
-													<span>
-														Tel:{" "}
-														<strong className="text-foreground">
-															{log.leadPhone}
-														</strong>
-													</span>
-												)}
-												<span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold text-[10px]">
-													✓ Creado en CRM
-												</span>
-											</div>
-
-											{/* Raw JSON Payload */}
-											<pre className="p-2.5 rounded-lg bg-secondary/20 border border-border font-mono text-[10px] text-foreground overflow-x-auto whitespace-pre-wrap max-h-36">
-												{log.payload}
-											</pre>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									{/* Evento 1: messages.upsert */}
+									<div className="p-4 rounded-xl border border-border bg-secondary/15 space-y-2.5">
+										<div className="flex items-center justify-between">
+											<span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-mono text-xs font-bold">
+												messages.upsert
+											</span>
+											<span className="text-[10px] text-muted-foreground">
+												Mensajes Entrantes
+											</span>
 										</div>
-									))}
+										<p className="text-[11px] text-muted-foreground leading-relaxed">
+											Recibe y despacha mensajes entrantes de clientes. Se
+											sincroniza en el chat del cliente identificándolo por su
+											número de teléfono (
+											<code className="text-[10px]">remoteJid</code>).
+										</p>
+										<pre className="p-3 rounded-lg bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto leading-relaxed">
+											{JSON.stringify(
+												{
+													event: "messages.upsert",
+													instance: "plottio-central",
+													data: {
+														key: {
+															remoteJid: "593991234567@s.whatsapp.net",
+															fromMe: false,
+															id: "MSG_A8B9C0",
+														},
+														message: {
+															conversation:
+																"Hola, solicito cotización para rotulado vehicular.",
+														},
+														messageTimestamp: 1775184000,
+													},
+												},
+												null,
+												2,
+											)}
+										</pre>
+									</div>
+
+									{/* Evento 2: connection.update */}
+									<div className="p-4 rounded-xl border border-border bg-secondary/15 space-y-2.5">
+										<div className="flex items-center justify-between">
+											<span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-mono text-xs font-bold">
+												connection.update
+											</span>
+											<span className="text-[10px] text-muted-foreground">
+												Estado del Canal
+											</span>
+										</div>
+										<p className="text-[11px] text-muted-foreground leading-relaxed">
+											Notifica cambios en la sesión de WhatsApp (conectado,
+											desconectado, código QR listo o en espera). Actualiza el
+											indicador de disponibilidad.
+										</p>
+										<pre className="p-3 rounded-lg bg-background border border-border font-mono text-[10px] text-foreground overflow-x-auto leading-relaxed">
+											{JSON.stringify(
+												{
+													event: "connection.update",
+													instance: "plottio-central",
+													state: "open",
+													qr: null,
+													timestamp: new Date().toISOString(),
+												},
+												null,
+												2,
+											)}
+										</pre>
+									</div>
 								</div>
-							)}
+							</div>
 						</div>
 					)}
 
-					{/* TAB 4: OUTBOUND WEBHOOKS */}
+					{/* PESTAÑA 2: WEBHOOKS SALIENTES (OUTBOUND) */}
 					{activeTab === "outbound" && (
-						<div className="space-y-4">
-							<div className="flex items-center justify-between">
+						<div className="space-y-5">
+							<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 								<div>
 									<h4 className="text-sm font-bold text-foreground">
-										Webhooks Salientes (Disparadores Automáticos)
+										Webhooks Salientes (Despacho a Sistemas Externos)
 									</h4>
 									<p className="text-xs text-muted-foreground">
-										Notifica a Slack, Discord o sistemas externos cada vez que
-										ocurra un evento en PLOTTIO.
+										Despacha notificaciones en tiempo real a Zapier, Make, n8n u
+										otros servicios cuando ocurren acciones en Plottio.
 									</p>
 								</div>
 								<button
 									type="button"
 									onClick={() => setIsAddingOutbound((v) => !v)}
-									className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1"
+									className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-auto shadow-xs"
 								>
 									<Plus className="h-3.5 w-3.5" />
-									<span>Nuevo Disparador</span>
+									<span>+ Nuevo Webhook</span>
 								</button>
 							</div>
 
+							{/* Add Outbound Webhook Form */}
 							{isAddingOutbound && (
 								<form
 									onSubmit={handleAddOutbound}
-									className="rounded-xl border border-border bg-secondary/15 p-4 space-y-3 animate-fade-in text-xs"
+									className="rounded-xl border border-border bg-secondary/15 p-5 space-y-4 animate-fade-in text-xs"
 								>
+									<div className="font-bold text-foreground text-sm">
+										Registrar Nuevo Webhook Saliente
+									</div>
+
 									<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 										<div>
 											<label
@@ -776,10 +391,10 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 												id="wh-name-in"
 												type="text"
 												required
-												placeholder="ej. Alertas Slack Taller"
+												placeholder="ej. Zapier Sincronización CRM"
 												value={outboundName}
 												onChange={(e) => setOutboundName(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-foreground focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
 											/>
 										</div>
 
@@ -794,10 +409,10 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 												id="wh-url-in"
 												type="url"
 												required
-												placeholder="https://hooks.slack.com/services/..."
+												placeholder="https://hooks.zapier.com/hooks/catch/..."
 												value={outboundUrl}
 												onChange={(e) => setOutboundUrl(e.target.value)}
-												className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-foreground focus:outline-none"
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
 											/>
 										</div>
 									</div>
@@ -807,51 +422,49 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 											htmlFor="wh-events-options"
 											className="block font-bold text-muted-foreground mb-1.5"
 										>
-											Eventos a Suscribir
+											Eventos a Despachar
 										</label>
 										<div
 											id="wh-events-options"
 											className="flex flex-wrap gap-2"
 										>
-											{[
-												"cliente.nuevo",
-												"cotizacion.aprobada",
-												"orden.creada",
-												"orden.terminada",
-											].map((ev) => (
-												<button
-													key={ev}
-													type="button"
-													onClick={() =>
-														setSelectedEvents((prev) =>
-															prev.includes(ev)
-																? prev.filter((x) => x !== ev)
-																: [...prev, ev],
-														)
-													}
-													className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors cursor-pointer border ${
-														selectedEvents.includes(ev)
-															? "bg-primary text-primary-foreground border-primary"
-															: "bg-background text-muted-foreground border-border"
-													}`}
-												>
-													{ev}
-												</button>
-											))}
+											{availableEvents.map((ev) => {
+												const isSelected = selectedEvents.includes(ev.id);
+												return (
+													<button
+														key={ev.id}
+														type="button"
+														onClick={() =>
+															setSelectedEvents((prev) =>
+																prev.includes(ev.id)
+																	? prev.filter((x) => x !== ev.id)
+																	: [...prev, ev.id],
+															)
+														}
+														className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer border ${
+															isSelected
+																? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
+																: "bg-background text-muted-foreground border-border hover:text-foreground"
+														}`}
+													>
+														{ev.label}
+													</button>
+												);
+											})}
 										</div>
 									</div>
 
-									<div className="flex justify-end gap-2 pt-2">
+									<div className="flex justify-end gap-2 pt-2 border-t border-border/60">
 										<button
 											type="button"
 											onClick={() => setIsAddingOutbound(false)}
-											className="px-3 py-1.5 rounded-lg border border-border bg-card text-foreground"
+											className="px-3.5 py-1.5 rounded-lg border border-border bg-card text-foreground font-semibold hover:bg-secondary transition-colors cursor-pointer"
 										>
 											Cancelar
 										</button>
 										<button
 											type="submit"
-											className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold"
+											className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
 										>
 											Guardar Webhook
 										</button>
@@ -859,151 +472,77 @@ export const WebhookManagerModal: React.FC<WebhookManagerModalProps> = ({
 								</form>
 							)}
 
-							<div className="space-y-2.5">
-								{webhooks.map((wh) => (
-									<div
-										key={wh.id}
-										className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
-									>
-										<div className="space-y-1 min-w-0">
-											<div className="flex items-center gap-2">
-												<span className="font-bold text-sm text-foreground truncate">
-													{wh.name}
-												</span>
-												<span
-													className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-														wh.active
-															? "bg-emerald-500/15 text-emerald-500"
-															: "bg-muted text-muted-foreground"
-													}`}
-												>
-													{wh.active ? "Activo" : "Pausado"}
-												</span>
-											</div>
-											<div className="text-xs font-mono text-muted-foreground truncate">
-												{wh.url}
-											</div>
-											<div className="flex items-center gap-1 text-[11px] text-muted-foreground flex-wrap pt-0.5">
-												<span className="font-bold text-foreground">
-													Eventos:
-												</span>
-												{wh.events.map((e) => (
-													<span
-														key={e}
-														className="px-1.5 py-0.2 rounded bg-secondary text-[10px] font-mono"
-													>
-														{e}
-													</span>
-												))}
-											</div>
+							{/* Outbound Webhooks List */}
+							<div className="space-y-3">
+								{webhooks.length === 0 ? (
+									<div className="p-8 rounded-xl border border-dashed border-border text-center space-y-2">
+										<div className="text-sm font-bold text-foreground">
+											No hay webhooks salientes configurados
 										</div>
-
-										<div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-											<button
-												type="button"
-												onClick={() => toggleWebhook(wh.id)}
-												className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-semibold hover:bg-secondary transition-colors cursor-pointer"
-											>
-												{wh.active ? "Pausar" : "Activar"}
-											</button>
-											<button
-												type="button"
-												onClick={() => deleteWebhook(wh.id)}
-												className="p-1.5 rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-												title="Eliminar webhook"
-											>
-												<Trash2 className="h-4 w-4" />
-											</button>
-										</div>
+										<p className="text-xs text-muted-foreground max-w-sm mx-auto">
+											Agrega un nuevo webhook para despachar eventos de
+											clientes, órdenes y cotizaciones hacia Zapier, Make o n8n.
+										</p>
 									</div>
-								))}
-							</div>
-						</div>
-					)}
+								) : (
+									webhooks.map((wh) => (
+										<div
+											key={wh.id}
+											className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+										>
+											<div className="space-y-1.5 min-w-0">
+												<div className="flex items-center gap-2">
+													<span className="font-bold text-sm text-foreground truncate">
+														{wh.name}
+													</span>
+													<span
+														className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+															wh.active
+																? "bg-emerald-500/15 text-emerald-500"
+																: "bg-muted text-muted-foreground"
+														}`}
+													>
+														{wh.active ? "Activo" : "Pausado"}
+													</span>
+												</div>
+												<div className="text-xs font-mono text-muted-foreground truncate">
+													{wh.url}
+												</div>
+												<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap pt-0.5">
+													<span className="font-bold text-foreground">
+														Eventos:
+													</span>
+													{wh.events.map((e) => (
+														<span
+															key={e}
+															className="px-2 py-0.5 rounded bg-secondary text-[10px] font-mono text-foreground font-medium"
+														>
+															{e}
+														</span>
+													))}
+												</div>
+											</div>
 
-					{/* TAB 5: STEP BY STEP GUIDE */}
-					{activeTab === "guide" && (
-						<div className="space-y-5 text-xs sm:text-sm">
-							<div className="rounded-xl border border-border bg-secondary/15 p-4 space-y-3">
-								<h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-									<Zap className="h-4 w-4 text-primary" />
-									<span>
-										Formularios Web, Landing Pages o Typeform (HTTP POST)
-									</span>
-								</h4>
-								<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
-									<li>
-										En tu formulario de contacto web, landing page o Typeform
-										configura un envío <strong>HTTP POST</strong> hacia:
-										<div className="mt-1 font-mono text-[11px] text-primary bg-background p-1.5 rounded border border-border">
-											{inboundEndpoint}
+											<div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+												<button
+													type="button"
+													onClick={() => toggleWebhook(wh.id)}
+													className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-semibold hover:bg-secondary transition-colors cursor-pointer shadow-xs"
+												>
+													{wh.active ? "Pausar" : "Activar"}
+												</button>
+												<button
+													type="button"
+													onClick={() => deleteWebhook(wh.id)}
+													className="p-1.5 rounded-lg border border-destructive/20 bg-card text-destructive hover:bg-destructive/10 transition-colors cursor-pointer shadow-xs"
+													title="Eliminar webhook"
+												>
+													<Trash2 className="h-4 w-4" />
+												</button>
+											</div>
 										</div>
-									</li>
-									<li>
-										Envía los campos del prospecto en formato JSON:
-										<pre className="p-2.5 mt-1 rounded bg-background border border-border font-mono text-[10px] text-foreground">
-											{JSON.stringify(
-												{
-													name: "Mario Andrade",
-													phone: "+593991234567",
-													email: "mario@empresa.com",
-													company: "Transportes Andrade",
-													service: "Rotulado Integral de Flotas",
-													vehicle: "Hino 500",
-												},
-												null,
-												2,
-											)}
-										</pre>
-									</li>
-									<li>
-										(Opcional para seguridad máxima): Envía la cabecera{" "}
-										<code>X-Hub-Signature-256: sha256=...</code> firmando el
-										cuerpo con tu secreto HMAC.
-									</li>
-									<li>
-										El prospecto se registrará de inmediato en el CRM comercial
-										de PLOTTIO.
-									</li>
-								</ol>
-							</div>
-
-							<div className="rounded-xl border border-border bg-secondary/15 p-4 space-y-3">
-								<h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-									<Zap className="h-4 w-4 text-primary" />
-									<span>Zapier o Make (Integromat)</span>
-								</h4>
-								<ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
-									<li>
-										En Zapier o Make crea un módulo{" "}
-										<strong>Webhooks by Zapier → Catch Hook</strong>.
-									</li>
-									<li>
-										Para enviar prospectos hacia PLOTTIO: usa un módulo{" "}
-										<strong>HTTP Request (POST)</strong> hacia la URL de tu
-										webhook.
-									</li>
-									<li>
-										Envía en el cuerpo JSON:
-										<pre className="p-2.5 mt-1 rounded bg-background border border-border font-mono text-[10px] text-foreground">
-											{JSON.stringify(
-												{
-													name: "Carlos Mendoza",
-													email: "carlos@empresa.com",
-													phone: "+593991234567",
-													company: "Andes Tech",
-													source: "Zapier Form",
-												},
-												null,
-												2,
-											)}
-										</pre>
-									</li>
-									<li>
-										En menos de 1 segundo se creará la ficha del cliente en el
-										CRM y se enviará la alerta a Telegram.
-									</li>
-								</ol>
+									))
+								)}
 							</div>
 						</div>
 					)}

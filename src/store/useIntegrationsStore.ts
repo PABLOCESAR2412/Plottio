@@ -9,17 +9,6 @@ export interface WhatsAppMessage {
 	status: "sent" | "delivered" | "read";
 }
 
-export interface EmailMessage {
-	id: string;
-	subject: string;
-	from: string;
-	to: string;
-	date: string;
-	body: string;
-	hasAttachment?: boolean;
-	attachmentName?: string;
-}
-
 export interface WebhookConfig {
 	id: string;
 	name: string;
@@ -52,11 +41,22 @@ export interface InboundWebhookLog {
 	crmCreated?: boolean;
 }
 
+export type AiProvider = "google" | "groq" | "opencode_zen" | "nvidia";
+export type AiTimeFilter = "dia" | "semana" | "15dias" | "1mes" | "intervalos";
+
+export const AI_MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
+	google: ["Gemini 2.0 Flash", "Gemini 1.5 Pro", "Gemini 1.5 Flash"],
+	groq: ["Llama 3.3 70B Versatile", "Llama 3.1 8B Instant", "Mixtral 8x7B"],
+	opencode_zen: ["DeepSeek R1", "DeepSeek V3", "Qwen 2.5 Coder"],
+	nvidia: ["Nemotron 70B", "Llama 3.1 Nemotron 70B Ultra", "Mistral NeMo"],
+};
+
 interface IntegrationsState {
-	// 1. WhatsApp Evolution API
+	// 1. WhatsApp
 	whatsapp: {
 		instanceName: string;
-		apiUrl: string;
+		serverUrl: string;
+		apiUrl?: string;
 		apiKey: string;
 		status: "disconnected" | "connecting" | "connected";
 		qrCode: string | null;
@@ -87,28 +87,13 @@ interface IntegrationsState {
 	) => void;
 	testTelegramAlert: (message?: string) => Promise<boolean>;
 
-	// 3. Correo Corporativo
-	email: {
-		smtpHost: string;
-		smtpPort: number;
-		smtpUser: string;
-		smtpPass: string;
-		senderName: string;
-		provider: "smtp" | "gmail" | "outlook";
-		status: "connected" | "disconnected";
-		threads: Record<string, EmailMessage[]>; // keyed by client email
-	};
-	updateEmailConfig: (config: Partial<IntegrationsState["email"]>) => void;
-	sendEmailMessage: (
-		to: string,
-		subject: string,
-		body: string,
-		attachmentName?: string,
-	) => void;
-
-	// 4. Modelos de IA & FinOps
+	// 3. Modelos de IA & FinOps Multi-Proveedor
 	ai: {
-		provider: "gemini" | "openai" | "custom";
+		provider: AiProvider | "gemini" | "openai" | "custom";
+		googleApiKey: string;
+		groqApiKey: string;
+		opencodeZenApiKey: string;
+		nvidiaApiKey: string;
 		geminiApiKey: string;
 		openaiApiKey: string;
 		customEndpoint: string;
@@ -119,12 +104,24 @@ interface IntegrationsState {
 		totalRequests: number;
 		tps: number;
 		latencyMs: number;
+		timeFilter: AiTimeFilter;
+		customIntervalStart?: string;
+		customIntervalEnd?: string;
 		tokenUsageHourly: { hour: string; tokens: number; costUSD: number }[];
 	};
 	updateAiConfig: (config: Partial<IntegrationsState["ai"]>) => void;
 	recordAiUsage: (tokens: number, costUSD: number) => void;
+	setTimeFilter: (filter: AiTimeFilter, start?: string, end?: string) => void;
 
-	// 4.1 APEX Brain (RAG / pgvector)
+	// 4. Plottio Asistente (Agentic RAG)
+	agent: {
+		nombre: string;
+		systemPrompt: string;
+		model: string;
+		temperature: number;
+	};
+	updateAgentConfig: (config: Partial<IntegrationsState["agent"]>) => void;
+
 	rag: {
 		similarityThreshold: number;
 		maxContextChunks: number;
@@ -133,6 +130,9 @@ interface IntegrationsState {
 		indexedDocumentsCount: number;
 		lastCalibrationDate: string;
 		isIndexing?: boolean;
+		nombre?: string;
+		systemPrompt?: string;
+		model?: string;
 	};
 	updateRagConfig: (config: Partial<IntegrationsState["rag"]>) => void;
 	indexKnowledgeBase: () => Promise<void>;
@@ -191,8 +191,9 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 			// 1. WhatsApp
 			whatsapp: {
 				instanceName: "plottio-central",
-				apiUrl: "https://api.evolution.plottio.com",
-				apiKey: getEnv("VITE_EVOLUTION_API_KEY"),
+				serverUrl: "https://acadia.simcodec.workers.dev/api/webhook/wha",
+				apiUrl: "https://acadia.simcodec.workers.dev/api/webhook/wha",
+				apiKey: getEnv("VITE_WHATSAPP_API_KEY") || "sec_acadia_evo_2026",
 				status: "disconnected",
 				qrCode: null,
 				chats: {
@@ -215,9 +216,18 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				},
 			},
 			updateWhatsAppConfig: (config) =>
-				set((state) => ({
-					whatsapp: { ...state.whatsapp, ...config },
-				})),
+				set((state) => {
+					const serverUrl =
+						config.serverUrl ?? config.apiUrl ?? state.whatsapp.serverUrl;
+					return {
+						whatsapp: {
+							...state.whatsapp,
+							...config,
+							serverUrl,
+							apiUrl: serverUrl,
+						},
+					};
+				}),
 			sendWhatsAppMessage: (chatKey, text, sender = "agent") =>
 				set((state) => {
 					const existing = state.whatsapp.chats[chatKey] ?? [];
@@ -277,80 +287,49 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				return true;
 			},
 
-			// 3. Correo Corporativo
-			email: {
-				smtpHost: "smtp.office365.com",
-				smtpPort: 587,
-				smtpUser: "contacto@plottio.com",
-				smtpPass: getEnv("VITE_SMTP_PASS"),
-				senderName: "Plottio Taller Central",
-				provider: "outlook",
-				status: "disconnected",
-				threads: {
-					default: [
-						{
-							id: "mail-1",
-							subject: "Cotización de Servicio de Rotulado #COT-9182",
-							from: "contacto@plottio.com",
-							to: "cliente@empresa.com",
-							date: "08 Jun 2026, 11:20",
-							body: "Estimado cliente, adjuntamos la propuesta técnica y económica para la rotulación vehicular solicitada.",
-							hasAttachment: true,
-							attachmentName: "Presupuesto_PLOTTIO_9182.pdf",
-						},
-					],
-				},
-			},
-			updateEmailConfig: (config) =>
-				set((state) => ({
-					email: { ...state.email, ...config },
-				})),
-			sendEmailMessage: (to, subject, body, attachmentName) =>
-				set((state) => {
-					const existing = state.email.threads[to] ?? [];
-					const newMail: EmailMessage = {
-						id: `mail-${Date.now()}`,
-						subject,
-						from: state.email.smtpUser,
-						to,
-						date: new Date().toLocaleString([], {
-							dateStyle: "medium",
-							timeStyle: "short",
-						}),
-						body,
-						hasAttachment: Boolean(attachmentName),
-						attachmentName,
-					};
-					return {
-						email: {
-							...state.email,
-							threads: {
-								...state.email.threads,
-								[to]: [...existing, newMail],
-							},
-						},
-					};
-				}),
-
-			// 5. IA & FinOps
+			// 3. IA & FinOps Multi-Proveedor
 			ai: {
-				provider: "gemini",
-				geminiApiKey: getEnv("VITE_GEMINI_API_KEY"),
+				provider: "google",
+				googleApiKey:
+					getEnv("VITE_GEMINI_API_KEY") || getEnv("VITE_GOOGLE_API_KEY"),
+				groqApiKey: getEnv("VITE_GROQ_API_KEY"),
+				opencodeZenApiKey: getEnv("VITE_OPENCODE_ZEN_API_KEY"),
+				nvidiaApiKey: getEnv("VITE_NVIDIA_API_KEY"),
+				// Retrocompatibilidad
+				geminiApiKey:
+					getEnv("VITE_GEMINI_API_KEY") || getEnv("VITE_GOOGLE_API_KEY"),
 				openaiApiKey: getEnv("VITE_OPENAI_API_KEY"),
 				customEndpoint: "https://ai.internal.plottio.com/v1",
-				activeModel: "gemini-1.5-flash",
+				activeModel: "Gemini 2.0 Flash",
 				monthlyBudgetUSD: 150.0,
 				currentSpendUSD: 42.85,
 				tokensToday: 218500,
 				totalRequests: 1420,
 				tps: 84.6,
 				latencyMs: 380,
+				timeFilter: "dia",
+				customIntervalStart: new Date(Date.now() - 7 * 86400000)
+					.toISOString()
+					.split("T")[0],
+				customIntervalEnd: new Date().toISOString().split("T")[0],
 				tokenUsageHourly: initialHourlyUsage,
 			},
 			updateAiConfig: (config) =>
-				set((state) => ({
-					ai: { ...state.ai, ...config },
-				})),
+				set((state) => {
+					const next = { ...state.ai, ...config };
+					if (
+						config.googleApiKey !== undefined &&
+						config.geminiApiKey === undefined
+					) {
+						next.geminiApiKey = config.googleApiKey;
+					} else if (
+						config.geminiApiKey !== undefined &&
+						config.googleApiKey === undefined
+					) {
+						next.googleApiKey = config.geminiApiKey;
+					}
+					return { ai: next };
+				}),
 			recordAiUsage: (tokens, costUSD) =>
 				set((state) => ({
 					ai: {
@@ -360,20 +339,67 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 						totalRequests: state.ai.totalRequests + 1,
 					},
 				})),
+			setTimeFilter: (filter, start, end) =>
+				set((state) => ({
+					ai: {
+						...state.ai,
+						timeFilter: filter,
+						...(start !== undefined ? { customIntervalStart: start } : {}),
+						...(end !== undefined ? { customIntervalEnd: end } : {}),
+					},
+				})),
 
-			// 6. APEX Brain
+			// 4. Plottio Asistente (Agentic RAG)
+			agent: {
+				nombre: "Plottio Asistente",
+				systemPrompt:
+					"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.",
+				model: "gemini-1.5-pro",
+				temperature: 0.2,
+			},
+			updateAgentConfig: (config) =>
+				set((state) => ({
+					agent: { ...state.agent, ...config },
+					rag: {
+						...state.rag,
+						...(config.temperature !== undefined
+							? { temperature: config.temperature }
+							: {}),
+						...(config.nombre !== undefined ? { nombre: config.nombre } : {}),
+						...(config.systemPrompt !== undefined
+							? { systemPrompt: config.systemPrompt }
+							: {}),
+						...(config.model !== undefined ? { model: config.model } : {}),
+					},
+				})),
+
 			rag: {
 				similarityThreshold: 0.78,
 				maxContextChunks: 6,
 				maxTokens: 1024,
 				temperature: 0.2,
 				indexedDocumentsCount: 489,
-				lastCalibrationDate: "Hoy, 04:00 AM",
+				lastCalibrationDate: "Hoy, 04:00 AM (RAG Operacional)",
 				isIndexing: false,
+				nombre: "Plottio Asistente",
+				systemPrompt:
+					"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.",
+				model: "gemini-1.5-pro",
 			},
 			updateRagConfig: (config) =>
 				set((state) => ({
 					rag: { ...state.rag, ...config },
+					agent: {
+						...state.agent,
+						...(config.temperature !== undefined
+							? { temperature: config.temperature }
+							: {}),
+						...(config.nombre !== undefined ? { nombre: config.nombre } : {}),
+						...(config.systemPrompt !== undefined
+							? { systemPrompt: config.systemPrompt }
+							: {}),
+						...(config.model !== undefined ? { model: config.model } : {}),
+					},
 				})),
 			indexKnowledgeBase: async () => {
 				set((state) => ({ rag: { ...state.rag, isIndexing: true } }));
@@ -382,7 +408,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					rag: {
 						...state.rag,
 						indexedDocumentsCount: 524,
-						lastCalibrationDate: "Justo ahora (pgvector 768d)",
+						lastCalibrationDate: "Justo ahora (RAG Operacional)",
 						isIndexing: false,
 					},
 				}));
@@ -417,65 +443,9 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					createdAt: "2026-05-20",
 				},
 			],
-			inboundEndpoint:
-				"https://plottio.app/api/webhooks/inbound?workspaceId=ws_prod_apex_2026",
+			inboundEndpoint: "https://acadia.simcodec.workers.dev/api/webhook/wha",
 			inboundSecret: getEnv("VITE_INBOUND_SECRET"),
-			inboundLogs: [
-				{
-					id: "log-1",
-					event: "lead.formulario_web",
-					source: "Formulario Web",
-					ip: "190.152.88.14",
-					hmacSignature: "sha256=9f83a02b1c4e7d5...",
-					hmacValid: true,
-					leadName: "Mario Andrade",
-					leadPhone: "+593991234567",
-					leadCompany: "Transportes Andrade & Hijos",
-					crmCreated: true,
-					payload: JSON.stringify(
-						{
-							form_id: "cotizador_web_plottio",
-							name: "Mario Andrade",
-							phone: "+593991234567",
-							company: "Transportes Andrade & Hijos",
-							service: "Rotulado de Flotas 2026",
-							created_time: "2026-06-08T10:14:00Z",
-						},
-						null,
-						2,
-					),
-					receivedAt: "10:14 AM",
-					status: "success",
-					responseCode: 200,
-				},
-				{
-					id: "log-2",
-					event: "lead.zapier",
-					source: "Zapier",
-					ip: "34.201.12.8",
-					hmacSignature: "sha256=1a2b3c4d5e6f7g8...",
-					hmacValid: true,
-					leadName: "Carlos Mendoza",
-					leadPhone: "+593987654321",
-					leadCompany: "Andes Tech Logistics",
-					crmCreated: true,
-					payload: JSON.stringify(
-						{
-							source: "Zapier Catch Hook",
-							name: "Carlos Mendoza",
-							email: "carlos@andestech.com",
-							phone: "+593987654321",
-							company: "Andes Tech Logistics",
-							fleet_size: "12 furgonetas",
-						},
-						null,
-						2,
-					),
-					receivedAt: "09:45 AM",
-					status: "success",
-					responseCode: 200,
-				},
-			],
+			inboundLogs: [],
 			addWebhook: (name, url, events) =>
 				set((state) => ({
 					webhooks: [
@@ -508,58 +478,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					).join("")}`,
 				})),
 			clearInboundLogs: () => set(() => ({ inboundLogs: [] })),
-			simulateInboundLead: (lead) =>
-				set((state) => {
-					const platform = lead.plataforma || "Zapier";
-					const ipMap: Record<string, string> = {
-						Zapier: "34.201.12.8",
-						Make: "54.216.14.90",
-						"Formulario Web": "190.152.88.14",
-						"CRM / ERP Externo": "45.33.32.156",
-						"Webhook Genérico": "186.101.45.22",
-					};
-					const newLog: InboundWebhookLog = {
-						id: `log-${Date.now()}`,
-						event: `lead.${platform.toLowerCase().replace(/\s+/g, "_")}`,
-						source: platform,
-						ip: ipMap[platform] || "192.168.1.100",
-						hmacSignature: `sha256=${Array.from({ length: 24 }, () =>
-							Math.floor(Math.random() * 16).toString(16),
-						).join("")}`,
-						hmacValid: true,
-						leadName: lead.nombre,
-						leadPhone: lead.telefono,
-						leadCompany: lead.empresa || lead.vehiculo,
-						crmCreated: true,
-						payload: JSON.stringify(
-							{
-								event_type: "leadgen",
-								platform,
-								lead_data: {
-									full_name: lead.nombre,
-									phone_number: lead.telefono,
-									company_or_vehicle: lead.empresa || lead.vehiculo,
-									service_interest: lead.servicio,
-									status: "auto_created_crm_lead",
-								},
-								verified_hmac_sha256: true,
-								timestamp: new Date().toISOString(),
-							},
-							null,
-							2,
-						),
-						receivedAt: new Date().toLocaleTimeString([], {
-							hour: "2-digit",
-							minute: "2-digit",
-							second: "2-digit",
-						}),
-						status: "success",
-						responseCode: 200,
-					};
-					return {
-						inboundLogs: [newLog, ...state.inboundLogs],
-					};
-				}),
+			simulateInboundLead: () => {},
 		}),
 		{
 			name: "plottio_integrations_store_v1",
