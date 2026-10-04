@@ -2,30 +2,22 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
-// 5.2 MODIFICAR FUNCIÓN: fetchVehiculos()
+// 5.2 FUNCIÓN: fetchVehiculos() (Single-Org)
 export const fetchVehiculos = query({
   args: { usuarioId: v.id("usuarios") },
   handler: async (ctx, args) => {
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) return [];
     
-    const esSuper = userContext.roles.some(r => r.roleNombre === 'SuperAdmin');
-    
     const allVehiculos = await ctx.db
       .query("vehiculos")
-      .withIndex("by_empresa_sucursal", q => q.eq("empresaId", userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
-    let filtrados = allVehiculos;
-
-    if (!esSuper && userContext.sucursal) {
-      filtrados = allVehiculos.filter(v => v.sucursalId === userContext.sucursal!.id);
-    }
-
     // Ordenar por placa
-    filtrados.sort((a, b) => a.placa.localeCompare(b.placa));
+    const filtrados = [...allVehiculos].sort((a, b) => a.placa.localeCompare(b.placa));
 
-    // Enriquecer con nombres de cliente y sucursal
+    // Enriquecer con nombres de cliente
     return await Promise.all(filtrados.map(async (v) => {
       let cliente_nombre = "Desconocido";
       if (v.propietarioTipo === "cliente" && v.propietarioId) {
@@ -33,16 +25,10 @@ export const fetchVehiculos = query({
          if (cliente) cliente_nombre = cliente.nombre;
       }
 
-      let sucursal_nombre = "Desconocida";
-      if (v.sucursalId) {
-         const suc = await ctx.db.get(v.sucursalId);
-         if (suc) sucursal_nombre = suc.nombre;
-      }
-
       return {
         ...v,
         cliente_nombre,
-        sucursal_nombre,
+        sucursal_nombre: "Taller Principal",
         servicios: v.servicios || []
       };
     }));
@@ -67,7 +53,7 @@ export const createVehiculo = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) throw new ConvexError("Sin permisos");
 
-    let empId = userContext.empresa.id;
+    const empId = userContext.empresa.id;
 
     const existing = await ctx.db
       .query("vehiculos")
@@ -88,7 +74,7 @@ export const createVehiculo = mutation({
       propietarioTipo: args.propietarioTipo,
       estado: args.estado,
       empresaId: empId,
-      sucursalId: args.sucursalId || userContext.sucursal?.id,
+      sucursalId: args.sucursalId ?? userContext.sucursal?.id,
       servicios: [],
     });
     return await ctx.db.get(newId);

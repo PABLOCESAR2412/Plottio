@@ -7,14 +7,14 @@ export type UserContext = {
   email: string;
   nombre: string;
   empresa: { id: Id<"empresas">; nombre: string } | null;
-  sucursal: { id: Id<"sucursales">; nombre: string } | null;
-  pv: { id: Id<"puntosVenta">; nombre: string } | null;
-  roles: Array<{ roleId: Id<"roles">; roleNombre: string; sucursalId: Id<"sucursales"> }>;
+  sucursal?: { id: Id<"sucursales">; nombre: string } | null;
+  pv?: { id: Id<"puntosVenta">; nombre: string } | null;
+  roles: Array<{ roleId: Id<"roles">; roleNombre: string; sucursalId?: Id<"sucursales"> }>;
   permisos: string[];
-  permisosPorSucursal: Array<{ sucursalId: Id<"sucursales">; permisos: string[] }>;
+  permisosPorSucursal?: Array<{ sucursalId: Id<"sucursales">; permisos: string[] }>;
 };
 
-// 3.1 CREAR FUNCIÓN: getCurrentUserContext()
+// 3.1 FUNCIÓN: getCurrentUserContext() (Arquitectura Single-Org)
 export async function getCurrentUserContext(
   ctx: QueryCtx,
   usuarioId: Id<"usuarios">,
@@ -30,7 +30,8 @@ export async function getCurrentUserContext(
 
   const roles: UserContext["roles"] = [];
   const permissionsSet = new Set<string>();
-  const permisosPorSucursalMap = new Map<Id<"sucursales">, Set<string>>();
+
+  const permisosPorSucursalMap = new Map<string, Set<string>>();
 
   for (const ur of userRoles) {
     const role = await ctx.db.get(ur.roleId);
@@ -46,22 +47,21 @@ export async function getCurrentUserContext(
         .withIndex("by_role", (q) => q.eq("roleId", role._id))
         .collect();
 
-      const sucursalSet = permisosPorSucursalMap.get(ur.sucursalId) ?? new Set<string>();
       for (const rp of rolePerms) {
         const perm = await ctx.db.get(rp.permisoId);
         if (perm) {
           const clave = perm.clave ?? perm.nombre;
           permissionsSet.add(clave);
-          sucursalSet.add(clave);
+
+          if (ur.sucursalId) {
+            if (!permisosPorSucursalMap.has(ur.sucursalId)) {
+              permisosPorSucursalMap.set(ur.sucursalId, new Set());
+            }
+            permisosPorSucursalMap.get(ur.sucursalId)!.add(clave);
+          }
         }
       }
-      permisosPorSucursalMap.set(ur.sucursalId, sucursalSet);
     }
-  }
-
-  const permisosPorSucursal: UserContext["permisosPorSucursal"] = [];
-  for (const [sucursalId, permisos] of permisosPorSucursalMap.entries()) {
-    permisosPorSucursal.push({ sucursalId, permisos: Array.from(permisos) });
   }
 
   let empresa: UserContext["empresa"] = null;
@@ -76,44 +76,6 @@ export async function getCurrentUserContext(
     sucursal = suc ? { id: suc._id, nombre: suc.nombre } : null;
   }
 
-  // Fallback: si el usuario no tiene empresa/sucursal asignadas en su documento,
-  // derivarlas de sus roles (usuariosRolesSucursal) o de la primera empresa/sucursal
-  // activa en caso de SuperAdmin. Evita errores tipo "usuario necesita estar
-  // asignado a una Empresa y Sucursal" y consultas vacías para admins sin contexto.
-  if (!empresa || !sucursal) {
-    for (const r of roles) {
-      const suc = await ctx.db.get(r.sucursalId);
-      if (!suc) continue;
-      if (!sucursal) sucursal = { id: suc._id, nombre: suc.nombre };
-      if (!empresa) {
-        const emp = suc.empresaId ? await ctx.db.get(suc.empresaId) : null;
-        if (emp) empresa = { id: emp._id, nombre: emp.nombre };
-      }
-    }
-  }
-
-  if (!empresa || !sucursal) {
-    const esSuperAdmin = roles.some((r) => r.roleNombre === "SuperAdmin");
-    if (esSuperAdmin) {
-      if (!empresa) {
-        const emp = await ctx.db
-          .query("empresas")
-          .filter((q) => q.eq(q.field("activa"), true))
-          .first();
-        if (emp) empresa = { id: emp._id, nombre: emp.nombre };
-      }
-      if (!sucursal && empresa) {
-        const empresaId = empresa.id;
-        const suc = await ctx.db
-          .query("sucursales")
-          .withIndex("by_empresa", (q) => q.eq("empresaId", empresaId))
-          .filter((q) => q.eq(q.field("activa"), true))
-          .first();
-        if (suc) sucursal = { id: suc._id, nombre: suc.nombre };
-      }
-    }
-  }
-
   let pv: UserContext["pv"] = null;
   if (user.pvId) {
     const pvd = await ctx.db.get(user.pvId);
@@ -124,6 +86,13 @@ export async function getCurrentUserContext(
   const permisos = esSuperAdmin
     ? ["ver_todas_sucursales", ...Array.from(permissionsSet)]
     : Array.from(permissionsSet);
+
+  const permisosPorSucursal = Array.from(permisosPorSucursalMap.entries()).map(
+    ([sucId, perms]) => ({
+      sucursalId: sucId as Id<"sucursales">,
+      permisos: Array.from(perms),
+    })
+  );
 
   return {
     usuarioId: user._id,
@@ -138,7 +107,7 @@ export async function getCurrentUserContext(
   };
 }
 
-// 3.2 CREAR FUNCIÓN: checkPermission()
+// 3.2 FUNCIÓN: checkPermission() (Single-Org con retrocompatibilidad de scope)
 export async function checkPermission(
   ctx: QueryCtx,
   usuarioId: Id<"usuarios">,
@@ -146,30 +115,32 @@ export async function checkPermission(
   sucursalId?: Id<"sucursales">
 ) {
   const context = await getCurrentUserContext(ctx, usuarioId);
-  
-  const isSuperAdmin = context.roles.some(r => r.roleNombre === "SuperAdmin");
+  const isSuperAdmin = context.roles.some((r) => r.roleNombre === "SuperAdmin");
 
-  // SuperAdmin tiene todos los permisos en todas las sucursales
   if (isSuperAdmin) return true;
 
-  if (!context.permisos.includes(permisoRequerido)) {
-    return false;
+  if (context.permisos.includes("ver_todas_sucursales")) {
+    return context.permisos.includes(permisoRequerido);
   }
 
-  // Si se especifica sucursal, el permiso debe estar concedido EN esa sucursal
   if (sucursalId) {
-    const scoped = context.permisosPorSucursal.find(s => s.sucursalId === sucursalId);
-    if (scoped && scoped.permisos.includes(permisoRequerido)) return true;
-    // ver_todas_sucursales permite operar en cualquier sucursal
-    if (context.permisos.includes("ver_todas_sucursales")) return true;
+    const sucPerms = (context.permisosPorSucursal || []).find(
+      (p) => p.sucursalId === sucursalId
+    );
+    if (sucPerms) {
+      return sucPerms.permisos.includes(permisoRequerido);
+    }
+    const hasGlobalRoles = context.roles.some((r) => !r.sucursalId);
+    if (hasGlobalRoles) {
+      return context.permisos.includes(permisoRequerido);
+    }
     return false;
   }
 
-  return true;
+  return context.permisos.includes(permisoRequerido);
 }
 
-// 3.4 CREAR MIDDLEWARE: requirePermission()
-// En Convex actuamos como un helper guard dentro del handler
+// 3.4 MIDDLEWARE: requirePermission()
 export async function requirePermission(
   ctx: QueryCtx,
   usuarioId: Id<"usuarios">,
@@ -182,22 +153,15 @@ export async function requirePermission(
   }
 }
 
-// 3.3 CREAR FUNCIÓN: getVisibleSucursales()
+// 3.3 FUNCIÓN: getVisibleSucursales() (Compatibilidad Single-Org)
 export async function getVisibleSucursales(ctx: QueryCtx, usuarioId: Id<"usuarios">) {
-    const context = await getCurrentUserContext(ctx, usuarioId);
-    if (context.permisos.includes("ver_todas_sucursales") && context.empresa) {
-        return await ctx.db
-            .query("sucursales")
-            .withIndex("by_empresa", q => q.eq("empresaId", context.empresa!.id))
-            .filter(q => q.eq(q.field("activa"), true))
-            .collect();
-    }
-
-    const sucursalIds = new Set(context.roles.map(r => r.sucursalId));
-    const sucursales = [];
-    for (const id of sucursalIds) {
-        const s = await ctx.db.get(id);
-        if (s && s.activa) sucursales.push(s);
-    }
-    return sucursales;
+  const context = await getCurrentUserContext(ctx, usuarioId);
+  if (context.empresa) {
+    return await ctx.db
+      .query("sucursales")
+      .withIndex("by_empresa", (q) => q.eq("empresaId", context.empresa!.id))
+      .filter((q) => q.eq(q.field("activa"), true))
+      .collect();
+  }
+  return [];
 }

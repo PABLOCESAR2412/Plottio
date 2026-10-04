@@ -4,7 +4,6 @@ import {
 	Bot,
 	Brain,
 	Bug as BugIcon,
-	Building,
 	CheckSquare,
 	ClipboardList,
 	DollarSign,
@@ -36,7 +35,6 @@ import { GestionUsuariosView } from "./GestionUsuariosView";
 import { PlottioAsistenteModal } from "./PlottioAsistenteModal";
 import { RolesView } from "./RolesView";
 import { SuccessDialog } from "./SuccessDialog";
-import { SucursalesAdminView } from "./SucursalesAdmin";
 import { TelegramConfigModal } from "./TelegramConfigModal";
 import { WebhookManagerModal } from "./WebhookManagerModal";
 import { WhatsAppConfigModal } from "./WhatsAppConfigModal";
@@ -100,13 +98,6 @@ export const ConfiguracionView: React.FC = () => {
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as boolean | undefined;
 
-	const rawSucursales = useQuery(
-		api.organizacion.getSucursales,
-		currentUser?.empresaId
-			? { empresaId: currentUser.empresaId as Id<"empresas"> }
-			: {},
-	) as Array<{ _id: string; nombre: string }> | undefined;
-
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const updateBugMut = useMutation(api.bugs.updateBug);
 	const addBugCommentMut = useMutation(api.bugs.addBugComment);
@@ -156,7 +147,6 @@ export const ConfiguracionView: React.FC = () => {
 		| "usuarios"
 		| "roles"
 		| "bugs"
-		| "sucursales"
 		| "auditoria"
 		| "integraciones"
 		| "ia_finops"
@@ -176,18 +166,14 @@ export const ConfiguracionView: React.FC = () => {
 	const [reporteDesde, setReporteDesde] = useState("");
 	const [reporteHasta, setReporteHasta] = useState("");
 	const [reporteEstado, setReporteEstado] = useState("");
-	const [reporteSucursalId, setReporteSucursalId] = useState("");
 
 	const reporteFiltros = useMemo(
 		() => ({
 			desde: reporteDesde || undefined,
 			hasta: reporteHasta || undefined,
 			estado: reporteEstado || undefined,
-			sucursalId: reporteSucursalId
-				? (reporteSucursalId as Id<"sucursales">)
-				: undefined,
 		}),
-		[reporteDesde, reporteHasta, reporteEstado, reporteSucursalId],
+		[reporteDesde, reporteHasta, reporteEstado],
 	);
 
 	const rawReporteIngresos = useQuery(
@@ -228,12 +214,7 @@ export const ConfiguracionView: React.FC = () => {
 		type: "success",
 	});
 
-	const baseVisibleBugs = bugs.filter(
-		(b) =>
-			!currentUser?.sucursalId ||
-			!b.sucursalId ||
-			b.sucursalId === currentUser.sucursalId,
-	);
+	const baseVisibleBugs = bugs;
 
 	const visibleBugs =
 		currentUser?.rol === "SuperAdmin" && showArchivedBugs
@@ -390,21 +371,6 @@ export const ConfiguracionView: React.FC = () => {
 						</button>
 					)}
 
-					{currentUser?.rol === "SuperAdmin" && (
-						<button
-							type="button"
-							onClick={() => startTransition(() => setConfigTab("sucursales"))}
-							className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-								configTab === "sucursales"
-									? "border-primary text-primary"
-									: "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-							}`}
-						>
-							<Building className="h-4 w-4" />
-							Sucursales
-						</button>
-					)}
-
 					{(currentUser?.rol === "SuperAdmin" ||
 						currentUser?.rol === "AdminSucursal") && (
 						<button
@@ -444,7 +410,7 @@ export const ConfiguracionView: React.FC = () => {
 						}`}
 					>
 						<Bot className="h-4 w-4" />
-						<span>IA / FinOps</span>
+						<span>Analíticas y Configuración</span>
 					</button>
 				</div>
 			</div>
@@ -648,8 +614,6 @@ export const ConfiguracionView: React.FC = () => {
 				<RolesView />
 			) : configTab === "usuarios" ? (
 				<GestionUsuariosView />
-			) : configTab === "sucursales" ? (
-				<SucursalesAdminView onNavigate={() => {}} />
 			) : configTab === "auditoria" ? (
 				<AuditoriaView />
 			) : configTab === "bugs" &&
@@ -1081,7 +1045,7 @@ export const ConfiguracionView: React.FC = () => {
 							<p className="text-xs text-muted-foreground">
 								Exporta un resumen de los trabajos realizados, facturación
 								total, y el listado de vehículos/clientes atendidos. Los datos
-								se filtran de forma segura según tu rol y sucursal.
+								se filtran de forma segura según tu rol en el taller central.
 							</p>
 
 							<div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/20 p-2.5">
@@ -1103,7 +1067,7 @@ export const ConfiguracionView: React.FC = () => {
 										className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
 									/>
 								</label>
-								<label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
+								<label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground col-span-2">
 									Estado
 									<select
 										value={reporteEstado}
@@ -1118,34 +1082,13 @@ export const ConfiguracionView: React.FC = () => {
 										<option value="Cancelado">Cancelado</option>
 									</select>
 								</label>
-								{currentUser?.rol === "SuperAdmin" && (
-									<label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
-										Sucursal
-										<select
-											value={reporteSucursalId}
-											onChange={(e) => setReporteSucursalId(e.target.value)}
-											className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
-										>
-											<option value="">Todas</option>
-											{(rawSucursales ?? []).map((s) => (
-												<option key={s._id} value={s._id}>
-													{s.nombre}
-												</option>
-											))}
-										</select>
-									</label>
-								)}
-								{(reporteDesde ||
-									reporteHasta ||
-									reporteEstado ||
-									reporteSucursalId) && (
+								{(reporteDesde || reporteHasta || reporteEstado) && (
 									<button
 										type="button"
 										onClick={() => {
 											setReporteDesde("");
 											setReporteHasta("");
 											setReporteEstado("");
-											setReporteSucursalId("");
 										}}
 										className="col-span-2 rounded border border-border bg-background py-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
 									>

@@ -42,22 +42,36 @@ export const createInventarioItems = mutation({
   }
 });
 
-// 6.3 FUNCIÓN: addInventarioSucursal()
+// 6.3 FUNCIÓN: addInventarioSucursal() (Single-Org)
 export const addInventarioSucursal = mutation({
   args: {
     usuarioId: v.id("usuarios"),
-    sucursalId: v.id("sucursales"),
+    sucursalId: v.optional(v.id("sucursales")),
     itemId: v.id("inventarioItems"),
     cantidad: v.number(),
     cantidadMinima: v.optional(v.number())
   },
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.usuarioId, "editar_inventario", args.sucursalId);
+    await requirePermission(ctx, args.usuarioId, "editar_inventario");
+    const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+    if (!userContext.empresa) {
+      throw new ConvexError("Usuario sin empresa asignada");
+    }
+
+    let targetSucursalId = args.sucursalId ?? userContext.sucursal?.id;
+    if (!targetSucursalId) {
+      // Buscar primera sucursal activa de la empresa como fallback
+      const defaultSuc = await ctx.db
+        .query("sucursales")
+        .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
+        .first();
+      targetSucursalId = defaultSuc?._id;
+    }
     
-    // Buscar si ya existe el stock en la sucursal para este item
+    // Buscar si ya existe el stock para este item
     const existente = await ctx.db
       .query("inventarioSucursal")
-      .withIndex("by_sucursal_item", q => q.eq("sucursalId", args.sucursalId).eq("itemId", args.itemId))
+      .withIndex("by_item", (q) => q.eq("itemId", args.itemId))
       .first();
 
     let stockActualizado;
@@ -69,7 +83,7 @@ export const addInventarioSucursal = mutation({
       stockActualizado = await ctx.db.get(existente._id);
     } else {
       const id = await ctx.db.insert("inventarioSucursal", {
-        sucursalId: args.sucursalId,
+        sucursalId: targetSucursalId,
         itemId: args.itemId,
         cantidad: args.cantidad,
         cantidadMinima: args.cantidadMinima || 10,
@@ -80,11 +94,11 @@ export const addInventarioSucursal = mutation({
 
     // Registrar movimiento
     await ctx.db.insert("movimientosInventario", {
-      sucursalId: args.sucursalId,
+      sucursalId: targetSucursalId,
       itemId: args.itemId,
       tipoMovimiento: "ENTRADA",
       cantidad: args.cantidad,
-      concepto: "Compra a proveedor / Ingreso Manual",
+      concepto: "Ingreso / Reabastecimiento Central",
       usuarioId: args.usuarioId,
       fecha: new Date().toISOString()
     });
@@ -97,15 +111,20 @@ export const addInventarioSucursal = mutation({
 export const getInventarioSucursal = query({
   args: {
     usuarioId: v.id("usuarios"),
-    sucursalId: v.id("sucursales")
+    sucursalId: v.optional(v.id("sucursales"))
   },
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.usuarioId, "ver_inventario", args.sucursalId);
+    await requirePermission(ctx, args.usuarioId, "ver_inventario");
     
-    const stocks = await ctx.db
-      .query("inventarioSucursal")
-      .withIndex("by_sucursal", q => q.eq("sucursalId", args.sucursalId))
-      .collect();
+    let stocks: Doc<"inventarioSucursal">[] = [];
+    if (args.sucursalId) {
+      stocks = await ctx.db
+        .query("inventarioSucursal")
+        .withIndex("by_sucursal", q => q.eq("sucursalId", args.sucursalId))
+        .collect();
+    } else {
+      stocks = await ctx.db.query("inventarioSucursal").collect();
+    }
 
     return await Promise.all(stocks.map(async (stock) => {
       const item = await ctx.db.get(stock.itemId);
@@ -134,37 +153,29 @@ export const transferirInventario = mutation({
     cantidad: v.number()
   },
   handler: async (ctx, args) => {
-    // Debe tener permiso de editar inventario en la sucursal de origen y destino
-    await requirePermission(ctx, args.usuarioId, "editar_inventario", args.desde);
-    await requirePermission(ctx, args.usuarioId, "editar_inventario", args.hacia);
+    await requirePermission(ctx, args.usuarioId, "editar_inventario");
+    if (args.cantidad <= 0) throw new ConvexError("La cantidad debe ser mayor a 0");
 
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
 
-    const sucursalOrigen = await ctx.db.get(args.desde);
-    const sucursalDestino = await ctx.db.get(args.hacia);
+    const sucOrigen = await ctx.db.get(args.desde);
+    const sucDestino = await ctx.db.get(args.hacia);
 
-    if (!sucursalOrigen || !sucursalDestino) {
-      throw new ConvexError("Sucursal de origen o destino no encontrada");
+    if (!sucOrigen || !sucDestino) {
+      throw new ConvexError("Sucursal no encontrada");
     }
 
-    if (!esSuperAdmin) {
-      if (!userContext.empresa) {
-        throw new ConvexError("Usuario sin empresa asignada");
-      }
-      if (
-        sucursalOrigen.empresaId !== userContext.empresa.id ||
-        sucursalDestino.empresaId !== userContext.empresa.id
-      ) {
-        throw new ConvexError("No se permiten transferencias entre diferentes empresas o fuera de su empresa");
-      }
-    } else {
-      if (sucursalOrigen.empresaId !== sucursalDestino.empresaId) {
+    if (sucOrigen.empresaId !== sucDestino.empresaId) {
+      if (isSuperAdmin) {
         throw new ConvexError("No se permiten transferencias entre diferentes empresas");
       }
+      throw new ConvexError("No se permiten transferencias entre diferentes empresas o fuera de su empresa");
     }
 
-    if (args.cantidad <= 0) throw new ConvexError("La cantidad debe ser mayor a 0");
+    if (!isSuperAdmin && userContext.empresa && sucOrigen.empresaId !== userContext.empresa.id) {
+      throw new ConvexError("No se permiten transferencias entre diferentes empresas o fuera de su empresa");
+    }
 
     const stockOrigen = await ctx.db
       .query("inventarioSucursal")
@@ -172,16 +183,14 @@ export const transferirInventario = mutation({
       .first();
 
     if (!stockOrigen || stockOrigen.cantidad < args.cantidad) {
-      throw new ConvexError("Stock insuficiente en sucursal origen");
+      throw new ConvexError("Stock insuficiente para transferir");
     }
 
-    // Restar de origen
     await ctx.db.patch(stockOrigen._id, {
       cantidad: stockOrigen.cantidad - args.cantidad,
       ultimaActualizacion: new Date().toISOString()
     });
 
-    // Sumar a destino
     const stockDestino = await ctx.db
       .query("inventarioSucursal")
       .withIndex("by_sucursal_item", q => q.eq("sucursalId", args.hacia).eq("itemId", args.itemId))
@@ -202,30 +211,24 @@ export const transferirInventario = mutation({
       });
     }
 
-    // Registrar en origen
     await ctx.db.insert("movimientosInventario", {
       sucursalId: args.desde,
       itemId: args.itemId,
-      tipoMovimiento: "TRANSFERENCIA_SALIDA",
+      tipoMovimiento: "SALIDA",
       cantidad: args.cantidad,
       concepto: `Transferencia a sucursal ${args.hacia}`,
       usuarioId: args.usuarioId,
-      sucursalOrigen: args.desde,
-      sucursalDestino: args.hacia,
-      fecha: new Date().toISOString()
+      fecha: new Date().toISOString(),
     });
 
-    // Registrar en destino
     await ctx.db.insert("movimientosInventario", {
       sucursalId: args.hacia,
       itemId: args.itemId,
-      tipoMovimiento: "TRANSFERENCIA_ENTRADA",
+      tipoMovimiento: "ENTRADA",
       cantidad: args.cantidad,
       concepto: `Transferencia desde sucursal ${args.desde}`,
       usuarioId: args.usuarioId,
-      sucursalOrigen: args.desde,
-      sucursalDestino: args.hacia,
-      fecha: new Date().toISOString()
+      fecha: new Date().toISOString(),
     });
 
     return { success: true, mensaje: "Transferencia completada" };
@@ -236,20 +239,20 @@ export const transferirInventario = mutation({
 export const registrarConsumoDeTrabajo = mutation({
   args: {
     usuarioId: v.id("usuarios"),
-    ordenId: v.string(), // ID de la orden o correlativo
-    sucursalId: v.id("sucursales"), // La sucursal donde se ejecutó la orden
+    ordenId: v.string(),
+    sucursalId: v.optional(v.id("sucursales")),
     consumos: v.array(v.object({
       itemId: v.id("inventarioItems"),
       cantidad: v.number()
     }))
   },
   handler: async (ctx, args) => {
-    await requirePermission(ctx, args.usuarioId, "editar_inventario", args.sucursalId);
+    await requirePermission(ctx, args.usuarioId, "editar_inventario");
 
     for (const item of args.consumos) {
       const stock = await ctx.db
         .query("inventarioSucursal")
-        .withIndex("by_sucursal_item", q => q.eq("sucursalId", args.sucursalId).eq("itemId", item.itemId))
+        .withIndex("by_item", q => q.eq("itemId", item.itemId))
         .first();
 
       if (!stock || stock.cantidad < item.cantidad) {
@@ -277,40 +280,23 @@ export const registrarConsumoDeTrabajo = mutation({
   }
 });
 
-// 6.7 FUNCIÓN: getAlertasStockMinimo()
+// 6.7 FUNCIÓN: getAlertasStockMinimo() (Single-Org)
 export const getAlertasStockMinimo = query({
   args: { usuarioId: v.id("usuarios") },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "ver_inventario");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
-    
-    // Obtener todo el stock de las sucursales a las que tiene acceso dentro de su empresa
-    let stocks: Doc<"inventarioSucursal">[] = [];
-    if (userContext.permisos.includes("ver_todas_sucursales")) {
-      if (userContext.empresa) {
-        const sucursales = await ctx.db
-          .query("sucursales")
-          .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
-          .collect();
-        const stocksList = await Promise.all(
-          sucursales.map((s) =>
-            ctx.db
-              .query("inventarioSucursal")
-              .withIndex("by_sucursal", (q) => q.eq("sucursalId", s._id))
-              .collect()
-          )
-        );
-        stocks = stocksList.flat();
-      } else if (esSuperAdmin) {
-        stocks = await ctx.db.query("inventarioSucursal").collect();
-      }
-    } else if (userContext.sucursal) {
-      stocks = await ctx.db
-        .query("inventarioSucursal")
-        .withIndex("by_sucursal", q => q.eq("sucursalId", userContext.sucursal!.id))
-        .collect();
-    }
+    if (!userContext.empresa) return [];
+
+    // Obtener todos los items del taller
+    const items = await ctx.db
+      .query("inventarioItems")
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .collect();
+
+    const itemsIds = new Set(items.map((i) => i._id));
+    const allStocks = await ctx.db.query("inventarioSucursal").collect();
+    const stocks = allStocks.filter((s) => itemsIds.has(s.itemId));
 
     // Filtrar solo los que están bajo el mínimo
     const alertas = stocks.filter(s => s.cantidad <= s.cantidadMinima);
@@ -318,8 +304,8 @@ export const getAlertasStockMinimo = query({
     // Enriquecer
     return await Promise.all(alertas.map(async (a) => {
       const item = await ctx.db.get(a.itemId);
-      const sucursal = await ctx.db.get(a.sucursalId);
       const porcentaje = a.cantidadMinima > 0 ? Math.round((a.cantidad / a.cantidadMinima) * 100) : 0;
+      const sucursal = a.sucursalId ? await ctx.db.get(a.sucursalId) : null;
 
       return {
         id: a._id,
@@ -327,33 +313,34 @@ export const getAlertasStockMinimo = query({
         tipo: item?.tipo,
         cantidad: a.cantidad,
         cantidad_minima: a.cantidadMinima,
-        sucursal_nombre: sucursal?.nombre || "Desconocida",
+        sucursal_nombre: sucursal?.nombre || "Taller Principal",
         porcentaje_stock: porcentaje
       };
     })).then(res => res.sort((x, y) => x.cantidad - y.cantidad));
   }
 });
 
-// 6.8 FUNCIÓN: getInventarioConsolidado()
+// 6.8 FUNCIÓN: getInventarioConsolidado() (Single-Org)
 export const getInventarioConsolidado = query({
   args: { usuarioId: v.id("usuarios") },
   handler: async (ctx, args) => {
-    // Exigimos el permiso maestro
-    await requirePermission(ctx, args.usuarioId, "ver_todas_sucursales");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    const esSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    const isSuperAdmin = userContext.roles.some((r) => r.roleNombre === "SuperAdmin");
+    const hasPerm =
+      isSuperAdmin ||
+      userContext.permisos.includes("ver_inventario") ||
+      userContext.permisos.includes("ver_todas_sucursales");
 
-    let items;
-    if (userContext.empresa) {
-      items = await ctx.db
-        .query("inventarioItems")
-        .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
-        .collect();
-    } else if (esSuperAdmin) {
-      items = await ctx.db.query("inventarioItems").collect();
-    } else {
-      return [];
+    if (!hasPerm) {
+      throw new ConvexError("[403 Forbidden] No tienes permiso para ver el inventario consolidado");
     }
+
+    if (!userContext.empresa) return [];
+
+    const items = await ctx.db
+      .query("inventarioItems")
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .collect();
 
     return await Promise.all(items.map(async (item) => {
       const stocks = await ctx.db
@@ -427,7 +414,6 @@ export const deleteInventarioItem = mutation({
       throw new ConvexError("No autorizado para eliminar este item");
     }
     
-    // Check if there is stock. If so, fail or delete it. Let's delete stock as well.
     const stocks = await ctx.db
       .query("inventarioSucursal")
       .withIndex("by_item", q => q.eq("itemId", args.itemId))

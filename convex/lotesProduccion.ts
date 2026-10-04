@@ -22,7 +22,7 @@ export function calcularSiguienteNumeroLote(lotes: Array<{ numero?: string }>): 
   return `LOTE-${String(siguiente).padStart(4, "0")}`;
 }
 
-// 10.3 FUNCIÓN: crearLoteProduccion()
+// 10.3 FUNCIÓN: crearLoteProduccion() (Single-Org)
 export const crearLoteProduccion = mutation({
   args: {
     usuarioId: v.id("usuarios"),
@@ -42,13 +42,13 @@ export const crearLoteProduccion = mutation({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) throw new ConvexError("Usuario sin empresa asignada");
 
+    // En Single-Org la sucursal es opcional (taller único central)
     const sucursalId = args.sucursalId ?? userContext.sucursal?.id;
-    if (!sucursalId) throw new ConvexError("Usuario sin sucursal asignada");
 
-    // Generar número de lote LOTE-XXXX de manera determinista anti-colisión
+    // Generar número de lote LOTE-XXXX a nivel de empresa única
     const lotesEmpresa = await ctx.db
       .query("lotesProduccion")
-      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id).eq("sucursalId", sucursalId))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
     const numeroLote = calcularSiguienteNumeroLote(lotesEmpresa);
@@ -95,13 +95,13 @@ export const getLotes = query({
 
     const lotes = await ctx.db
       .query("lotesProduccion")
-      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
     return lotes.sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
   }
 });
 
-// 10.4 FUNCIÓN: fetchStockPlacasDisponibles()
+// 10.4 FUNCIÓN: fetchStockPlacasDisponibles() (Single-Org)
 export const fetchStockPlacasDisponibles = query({
   args: {
     usuarioId: v.id("usuarios"),
@@ -115,15 +115,12 @@ export const fetchStockPlacasDisponibles = query({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) return [];
 
-    const esSuper = userContext.roles.some(r => r.roleNombre === 'SuperAdmin');
-
     const lotes = await ctx.db
       .query("lotesProduccion")
-      .withIndex("by_empresa_sucursal", q => q.eq("empresaId", userContext.empresa!.id))
+      .withIndex("by_empresa", q => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
     const lotesFiltrados = lotes.filter(lote => {
-      if (!esSuper && userContext.sucursal && lote.sucursalId !== userContext.sucursal.id) return false;
       if (args.filtros?.clienteId && lote.clienteId !== args.filtros.clienteId) return false;
       return true;
     });

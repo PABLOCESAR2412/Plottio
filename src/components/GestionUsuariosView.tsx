@@ -5,7 +5,6 @@ import {
 	CheckCircle2,
 	Edit2,
 	Mail,
-	MapPin,
 	Plus,
 	Shield,
 	Users,
@@ -19,17 +18,6 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { useSessionStore } from "../store/useSessionStore";
 import type { RolUsuario, Usuario } from "../types/auth";
 import { SuccessDialog } from "./SuccessDialog";
-
-type LocalSucursal = {
-	id: string;
-	nombre: string;
-};
-
-type LocalPuntoVenta = {
-	id: string;
-	nombre: string;
-	sucursalId: string;
-};
 
 type LocalUsuario = {
 	id: string;
@@ -51,14 +39,6 @@ export const GestionUsuariosView: React.FC = () => {
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalUsuario & { _id: string }> | undefined;
 
-	const rawSucursales = useQuery(api.organizacion.getSucursales, {}) as
-		| Array<LocalSucursal & { _id: string }>
-		| undefined;
-
-	const rawPuntosVenta = useQuery(api.organizacion.getPuntosVenta, {}) as
-		| Array<LocalPuntoVenta & { _id: string }>
-		| undefined;
-
 	// ── MUTATIONS ────────────────────────────────────────────────────────────
 	const updateUsuarioMut = useMutation(api.usuarios.updateUsuario);
 	const archiveUsuarioMut = useMutation(api.usuarios.archiveUsuario);
@@ -70,31 +50,12 @@ export const GestionUsuariosView: React.FC = () => {
 				id: u._id,
 				nombre: u.nombre ?? "",
 				email: u.email ?? "",
-				rol: (u.rol as RolUsuario) ?? "Cotizador",
+				rol: (u.rol as RolUsuario) ?? "Operador / Técnico",
 				sucursalId: u.sucursalId ?? null,
 				pvId: u.pvId ?? null,
 				activo: u.activo ?? false,
 			})),
 		[rawUsuarios],
-	);
-
-	const sucursales: LocalSucursal[] = useMemo(
-		() =>
-			(rawSucursales ?? []).map((s) => ({
-				id: s._id,
-				nombre: s.nombre ?? "",
-			})),
-		[rawSucursales],
-	);
-
-	const puntosVenta: LocalPuntoVenta[] = useMemo(
-		() =>
-			(rawPuntosVenta ?? []).map((p) => ({
-				id: p._id,
-				nombre: p.nombre ?? "",
-				sucursalId: (p as { sucursalId?: string }).sucursalId ?? "",
-			})),
-		[rawPuntosVenta],
 	);
 
 	// Modals state
@@ -104,14 +65,11 @@ export const GestionUsuariosView: React.FC = () => {
 	// Invite state
 	const [inviteNombre, setInviteNombre] = useState("");
 	const [inviteEmail, setInviteEmail] = useState("");
-	const [inviteRol, setInviteRol] = useState<RolUsuario>("Cotizador");
-	const [inviteSucursalId, setInviteSucursalId] = useState<string>("");
+	const [inviteRol, setInviteRol] = useState<RolUsuario>("Operador / Técnico");
 
 	// Edit state
 	const [editingUser, setEditingUser] = useState<Usuario | null>(null);
-	const [editRol, setEditRol] = useState<RolUsuario>("Cotizador");
-	const [editSucursalId, setEditSucursalId] = useState<string>("");
-	const [editPvId, setEditPvId] = useState<string>("");
+	const [editRol, setEditRol] = useState<RolUsuario>("Operador / Técnico");
 
 	// Success dialog
 	const [alertConfig, setAlertConfig] = useState<{
@@ -129,7 +87,9 @@ export const GestionUsuariosView: React.FC = () => {
 
 	if (
 		!currentUser ||
-		(currentUser.rol !== "SuperAdmin" && currentUser.rol !== "AdminSucursal")
+		(currentUser.rol !== "SuperAdmin" &&
+			currentUser.rol !== "AdminSucursal" &&
+			currentUser.rol !== "Administrador")
 	) {
 		return (
 			<div className="flex items-center justify-center h-full p-8 text-muted-foreground text-sm font-medium">
@@ -138,27 +98,12 @@ export const GestionUsuariosView: React.FC = () => {
 		);
 	}
 
-	// Filter users based on role
-	const visibleUsers =
-		currentUser.rol === "SuperAdmin"
-			? usuarios
-			: usuarios.filter((u) => u.sucursalId === currentUser.sucursalId);
-
-	const getSucursalName = (sId: string | null) => {
-		if (!sId) return "Todas (Global)";
-		return sucursales.find((s) => s.id === sId)?.nombre || sId;
-	};
-
-	const getPvName = (pId: string | null) => {
-		if (!pId) return "N/A";
-		return puntosVenta.find((p) => p.id === pId)?.nombre || pId;
-	};
+	// Mostrar todos los usuarios del taller
+	const visibleUsers = usuarios;
 
 	const handleEditClick = (u: Usuario) => {
 		setEditingUser(u);
 		setEditRol(u.rol);
-		setEditSucursalId(u.sucursalId || "");
-		setEditPvId(u.pvId || "");
 		setIsEditModalOpen(true);
 	};
 
@@ -171,8 +116,6 @@ export const GestionUsuariosView: React.FC = () => {
 				adminId: currentUser.id as Id<"usuarios">,
 				usuarioId: editingUser.id as Id<"usuarios">,
 				rol: editRol as string,
-				sucursalId: (editSucursalId || undefined) as Id<"sucursales">,
-				pvId: (editPvId || undefined) as Id<"puntosVenta">,
 			});
 			setIsEditModalOpen(false);
 			setAlertConfig({
@@ -243,16 +186,12 @@ export const GestionUsuariosView: React.FC = () => {
 				nombre: inviteNombre,
 				email: inviteEmail,
 				rol: inviteRol as string,
-				sucursalId: (currentUser?.rol === "AdminSucursal"
-					? currentUser.sucursalId
-					: inviteSucursalId || undefined) as Id<"sucursales">,
 			});
 
 			setIsInviteModalOpen(false);
 			setInviteNombre("");
 			setInviteEmail("");
-			setInviteRol("Cotizador");
-			setInviteSucursalId("");
+			setInviteRol("Operador / Técnico");
 
 			// Mostrar toast con magic link (token generado por Convex)
 			const magicLink = `${window.location.origin}/?token=${result.token}`;
@@ -294,7 +233,7 @@ export const GestionUsuariosView: React.FC = () => {
 						Gestión de Accesos
 					</h1>
 					<p className="text-muted-foreground mt-1 text-sm">
-						Administra los roles, sucursales y puntos de venta de tu equipo.
+						Administra los roles y accesos de los miembros de tu equipo.
 					</p>
 				</div>
 				<button
@@ -332,7 +271,10 @@ export const GestionUsuariosView: React.FC = () => {
 					<div className="text-2xl font-black text-blue-500">
 						{
 							visibleUsers.filter(
-								(u) => u.rol === "AdminSucursal" || u.rol === "SuperAdmin",
+								(u) =>
+									u.rol === "Administrador" ||
+									u.rol === "AdminSucursal" ||
+									u.rol === "SuperAdmin",
 							).length
 						}
 					</div>
@@ -347,7 +289,6 @@ export const GestionUsuariosView: React.FC = () => {
 							<tr>
 								<th className="px-4 py-3 font-semibold">Usuario / Correo</th>
 								<th className="px-4 py-3 font-semibold">Rol</th>
-								<th className="px-4 py-3 font-semibold">Asignación</th>
 								<th className="px-4 py-3 font-semibold">Estado</th>
 								<th className="px-4 py-3 font-semibold text-right">Acciones</th>
 							</tr>
@@ -369,17 +310,6 @@ export const GestionUsuariosView: React.FC = () => {
 											<Shield className="h-3 w-3" />
 											{u.rol}
 										</span>
-									</td>
-									<td className="px-4 py-3">
-										<div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-											<MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-											{getSucursalName(u.sucursalId)}
-										</div>
-										{u.pvId && (
-											<div className="text-[10px] text-muted-foreground mt-0.5 ml-5">
-												PV: {getPvName(u.pvId)}
-											</div>
-										)}
 									</td>
 									<td className="px-4 py-3">
 										{u.activo ? (
@@ -423,7 +353,7 @@ export const GestionUsuariosView: React.FC = () => {
 							{visibleUsers.length === 0 && (
 								<tr>
 									<td
-										colSpan={5}
+										colSpan={4}
 										className="px-4 py-8 text-center text-muted-foreground"
 									>
 										No se encontraron usuarios.
@@ -474,74 +404,14 @@ export const GestionUsuariosView: React.FC = () => {
 									onChange={(e) => setEditRol(e.target.value as RolUsuario)}
 									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 								>
-									<option value="Cotizador">Cotizador</option>
-									<option value="Instalador">Instalador</option>
-									<option value="GerentePV">Gerente de Punto de Venta</option>
-									<option value="Contador">Contador</option>
-									<option value="AdminSucursal">
-										Administrador de Sucursal
-									</option>
+									<option value="Administrador">Administrador</option>
+									<option value="Operador / Técnico">Operador / Técnico</option>
+									<option value="Vendedor / Asesor">Vendedor / Asesor</option>
 									{currentUser.rol === "SuperAdmin" && (
-										<option value="SuperAdmin">Super Admin</option>
+										<option value="SuperAdmin">SuperAdmin</option>
 									)}
 								</select>
 							</div>
-
-							<div>
-								<label
-									htmlFor="usuario-editar-sucursal"
-									className="block text-xs font-semibold text-foreground mb-1.5"
-								>
-									Sucursal Asignada
-								</label>
-								<select
-									id="usuario-editar-sucursal"
-									value={editSucursalId}
-									onChange={(e) => {
-										setEditSucursalId(e.target.value);
-										setEditPvId(""); // Reset PV when sucursal changes
-									}}
-									disabled={currentUser.rol !== "SuperAdmin"}
-									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none disabled:opacity-50"
-								>
-									{currentUser.rol === "SuperAdmin" && (
-										<option value="">Todas (Matriz Global)</option>
-									)}
-									{sucursales.map((s) => (
-										<option key={s.id} value={s.id}>
-											{s.nombre}
-										</option>
-									))}
-								</select>
-							</div>
-
-							{editSucursalId && (
-								<div>
-									<label
-										htmlFor="usuario-editar-pv"
-										className="block text-xs font-semibold text-foreground mb-1.5"
-									>
-										Punto de Venta Específico (Opcional)
-									</label>
-									<select
-										id="usuario-editar-pv"
-										value={editPvId}
-										onChange={(e) => setEditPvId(e.target.value)}
-										className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
-									>
-										<option value="">
-											Ninguno (Aplica a toda la sucursal)
-										</option>
-										{puntosVenta
-											.filter((p) => p.sucursalId === editSucursalId)
-											.map((p) => (
-												<option key={p.id} value={p.id}>
-													{p.nombre}
-												</option>
-											))}
-									</select>
-								</div>
-							)}
 
 							<div className="pt-2 flex justify-end gap-2">
 								<button
@@ -631,43 +501,14 @@ export const GestionUsuariosView: React.FC = () => {
 									onChange={(e) => setInviteRol(e.target.value as RolUsuario)}
 									className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
 								>
-									<option value="Cotizador">Cotizador</option>
-									<option value="Instalador">Instalador</option>
-									<option value="GerentePV">Gerente de Punto de Venta</option>
-									<option value="Contador">Contador</option>
-									<option value="AdminSucursal">
-										Administrador de Sucursal
-									</option>
+									<option value="Administrador">Administrador</option>
+									<option value="Operador / Técnico">Operador / Técnico</option>
+									<option value="Vendedor / Asesor">Vendedor / Asesor</option>
 									{currentUser.rol === "SuperAdmin" && (
-										<option value="SuperAdmin">Super Admin</option>
+										<option value="SuperAdmin">SuperAdmin</option>
 									)}
 								</select>
 							</div>
-
-							{currentUser.rol === "SuperAdmin" &&
-								inviteRol !== "SuperAdmin" && (
-									<div>
-										<label
-											htmlFor="invitacion-sucursal"
-											className="block text-xs font-semibold text-foreground mb-1.5"
-										>
-											Sucursal Asignada
-										</label>
-										<select
-											id="invitacion-sucursal"
-											value={inviteSucursalId}
-											onChange={(e) => setInviteSucursalId(e.target.value)}
-											className="w-full bg-background border border-border rounded-lg px-3 py-3 sm:py-2 text-[16px] sm:text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
-										>
-											<option value="">Todas (Matriz Global)</option>
-											{sucursales.map((s) => (
-												<option key={s.id} value={s.id}>
-													{s.nombre}
-												</option>
-											))}
-										</select>
-									</div>
-								)}
 
 							<div className="pt-2 flex justify-end gap-2">
 								<button

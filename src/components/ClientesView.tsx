@@ -164,17 +164,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	// Modal para integración (WhatsApp)
 	const [chatClient, setChatClient] = useState<Cliente | null>(null);
 
-	// Filter clients by Role and Search Term
+	// Filter clients by Search Term (Single-Org)
 	const filteredClientes = clientes.filter((c) => {
-		// SaaS Multi-tenant filtering
-		if (
-			currentUser?.sucursalId &&
-			c.sucursalId &&
-			c.sucursalId !== currentUser.sucursalId
-		) {
-			return false;
-		}
-
 		return (
 			c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			c.telefono.includes(searchTerm) ||

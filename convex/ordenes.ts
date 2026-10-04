@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
 
-// 3.5 C) Función fetchOrdenes() DESPUÉS (con filtro Automático)
+// 3.5 C) Función fetchOrdenes() (Single-Org)
 export const fetchOrdenes = query({
   args: {
     usuarioId: v.id("usuarios"),
@@ -22,58 +22,46 @@ export const fetchOrdenes = query({
 
     const allOrdenes = await ctx.db
       .query("ordenesTrabajo")
-      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
     const esInstalador = userContext.roles.some(r => r.roleNombre === 'Instalador');
 
     const filtradas = allOrdenes.filter(orden => {
-       let hasAccess = false;
-       if (userContext.permisos.includes("ver_todas_sucursales")) {
-         hasAccess = true;
-       } else if (esInstalador) {
-         hasAccess = orden.asignadoAUsuarioId === args.usuarioId;
-       } else if (userContext.sucursal) {
-         hasAccess = orden.sucursalId === userContext.sucursal.id;
-       }
+      // Single-Org: instalador ve solo sus asignadas; resto del equipo ve todas las órdenes del taller
+      if (esInstalador && orden.asignadoAUsuarioId !== args.usuarioId) {
+        return false;
+      }
 
-       if (!hasAccess) return false;
+      if (args.filtros) {
+        if (args.filtros.estado && orden.estado !== args.filtros.estado) return false;
+        if (args.filtros.tecnicoId && !esInstalador) {
+          if (orden.asignadoAUsuarioId !== args.filtros.tecnicoId) return false;
+        }
+        if (args.filtros.vehiculoId && orden.vehiculoId !== args.filtros.vehiculoId) return false;
+      }
 
-        if (args.filtros) {
-         if (args.filtros.estado && orden.estado !== args.filtros.estado) return false;
-         if (args.filtros.tecnicoId && !esInstalador) {
-           if (orden.asignadoAUsuarioId !== args.filtros.tecnicoId) return false;
-         }
-         if (args.filtros.vehiculoId && orden.vehiculoId !== args.filtros.vehiculoId) return false;
-       }
-
-       return true;
+      return true;
     });
 
     filtradas.sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
 
     return await Promise.all(filtradas.map(async (o) => {
-      let sucursal_nombre = "Desconocida";
-      let pv_nombre = o.pvOrigen || "Sin asignar";
       let asignado_a_nombre = "No asignado";
-
-      if (o.sucursalId) {
-        const s = await ctx.db.get(o.sucursalId);
-        if (s) sucursal_nombre = s.nombre;
-      }
 
       if (o.asignadoAUsuarioId) {
         const u = await ctx.db.get(o.asignadoAUsuarioId);
         if (u) asignado_a_nombre = u.nombre;
       }
 
-      const tareas_totales = o.items.length;
-      const tareas_completadas = o.items.filter(i => i.completado).length;
+      const items = o.items || [];
+      const tareas_totales = items.length;
+      const tareas_completadas = items.filter(i => i.completado).length;
 
       return {
         ...o,
-        sucursal_nombre,
-        pv_nombre,
+        sucursal_nombre: "Taller Principal",
+        pv_nombre: o.pvOrigen || "Taller Principal",
         asignado_a_nombre,
         tareas_totales,
         tareas_completadas

@@ -219,17 +219,8 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 		}
 	}, [empresas, selectedEmpresaId]);
 
-	// Filter companies
+	// Filter companies (Single-Org)
 	const filteredEmpresas = empresas.filter((e) => {
-		// SaaS Multi-tenant filtering
-		if (
-			e.sucursalId &&
-			currentUser?.sucursalId &&
-			e.sucursalId !== currentUser.sucursalId
-		) {
-			return false;
-		}
-
 		return (
 			e.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			e.ruc.includes(searchTerm) ||
@@ -608,8 +599,7 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 					</div>
 					<p className="text-muted-foreground text-sm max-w-3xl">
 						Gestión de cuentas comerciales y flotas vehiculares atendidas en el
-						taller. Para administrar las sedes físicas del taller, dirígete a
-						Configuración → Sucursales.
+						taller central.
 					</p>
 				</div>
 				<button

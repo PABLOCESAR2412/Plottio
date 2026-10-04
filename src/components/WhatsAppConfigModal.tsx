@@ -5,7 +5,6 @@ import {
 	Key,
 	Link as LinkIcon,
 	MessageSquare,
-	Power,
 	RefreshCw,
 	Server,
 	ShieldCheck,
@@ -14,6 +13,7 @@ import {
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useIntegrationsStore } from "../store/useIntegrationsStore";
+import { WhatsAppQrCode } from "./WhatsAppQrCode";
 
 interface WhatsAppConfigModalProps {
 	isOpen: boolean;
@@ -24,14 +24,28 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 	isOpen,
 	onClose,
 }) => {
-	const { whatsapp, updateWhatsAppConfig, disconnectWhatsApp } =
-		useIntegrationsStore();
+	const {
+		whatsapp,
+		updateWhatsAppConfig,
+		disconnectWhatsApp,
+		connectWhatsApp,
+		refreshWhatsAppQr,
+	} = useIntegrationsStore();
 
-	const [instanceName, setInstanceName] = useState(whatsapp.instanceName);
+	const hasSavedCredentials = Boolean(
+		whatsapp.instanceName?.trim() &&
+			(whatsapp.serverUrl?.trim() || whatsapp.apiUrl?.trim()) &&
+			whatsapp.apiKey?.trim(),
+	);
+
+	const [isEditingCredentials, setIsEditingCredentials] = useState<boolean>(
+		() => !hasSavedCredentials,
+	);
+	const [instanceName, setInstanceName] = useState(whatsapp.instanceName || "");
 	const [serverUrl, setServerUrl] = useState(
 		whatsapp.serverUrl || whatsapp.apiUrl || "",
 	);
-	const [apiKey, setApiKey] = useState(whatsapp.apiKey);
+	const [apiKey, setApiKey] = useState(whatsapp.apiKey || "");
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [isTesting, setIsTesting] = useState(false);
 	const [testResult, setTestResult] = useState<{
@@ -44,12 +58,26 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 	// Sync local state when modal opens or store changes
 	useEffect(() => {
 		if (isOpen) {
-			setInstanceName(whatsapp.instanceName);
+			setInstanceName(whatsapp.instanceName || "");
 			setServerUrl(whatsapp.serverUrl || whatsapp.apiUrl || "");
-			setApiKey(whatsapp.apiKey);
+			setApiKey(whatsapp.apiKey || "");
 			setTestResult(null);
+
+			const hasCreds = Boolean(
+				whatsapp.instanceName?.trim() &&
+					(whatsapp.serverUrl?.trim() || whatsapp.apiUrl?.trim()) &&
+					whatsapp.apiKey?.trim(),
+			);
+			// Por defecto false si ya existen credenciales guardadas, true si no hay
+			setIsEditingCredentials(!hasCreds);
 		}
-	}, [isOpen, whatsapp]);
+	}, [
+		isOpen,
+		whatsapp.instanceName,
+		whatsapp.serverUrl,
+		whatsapp.apiUrl,
+		whatsapp.apiKey,
+	]);
 
 	if (!isOpen) return null;
 
@@ -64,8 +92,24 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 		setSaveToast(true);
 		setTimeout(() => {
 			setSaveToast(false);
+			// Al guardar la configuración se ocultan los campos y se muestra la vista QR
+			setIsEditingCredentials(false);
+		}, 300);
+	};
+
+	const handleCancelEdit = () => {
+		const hasCreds = Boolean(
+			whatsapp.instanceName?.trim() &&
+				(whatsapp.serverUrl?.trim() || whatsapp.apiUrl?.trim()) &&
+				whatsapp.apiKey?.trim(),
+		);
+		if (hasCreds) {
+			// Volver a la vista del QR
+			setIsEditingCredentials(false);
+		} else {
+			// Si no había credenciales guardadas, cerrar modal
 			onClose();
-		}, 600);
+		}
 	};
 
 	const handleTestConnection = async () => {
@@ -175,7 +219,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 				aria-label="Cerrar modal"
 			/>
 
-			<div className="relative w-full max-w-xl rounded-2xl border border-border bg-card shadow-2xl z-10 animate-slide-in flex flex-col overflow-hidden">
+			<div className="relative w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl z-10 animate-slide-in flex flex-col overflow-hidden max-h-[90vh]">
 				{/* Header */}
 				<div className="flex items-center justify-between px-5 py-4 border-b border-border bg-secondary/15 shrink-0">
 					<div className="flex items-center gap-3">
@@ -197,10 +241,10 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 									}`}
 								>
 									{whatsapp.status === "connected"
-										? "Conectado"
+										? "Sesión activa"
 										: whatsapp.status === "connecting"
 											? "Conectando..."
-											: "Desconectado"}
+											: "Esperando escaneo"}
 								</span>
 							</div>
 							<p className="text-xs text-muted-foreground">
@@ -219,189 +263,204 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 					</button>
 				</div>
 
-				{/* Body */}
-				<form onSubmit={handleSave} className="p-5 sm:p-6 space-y-4">
-					{/* 1. Instance Name */}
-					<div>
-						<label
-							htmlFor="wa-instance-name"
-							className="block text-xs font-bold text-foreground mb-1 flex items-center gap-1.5"
-						>
-							<Server className="h-3.5 w-3.5 text-primary" />
-							<span>Nombre de la Instancia</span>
-						</label>
-						<input
-							id="wa-instance-name"
-							type="text"
-							required
-							value={instanceName}
-							onChange={(e) => setInstanceName(e.target.value)}
-							placeholder="ej. plottio-central"
-							className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+				{/* Body con Scroll */}
+				<div className="p-5 sm:p-6 overflow-y-auto">
+					{!isEditingCredentials ? (
+						/* Vista Principal: Código QR de WhatsApp */
+						<WhatsAppQrCode
+							code={whatsapp.qrCode}
+							status={whatsapp.status}
+							instanceName={whatsapp.instanceName}
+							serverUrl={
+								whatsapp.serverUrl ||
+								"https://acadia.simcodec.workers.dev/api/webhook/wha"
+							}
+							onRefresh={refreshWhatsAppQr}
+							onDisconnect={handleDisconnect}
+							onConnect={connectWhatsApp}
+							onEditCredentials={() => setIsEditingCredentials(true)}
 						/>
-						<p className="text-[11px] text-muted-foreground mt-1">
-							Identificador de la sesión o canal de WhatsApp en la pasarela.
-						</p>
-					</div>
-
-					{/* 2. Server URL */}
-					<div>
-						<label
-							htmlFor="wa-server-url"
-							className="block text-xs font-bold text-foreground mb-1 flex items-center gap-1.5"
-						>
-							<LinkIcon className="h-3.5 w-3.5 text-primary" />
-							<span>URL del Servidor / Webhook</span>
-						</label>
-						<input
-							id="wa-server-url"
-							type="url"
-							required
-							value={serverUrl}
-							onChange={(e) => setServerUrl(e.target.value)}
-							placeholder="https://acadia.simcodec.workers.dev/api/webhook/wha"
-							className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-						/>
-						<p className="text-[11px] text-muted-foreground mt-1">
-							Endpoint receptor del Cloudflare Worker (por defecto: Acadia
-							Worker).
-						</p>
-					</div>
-
-					{/* 3. API Key / Secret */}
-					<div>
-						<div className="flex justify-between items-center mb-1">
-							<label
-								htmlFor="wa-api-key"
-								className="block text-xs font-bold text-foreground flex items-center gap-1.5"
-							>
-								<Key className="h-3.5 w-3.5 text-primary" />
-								<span>API Key / Secreto de Autenticación</span>
-							</label>
-							<span className="text-[10px] text-muted-foreground font-mono">
-								Header: x-webhook-secret
-							</span>
-						</div>
-						<div className="relative">
-							<input
-								id="wa-api-key"
-								type={showApiKey ? "text" : "password"}
-								required
-								value={apiKey}
-								onChange={(e) => setApiKey(e.target.value)}
-								placeholder="sec_acadia_evo_2026"
-								className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-9 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-							/>
-							<button
-								type="button"
-								onClick={() => setShowApiKey((v) => !v)}
-								className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
-								title={showApiKey ? "Ocultar clave" : "Mostrar clave"}
-							>
-								{showApiKey ? (
-									<EyeOff className="h-3.5 w-3.5" />
-								) : (
-									<Eye className="h-3.5 w-3.5" />
-								)}
-							</button>
-						</div>
-						<p className="text-[11px] text-muted-foreground mt-1">
-							Clave secreta enviada en la cabecera{" "}
-							<code className="bg-secondary px-1 py-0.5 rounded text-[10px]">
-								x-webhook-secret
-							</code>{" "}
-							para autorizar solicitudes.
-						</p>
-					</div>
-
-					{/* Test Connection Banner / Feedback */}
-					{testResult && (
-						<div
-							className={`rounded-xl border p-3.5 text-xs animate-fade-in flex items-start gap-2.5 ${
-								testResult.success
-									? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300"
-									: "bg-destructive/10 border-destructive/30 text-destructive"
-							}`}
-						>
-							<div className="shrink-0 mt-0.5">
-								{testResult.success ? (
-									<Check className="h-4 w-4 text-green-600" />
-								) : (
-									<X className="h-4 w-4 text-destructive" />
-								)}
+					) : (
+						/* Vista de Edición: Campos de entrada de Credenciales */
+						<form onSubmit={handleSave} className="space-y-4">
+							<div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between">
+								<span>
+									Edita los parámetros de conexión de la pasarela y guarda para
+									vincular mediante Código QR.
+								</span>
 							</div>
-							<div className="flex-1 min-w-0">
-								<div className="font-bold flex items-center justify-between">
-									<span>
-										{testResult.success
-											? "Prueba de Conexión Exitosa"
-											: "Prueba de Conexión Fallida"}
-									</span>
-									<span className="text-[10px] font-mono opacity-75">
-										{testResult.timestamp}
-									</span>
-								</div>
-								<p className="text-[11px] mt-0.5 leading-relaxed">
-									{testResult.message}
+
+							{/* 1. Instance Name */}
+							<div>
+								<label
+									htmlFor="wa-instance-name"
+									className="block text-xs font-bold text-foreground mb-1 flex items-center gap-1.5"
+								>
+									<Server className="h-3.5 w-3.5 text-primary" />
+									<span>Nombre de la Instancia</span>
+								</label>
+								<input
+									id="wa-instance-name"
+									type="text"
+									required
+									value={instanceName}
+									onChange={(e) => setInstanceName(e.target.value)}
+									placeholder="ej. plottio-central"
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+								/>
+								<p className="text-[11px] text-muted-foreground mt-1">
+									Identificador de la sesión o canal de WhatsApp en la pasarela.
 								</p>
 							</div>
-						</div>
-					)}
 
-					{/* Action Buttons */}
-					<div className="pt-3 border-t border-border flex flex-col-reverse sm:flex-row items-center justify-between gap-2.5">
-						<div className="flex items-center gap-2 w-full sm:w-auto">
-							<button
-								type="button"
-								onClick={handleTestConnection}
-								disabled={isTesting}
-								className="w-full sm:w-auto px-3.5 py-2 rounded-lg border border-border bg-secondary/30 hover:bg-secondary text-foreground text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-xs"
-							>
-								{isTesting ? (
-									<RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />
-								) : (
-									<ShieldCheck className="h-3.5 w-3.5 text-primary" />
-								)}
-								<span>{isTesting ? "Probando..." : "Probar Conexión"}</span>
-							</button>
-
-							{whatsapp.status === "connected" && (
-								<button
-									type="button"
-									onClick={handleDisconnect}
-									className="px-3 py-2 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-									title="Desconectar instancia"
+							{/* 2. Server URL */}
+							<div>
+								<label
+									htmlFor="wa-server-url"
+									className="block text-xs font-bold text-foreground mb-1 flex items-center gap-1.5"
 								>
-									<Power className="h-3.5 w-3.5" />
-									<span className="hidden sm:inline">Desconectar</span>
-								</button>
-							)}
-						</div>
+									<LinkIcon className="h-3.5 w-3.5 text-primary" />
+									<span>URL del Servidor / Webhook</span>
+								</label>
+								<input
+									id="wa-server-url"
+									type="url"
+									required
+									value={serverUrl}
+									onChange={(e) => setServerUrl(e.target.value)}
+									placeholder="https://acadia.simcodec.workers.dev/api/webhook/wha"
+									className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+								/>
+								<p className="text-[11px] text-muted-foreground mt-1">
+									Endpoint receptor del Cloudflare Worker (por defecto: Acadia
+									Worker).
+								</p>
+							</div>
 
-						<div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-							<button
-								type="button"
-								onClick={onClose}
-								className="w-full sm:w-auto px-4 py-2 rounded-lg border border-border bg-card hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
-							>
-								Cancelar
-							</button>
-							<button
-								type="submit"
-								className="w-full sm:w-auto px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
-							>
-								{saveToast ? (
-									<>
-										<Check className="h-3.5 w-3.5 text-green-300" />
-										<span>¡Guardado!</span>
-									</>
-								) : (
-									<span>Guardar Configuración</span>
-								)}
-							</button>
-						</div>
-					</div>
-				</form>
+							{/* 3. API Key / Secret */}
+							<div>
+								<div className="flex justify-between items-center mb-1">
+									<label
+										htmlFor="wa-api-key"
+										className="block text-xs font-bold text-foreground flex items-center gap-1.5"
+									>
+										<Key className="h-3.5 w-3.5 text-primary" />
+										<span>API Key / Secreto de Autenticación</span>
+									</label>
+									<span className="text-[10px] text-muted-foreground font-mono">
+										Header: x-webhook-secret
+									</span>
+								</div>
+								<div className="relative">
+									<input
+										id="wa-api-key"
+										type={showApiKey ? "text" : "password"}
+										required
+										value={apiKey}
+										onChange={(e) => setApiKey(e.target.value)}
+										placeholder="sec_acadia_evo_2026"
+										className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-9 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+									/>
+									<button
+										type="button"
+										onClick={() => setShowApiKey((v) => !v)}
+										className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
+										title={showApiKey ? "Ocultar clave" : "Mostrar clave"}
+									>
+										{showApiKey ? (
+											<EyeOff className="h-3.5 w-3.5" />
+										) : (
+											<Eye className="h-3.5 w-3.5" />
+										)}
+									</button>
+								</div>
+								<p className="text-[11px] text-muted-foreground mt-1">
+									Clave secreta enviada en la cabecera{" "}
+									<code className="bg-secondary px-1 py-0.5 rounded text-[10px]">
+										x-webhook-secret
+									</code>{" "}
+									para autorizar solicitudes.
+								</p>
+							</div>
+
+							{/* Test Connection Banner / Feedback */}
+							{testResult && (
+								<div
+									className={`rounded-xl border p-3.5 text-xs animate-fade-in flex items-start gap-2.5 ${
+										testResult.success
+											? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300"
+											: "bg-destructive/10 border-destructive/30 text-destructive"
+									}`}
+								>
+									<div className="shrink-0 mt-0.5">
+										{testResult.success ? (
+											<Check className="h-4 w-4 text-green-600" />
+										) : (
+											<X className="h-4 w-4 text-destructive" />
+										)}
+									</div>
+									<div className="flex-1 min-w-0">
+										<div className="font-bold flex items-center justify-between">
+											<span>
+												{testResult.success
+													? "Prueba de Conexión Exitosa"
+													: "Prueba de Conexión Fallida"}
+											</span>
+											<span className="text-[10px] font-mono opacity-75">
+												{testResult.timestamp}
+											</span>
+										</div>
+										<p className="text-[11px] mt-0.5 leading-relaxed">
+											{testResult.message}
+										</p>
+									</div>
+								</div>
+							)}
+
+							{/* Action Buttons */}
+							<div className="pt-3 border-t border-border flex flex-col-reverse sm:flex-row items-center justify-between gap-2.5">
+								<div className="flex items-center gap-2 w-full sm:w-auto">
+									<button
+										type="button"
+										onClick={handleTestConnection}
+										disabled={isTesting}
+										className="w-full sm:w-auto px-3.5 py-2 rounded-lg border border-border bg-secondary/30 hover:bg-secondary text-foreground text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-xs"
+									>
+										{isTesting ? (
+											<RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />
+										) : (
+											<ShieldCheck className="h-3.5 w-3.5 text-primary" />
+										)}
+										<span>{isTesting ? "Probando..." : "Probar Conexión"}</span>
+									</button>
+								</div>
+
+								<div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+									<button
+										type="button"
+										onClick={handleCancelEdit}
+										className="w-full sm:w-auto px-4 py-2 rounded-lg border border-border bg-card hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
+									>
+										Cancelar
+									</button>
+									<button
+										type="submit"
+										className="w-full sm:w-auto px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+									>
+										{saveToast ? (
+											<>
+												<Check className="h-3.5 w-3.5 text-green-300" />
+												<span>¡Guardado!</span>
+											</>
+										) : (
+											<span>Guardar Configuración</span>
+										)}
+									</button>
+								</div>
+							</div>
+						</form>
+					)}
+				</div>
 			</div>
 		</div>
 	);

@@ -21,11 +21,7 @@ import { OrdenesTrabajoView } from "../components/OrdenesTrabajoView";
 import { PlottioAsistenteModal } from "../components/PlottioAsistenteModal";
 import PlottioLogo from "../components/PlottioLogo";
 import { Sidebar } from "../components/Sidebar";
-import {
-	BreadcrumbNavegacion,
-	SucursalBadge,
-	SucursalSelector,
-} from "../components/SucursalesAdmin";
+import { BreadcrumbNavegacion } from "../components/SucursalesAdmin";
 import { VehiculosView } from "../components/VehiculosView";
 import { useSessionStore } from "../store/useSessionStore";
 
@@ -236,11 +232,6 @@ function AppLayout() {
 									⌘K
 								</kbd>
 							</button>
-
-							<div className="hidden sm:block">
-								<SucursalSelector />
-							</div>
-							<SucursalBadge />
 						</div>
 					</div>
 

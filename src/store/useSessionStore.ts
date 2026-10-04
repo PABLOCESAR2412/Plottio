@@ -20,9 +20,9 @@ export interface SessionUser {
 	nombre: string;
 	email: string;
 	rol: RolUsuario | string;
-	sucursalId: string | null;
-	pvId: string | null;
 	empresaId?: string | null;
+	sucursalId?: string | null;
+	pvId?: string | null;
 	activo: boolean;
 }
 

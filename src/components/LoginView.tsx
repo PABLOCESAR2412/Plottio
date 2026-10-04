@@ -52,7 +52,7 @@ export const LoginView: React.FC = () => {
 	};
 
 	const beneficios = [
-		"Control centralizado multi-sucursal",
+		"Control integral de taller y operaciones",
 		"Gestión avanzada de inventario",
 		"Cotizaciones y reportes automatizados",
 		"Asignación y seguimiento de órdenes",

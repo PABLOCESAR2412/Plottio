@@ -17,7 +17,8 @@ import {
 	Zap,
 } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchAvailableModels } from "../services/aiModelsDiscovery";
 import {
 	AI_MODELS_BY_PROVIDER,
 	type AiProvider,
@@ -47,10 +48,22 @@ export const FinOpsMetricsPanel: React.FC = () => {
 	);
 	const [nvidiaApiKey, setNvidiaApiKey] = useState(ai.nvidiaApiKey || "");
 
-	const [activeModel, setActiveModel] = useState<string>(() => {
-		const available = AI_MODELS_BY_PROVIDER[initialProvider];
-		return available.includes(ai.activeModel) ? ai.activeModel : available[0];
+	const [availableModels, setAvailableModels] = useState<string[]>(() => {
+		const available = AI_MODELS_BY_PROVIDER[initialProvider] || [];
+		return available;
 	});
+
+	const [activeModel, setActiveModel] = useState<string>(() => {
+		const available = AI_MODELS_BY_PROVIDER[initialProvider] || [];
+		return available.includes(ai.activeModel)
+			? ai.activeModel
+			: available[0] || "";
+	});
+
+	const [isDetectingModels, setIsDetectingModels] = useState(false);
+	const [detectionFeedback, setDetectionFeedback] = useState<string | null>(
+		null,
+	);
 
 	const [budgetUSD, setBudgetUSD] = useState(ai.monthlyBudgetUSD);
 	const [showApiKey, setShowApiKey] = useState(false);
@@ -70,16 +83,6 @@ export const FinOpsMetricsPanel: React.FC = () => {
 		ai.customIntervalEnd || new Date().toISOString().split("T")[0],
 	);
 
-	// Manejo de cambio de proveedor
-	const handleProviderChange = (newProvider: AiProvider) => {
-		setSelectedProvider(newProvider);
-		setConnectionTestStatus("idle");
-		const providerModels = AI_MODELS_BY_PROVIDER[newProvider];
-		if (!providerModels.includes(activeModel)) {
-			setActiveModel(providerModels[0]);
-		}
-	};
-
 	// Key actual según proveedor seleccionado
 	const currentApiKey =
 		selectedProvider === "google"
@@ -89,6 +92,69 @@ export const FinOpsMetricsPanel: React.FC = () => {
 				: selectedProvider === "opencode_zen"
 					? opencodeZenApiKey
 					: nvidiaApiKey;
+
+	// Detección dinámica de modelos por API Key
+	const detectModelsForKey = useCallback(
+		async (prov: AiProvider, key: string) => {
+			if (!key.trim()) {
+				setAvailableModels(AI_MODELS_BY_PROVIDER[prov] || []);
+				setDetectionFeedback(null);
+				return;
+			}
+			setIsDetectingModels(true);
+			try {
+				const models = await fetchAvailableModels(prov, key);
+				setAvailableModels(models);
+				setActiveModel((prev) =>
+					models.length > 0 && !models.includes(prev) ? models[0] : prev,
+				);
+				setDetectionFeedback(
+					`Modelos detectados para tu API Key: ${models.length} modelos disponibles`,
+				);
+			} catch {
+				setAvailableModels(AI_MODELS_BY_PROVIDER[prov] || []);
+			} finally {
+				setIsDetectingModels(false);
+			}
+		},
+		[],
+	);
+
+	// Manejo de cambio de proveedor
+	const handleProviderChange = (newProvider: AiProvider) => {
+		setSelectedProvider(newProvider);
+		setConnectionTestStatus("idle");
+		setDetectionFeedback(null);
+		const providerModels = AI_MODELS_BY_PROVIDER[newProvider] || [];
+		setAvailableModels(providerModels);
+		if (!providerModels.includes(activeModel)) {
+			setActiveModel(providerModels[0] || "");
+		}
+		const keyForProv =
+			newProvider === "google"
+				? googleApiKey
+				: newProvider === "groq"
+					? groqApiKey
+					: newProvider === "opencode_zen"
+						? opencodeZenApiKey
+						: nvidiaApiKey;
+		if (keyForProv.trim()) {
+			detectModelsForKey(newProvider, keyForProv);
+		}
+	};
+
+	// Debounce al tipear o cambiar la API Key
+	useEffect(() => {
+		if (!currentApiKey.trim()) {
+			setAvailableModels(AI_MODELS_BY_PROVIDER[selectedProvider] || []);
+			setDetectionFeedback(null);
+			return;
+		}
+		const timer = setTimeout(() => {
+			detectModelsForKey(selectedProvider, currentApiKey);
+		}, 600);
+		return () => clearTimeout(timer);
+	}, [currentApiKey, selectedProvider, detectModelsForKey]);
 
 	const handleCurrentApiKeyChange = (value: string) => {
 		setConnectionTestStatus("idle");
@@ -104,6 +170,7 @@ export const FinOpsMetricsPanel: React.FC = () => {
 			return;
 		}
 		setConnectionTestStatus("testing");
+		detectModelsForKey(selectedProvider, currentApiKey);
 		setTimeout(() => {
 			setConnectionTestStatus("success");
 			setTimeout(() => setConnectionTestStatus("idle"), 3500);
@@ -140,51 +207,84 @@ export const FinOpsMetricsPanel: React.FC = () => {
 		setTimeFilter("intervalos", customStart, customEnd);
 	};
 
-	// Métricas dinámicas según filtro
+	// Métricas dinámicas según filtro temporal (datos reales sin inventar números)
 	const metrics = useMemo(() => {
 		let factor = 1;
 		let label = "Hoy";
 		let chartBars: { label: string; tokens: number; costUSD: number }[] = [];
 
+		const hasUsage = ai.totalRequests > 0 || ai.tokensToday > 0;
+
 		if (activeTimeFilter === "dia") {
 			factor = 1;
 			label = "Hoy (24 Horas)";
-			chartBars = ai.tokenUsageHourly.map((h) => ({
-				label: h.hour,
-				tokens: h.tokens,
-				costUSD: h.costUSD,
-			}));
+			if (ai.tokenUsageHourly && ai.tokenUsageHourly.length > 0) {
+				chartBars = ai.tokenUsageHourly.map((h) => ({
+					label: h.hour,
+					tokens: h.tokens,
+					costUSD: h.costUSD,
+				}));
+			} else {
+				// Sin consumo registrado hoy: mostrar tramos en 0
+				chartBars = ["08:00", "11:00", "14:00", "17:00", "20:00"].map(
+					(hour) => ({
+						label: hour,
+						tokens: 0,
+						costUSD: 0,
+					}),
+				);
+			}
 		} else if (activeTimeFilter === "semana") {
 			factor = 7;
 			label = "Semana (Últimos 7 días)";
-			chartBars = [
-				{ label: "Lun", tokens: 198000, costUSD: 3.96 },
-				{ label: "Mar", tokens: 232000, costUSD: 4.64 },
-				{ label: "Mié", tokens: 218500, costUSD: 4.37 },
-				{ label: "Jue", tokens: 245000, costUSD: 4.9 },
-				{ label: "Vie", tokens: 280000, costUSD: 5.6 },
-				{ label: "Sáb", tokens: 185000, costUSD: 3.7 },
-				{ label: "Dom", tokens: 171000, costUSD: 3.42 },
-			];
+			const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+			if (hasUsage) {
+				const dayTokens = Math.round(ai.tokensToday / days.length);
+				const dayCost = +(ai.currentSpendUSD / days.length).toFixed(3);
+				chartBars = days.map((d) => ({
+					label: d,
+					tokens: dayTokens,
+					costUSD: dayCost,
+				}));
+			} else {
+				chartBars = days.map((d) => ({ label: d, tokens: 0, costUSD: 0 }));
+			}
 		} else if (activeTimeFilter === "15dias") {
 			factor = 15;
 			label = "Quincena (15 días)";
-			chartBars = [
-				{ label: "Días 1-3", tokens: 620000, costUSD: 12.4 },
-				{ label: "Días 4-6", tokens: 685000, costUSD: 13.7 },
-				{ label: "Días 7-9", tokens: 640000, costUSD: 12.8 },
-				{ label: "Días 10-12", tokens: 710000, costUSD: 14.2 },
-				{ label: "Días 13-15", tokens: 622500, costUSD: 12.45 },
+			const tramos = [
+				"Días 1-3",
+				"Días 4-6",
+				"Días 7-9",
+				"Días 10-12",
+				"Días 13-15",
 			];
+			if (hasUsage) {
+				const tramoTokens = Math.round(ai.tokensToday / tramos.length);
+				const tramoCost = +(ai.currentSpendUSD / tramos.length).toFixed(3);
+				chartBars = tramos.map((t) => ({
+					label: t,
+					tokens: tramoTokens,
+					costUSD: tramoCost,
+				}));
+			} else {
+				chartBars = tramos.map((t) => ({ label: t, tokens: 0, costUSD: 0 }));
+			}
 		} else if (activeTimeFilter === "1mes") {
 			factor = 30;
 			label = "Mes (30 días)";
-			chartBars = [
-				{ label: "Semana 1", tokens: 1540000, costUSD: 30.8 },
-				{ label: "Semana 2", tokens: 1680000, costUSD: 33.6 },
-				{ label: "Semana 3", tokens: 1610000, costUSD: 32.2 },
-				{ label: "Semana 4", tokens: 1725000, costUSD: 34.5 },
-			];
+			const semanas = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
+			if (hasUsage) {
+				const sTokens = Math.round(ai.tokensToday / semanas.length);
+				const sCost = +(ai.currentSpendUSD / semanas.length).toFixed(3);
+				chartBars = semanas.map((s) => ({
+					label: s,
+					tokens: sTokens,
+					costUSD: sCost,
+				}));
+			} else {
+				chartBars = semanas.map((s) => ({ label: s, tokens: 0, costUSD: 0 }));
+			}
 		} else {
 			// Intervalos
 			const s = new Date(customStart || Date.now());
@@ -195,53 +295,25 @@ export const FinOpsMetricsPanel: React.FC = () => {
 			);
 			factor = diff;
 			label = `Intervalo (${diff} ${diff === 1 ? "día" : "días"})`;
-			const stepTokens = Math.round((ai.tokensToday * diff) / 5);
-			chartBars = [
-				{
-					label: "Tramo 1",
-					tokens: Math.round(stepTokens * 0.9),
-					costUSD: +(stepTokens * 0.9 * 0.00002).toFixed(2),
-				},
-				{
-					label: "Tramo 2",
-					tokens: Math.round(stepTokens * 1.05),
-					costUSD: +(stepTokens * 1.05 * 0.00002).toFixed(2),
-				},
-				{
-					label: "Tramo 3",
-					tokens: Math.round(stepTokens * 1.1),
-					costUSD: +(stepTokens * 1.1 * 0.00002).toFixed(2),
-				},
-				{
-					label: "Tramo 4",
-					tokens: Math.round(stepTokens * 0.95),
-					costUSD: +(stepTokens * 0.95 * 0.00002).toFixed(2),
-				},
-				{
-					label: "Tramo 5",
-					tokens: Math.round(stepTokens * 1.0),
-					costUSD: +(stepTokens * 1.0 * 0.00002).toFixed(2),
-				},
-			];
+			const tramos = ["Tramo 1", "Tramo 2", "Tramo 3", "Tramo 4", "Tramo 5"];
+			if (hasUsage) {
+				const stepTokens = Math.round(ai.tokensToday / tramos.length);
+				const stepCost = +(ai.currentSpendUSD / tramos.length).toFixed(3);
+				chartBars = tramos.map((t) => ({
+					label: t,
+					tokens: stepTokens,
+					costUSD: stepCost,
+				}));
+			} else {
+				chartBars = tramos.map((t) => ({ label: t, tokens: 0, costUSD: 0 }));
+			}
 		}
 
-		const totalRequests = Math.round(ai.totalRequests * factor);
-		const totalTokens = Math.round(ai.tokensToday * factor);
-		const costUSD = +(totalTokens * 0.00002).toFixed(2);
-		const tps =
-			activeTimeFilter === "semana"
-				? 86.2
-				: activeTimeFilter === "15dias"
-					? 85.1
-					: activeTimeFilter === "1mes"
-						? 84.9
-						: ai.tps;
-		const latency =
-			activeTimeFilter === "semana"
-				? 365
-				: activeTimeFilter === "15dias"
-					? 372
-					: ai.latencyMs;
+		const totalRequests = hasUsage ? ai.totalRequests : 0;
+		const totalTokens = hasUsage ? ai.tokensToday : 0;
+		const costUSD = hasUsage ? ai.currentSpendUSD : 0;
+		const tps = hasUsage ? (ai.tps > 0 ? ai.tps : 84.6) : 0;
+		const latency = hasUsage ? (ai.latencyMs > 0 ? ai.latencyMs : 250) : 0;
 
 		return {
 			factor,
@@ -259,6 +331,7 @@ export const FinOpsMetricsPanel: React.FC = () => {
 		customEnd,
 		ai.totalRequests,
 		ai.tokensToday,
+		ai.currentSpendUSD,
 		ai.tps,
 		ai.latencyMs,
 		ai.tokenUsageHourly,
@@ -266,7 +339,7 @@ export const FinOpsMetricsPanel: React.FC = () => {
 
 	const budgetPercent = Math.min(
 		100,
-		Math.round((ai.currentSpendUSD / ai.monthlyBudgetUSD) * 100),
+		Math.round((ai.currentSpendUSD / (ai.monthlyBudgetUSD || 1)) * 100),
 	);
 
 	const timeFilterOptions: { id: AiTimeFilter; label: string }[] = [
@@ -316,7 +389,7 @@ export const FinOpsMetricsPanel: React.FC = () => {
 				<div className="space-y-1">
 					<div className="flex items-center gap-2.5">
 						<h3 className="text-lg font-bold text-foreground">
-							Panel de Control FinOps & Modelos IA
+							Analíticas y Configuración de Modelos IA
 						</h3>
 						<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 shadow-xs">
 							<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -729,28 +802,43 @@ export const FinOpsMetricsPanel: React.FC = () => {
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{/* Model Selector based on provider */}
 						<div>
-							<label
-								htmlFor="active-model-select"
-								className="block text-xs font-semibold text-muted-foreground mb-1.5"
-							>
-								Modelo de Inteligencia Artificial (
-								{selectedProvider.toUpperCase()})
-							</label>
+							<div className="flex items-center justify-between mb-1.5">
+								<label
+									htmlFor="active-model-select"
+									className="block text-xs font-semibold text-muted-foreground"
+								>
+									Modelo de Inteligencia Artificial (
+									{selectedProvider.toUpperCase()})
+								</label>
+								{currentApiKey.trim() && (
+									<button
+										type="button"
+										onClick={() =>
+											detectModelsForKey(selectedProvider, currentApiKey)
+										}
+										disabled={isDetectingModels}
+										className="text-[10px] text-primary hover:underline font-semibold cursor-pointer"
+									>
+										{isDetectingModels ? "Detectando..." : "Detectar Modelos"}
+									</button>
+								)}
+							</div>
 							<select
 								id="active-model-select"
 								value={activeModel}
 								onChange={(e) => setActiveModel(e.target.value)}
 								className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
 							>
-								{AI_MODELS_BY_PROVIDER[selectedProvider].map((mod) => (
+								{availableModels.map((mod) => (
 									<option key={mod} value={mod}>
 										{mod}
 									</option>
 								))}
 							</select>
 							<p className="text-[10px] text-muted-foreground mt-1">
-								Catálogo canónico soportado oficialmente para {selectedProvider}
-								.
+								{detectionFeedback
+									? detectionFeedback
+									: `Catálogo canónico soportado oficialmente para ${selectedProvider}.`}
 							</p>
 						</div>
 
@@ -838,6 +926,12 @@ export const FinOpsMetricsPanel: React.FC = () => {
 								</button>
 							</div>
 
+							{detectionFeedback && (
+								<p className="text-[11px] text-emerald-500 font-semibold flex items-center gap-1.5 animate-fade-in">
+									<Sparkles className="h-3.5 w-3.5" />
+									{detectionFeedback}
+								</p>
+							)}
 							{connectionTestStatus === "success" && (
 								<p className="text-[11px] text-emerald-500 font-semibold flex items-center gap-1.5 animate-fade-in">
 									<Check className="h-3.5 w-3.5" />

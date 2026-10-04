@@ -366,7 +366,7 @@ describe("Tarea 22 (P2 - Fase 3): Clarificación de Dominio Multi-Tenant (Taller
 			expect(empresasViewCode).toContain("Empresas Clientes & Flotas Corporativas (B2B)");
 			expect(empresasViewCode).toContain("Clientes B2B");
 			expect(empresasViewCode).toContain(
-				"Gestión de cuentas comerciales y flotas vehiculares atendidas en el taller. Para administrar las sedes físicas del taller, dirígete a Configuración → Sucursales.",
+				"Gestión de cuentas comerciales y flotas vehiculares atendidas en el",
 			);
 		});
 
@@ -377,25 +377,16 @@ describe("Tarea 22 (P2 - Fase 3): Clarificación de Dominio Multi-Tenant (Taller
 			expect(empresasViewCode).toContain("¿Desactivar Empresa Cliente?");
 		});
 
-		it("SucursalesAdmin.tsx expresa con claridad que se trata de 'Sedes & Sucursales del Taller (Estructura Organizacional)'", () => {
-			expect(sucursalesAdminCode).toContain(
-				"Sedes & Sucursales del Taller (Estructura Organizacional)",
-			);
-			expect(sucursalesAdminCode).toContain(
-				"Administración de sedes físicas, matriz y puntos de venta del taller.",
-			);
+		it("SucursalesAdmin.tsx marca los componentes de sucursales como deprecados para la migración Single-Org", () => {
+			expect(sucursalesAdminCode).toContain("@deprecated");
+			expect(sucursalesAdminCode).toContain("Single-Org");
 		});
 
-		it("garantiza la separación conceptual: EmpresasView no gestiona sucursales internas del taller y SucursalesAdmin no gestiona flotas vehiculares", () => {
+		it("garantiza la separación conceptual: EmpresasView no gestiona sucursales internas del taller y se enfoca en flotas", () => {
 			// En EmpresasView se habla de flota vehicular, RUC comercial y vehículos
 			expect(empresasViewCode).toContain("Vehículos Activos");
 			expect(empresasViewCode).toContain("En Mantenimiento");
 			expect(empresasViewCode).toContain("Inversión Total");
-
-			// En SucursalesAdmin se administra la jerarquía de sedes y puntos de venta
-			expect(sucursalesAdminCode).toContain("puntosVenta");
-			expect(sucursalesAdminCode).toContain("Matriz / Empresa");
-			expect(sucursalesAdminCode).toContain("Oficina Principal");
 		});
 	});
 });

@@ -121,12 +121,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 
 	const filteredVehiculos = useMemo(() => {
 		return vehiculos.filter((v) => {
-			if (
-				v.sucursalId &&
-				currentUser?.sucursalId &&
-				v.sucursalId !== currentUser.sucursalId
-			)
-				return false;
 			const term = searchTerm.toLowerCase();
 			const owner = getOwnerDetails(v);
 			const matchesSearch =
@@ -139,7 +133,7 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 				(selectedCategory === "Todos" || v.categoria === selectedCategory)
 			);
 		});
-	}, [vehiculos, currentUser, searchTerm, selectedCategory, getOwnerDetails]);
+	}, [vehiculos, searchTerm, selectedCategory, getOwnerDetails]);
 
 	const activeVehiculoId = filteredVehiculos.find(
 		(v) => v.id === selectedVehiculoId,
@@ -260,9 +254,6 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 					propietarioId: data.propietarioId,
 					propietarioTipo: data.propietarioTipo,
 					estado: data.estado,
-					sucursalId: currentUser?.sucursalId
-						? (currentUser.sucursalId as Id<"sucursales">)
-						: undefined,
 				});
 				setFormModalState({ isOpen: false, mode: "create" });
 				if (newVeh) setSelectedVehiculoId(newVeh._id);

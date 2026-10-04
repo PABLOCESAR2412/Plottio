@@ -24,13 +24,12 @@ export const getUsuarios = query({
       const usuarios = await ctx.db.query("usuarios").collect();
       return usuarios.map(({ password: _, ...u }) => u);
     } else {
-      // Admin Sucursal ve solo su sucursal
       await requirePermission(ctx, args.usuarioId, "ver_usuarios");
-      if (!context.sucursal) throw new ConvexError("Contexto de sucursal no encontrado");
+      if (!context.empresa) throw new ConvexError("Contexto de empresa no encontrado");
       
       const usuarios = await ctx.db
         .query("usuarios")
-        .withIndex("by_sucursal", q => q.eq("sucursalId", context.sucursal!.id))
+        .withIndex("by_empresa", q => q.eq("empresaId", context.empresa!.id))
         .collect();
       return usuarios.map(({ password: _, ...u }) => u);
     }
@@ -44,7 +43,8 @@ export const invitarUsuario = mutation({
     nombre: v.string(),
     email: v.string(),
     rol: v.string(),
-    sucursalId: v.optional(v.id("sucursales"))
+    sucursalId: v.optional(v.id("sucursales")),
+    pvId: v.optional(v.id("puntosVenta"))
   },
   handler: async (ctx, args) => {
     const context = await getCurrentUserContext(ctx, args.adminId);
@@ -71,6 +71,7 @@ export const invitarUsuario = mutation({
       rol: args.rol,
       empresaId: context.empresa.id,
       sucursalId: args.sucursalId || context.sucursal?.id,
+      pvId: args.pvId || context.pv?.id,
       activo: false,
       invitationToken: token,
       invitationAccepted: false

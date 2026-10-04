@@ -94,14 +94,6 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 
 	const filteredOrders = useMemo(() => {
 		return (ordenesTrabajo ?? []).filter((o) => {
-			if (
-				o.sucursalId &&
-				currentUser?.sucursalId &&
-				o.sucursalId !== currentUser.sucursalId
-			)
-				return false;
-			if (currentUser?.pvId && o.pvOrigen && o.pvOrigen !== currentUser.pvId)
-				return false;
 			const term = deferredSearchTerm.toLowerCase();
 			const matchesSearch =
 				o._id.toLowerCase().includes(term) ||
@@ -112,7 +104,7 @@ export const OrdenesTrabajoView: React.FC<OrdenesTrabajoViewProps> = ({
 				(selectedStatusTab === "Todos" || o.estado === selectedStatusTab)
 			);
 		});
-	}, [ordenesTrabajo, currentUser, deferredSearchTerm, selectedStatusTab]);
+	}, [ordenesTrabajo, deferredSearchTerm, selectedStatusTab]);
 
 	const activeOrderId = filteredOrders.find((o) => o._id === selectedOrderId)
 		? selectedOrderId

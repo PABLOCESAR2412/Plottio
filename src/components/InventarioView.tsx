@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import {
 	AlertTriangle,
-	ArrowRightLeft,
 	Edit2,
 	Loader2,
 	Package,
@@ -22,20 +21,12 @@ import { TableSkeleton } from "./Skeleton";
 
 export const InventarioView: React.FC = () => {
 	const currentUser = useSessionStore((s) => s.currentUser);
-	const rawSucursales = useQuery(api.organizacion.getSucursales, {}) as
-		| Array<{ id: string; nombre: string }>
-		| undefined;
-	const sucursales = (rawSucursales ?? []).map((s) => ({
-		id: (s as { _id?: string })._id ?? s.id,
-		nombre: s.nombre,
-	}));
 	const inventario = useQuery(
 		api.inventario.getInventarioConsolidado,
 		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
 	);
 
 	const createItemMutation = useMutation(api.inventario.createInventarioItems);
-	const transferirMutation = useMutation(api.inventario.transferirInventario);
 	const updateItemMutation = useMutation(api.inventario.updateInventarioItem);
 	const deleteItemMutation = useMutation(api.inventario.deleteInventarioItem);
 	const addStockMutation = useMutation(api.inventario.addInventarioSucursal);
@@ -55,7 +46,6 @@ export const InventarioView: React.FC = () => {
 		costoUnitario: number;
 		unidadMedida: string;
 	} | null>(null);
-	const [showTransferModal, setShowTransferModal] = useState(false);
 	const [showAddStockModal, setShowAddStockModal] = useState(false);
 	const [_showDeleteModal, setShowDeleteModal] = useState(false);
 	const [itemToDelete, setItemToDelete] =
@@ -71,18 +61,9 @@ export const InventarioView: React.FC = () => {
 		unidadMedida: "Unidades",
 	});
 
-	// Transfer Form
-	const [transfer, setTransfer] = useState({
-		desde: "",
-		hacia: "",
-		itemId: "",
-		cantidad: 0,
-	});
-
 	// Add Stock Form
 	const [addStockData, setAddStockData] = useState({
 		itemId: "",
-		sucursalId: "",
 		cantidad: 0,
 	});
 
@@ -176,40 +157,15 @@ export const InventarioView: React.FC = () => {
 		try {
 			await addStockMutation({
 				usuarioId: currentUser.id as Id<"usuarios">,
-				sucursalId: addStockData.sucursalId as Id<"sucursales">,
 				itemId: addStockData.itemId as Id<"inventarioItems">,
 				cantidad: addStockData.cantidad,
 			});
 			toast.success("Stock agregado con éxito");
 			setShowAddStockModal(false);
-			setAddStockData({ itemId: "", sucursalId: "", cantidad: 0 });
+			setAddStockData({ itemId: "", cantidad: 0 });
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Error al agregar stock",
-			);
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
-
-	const handleTransfer = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!currentUser) return;
-		setIsSubmitting(true);
-		try {
-			await transferirMutation({
-				usuarioId: currentUser.id as Id<"usuarios">,
-				desde: transfer.desde as Id<"sucursales">,
-				hacia: transfer.hacia as Id<"sucursales">,
-				itemId: transfer.itemId as Id<"inventarioItems">,
-				cantidad: transfer.cantidad,
-			});
-			toast.success("Transferencia realizada con éxito");
-			setShowTransferModal(false);
-			setTransfer({ desde: "", hacia: "", itemId: "", cantidad: 0 });
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Error al transferir",
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -226,10 +182,10 @@ export const InventarioView: React.FC = () => {
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
 						<PackageSearch className="h-8 w-8 text-primary" />
-						Inventario Distribuido
+						Inventario Central
 					</h1>
 					<p className="text-muted-foreground mt-1">
-						Gestión de stock, transferencias entre sucursales y alertas de
+						Gestión de stock, control de suministros y alertas de
 						reabastecimiento.
 					</p>
 				</div>
@@ -241,14 +197,6 @@ export const InventarioView: React.FC = () => {
 					>
 						<Plus className="h-4 w-4" />
 						Añadir Stock
-					</button>
-					<button
-						type="button"
-						onClick={() => setShowTransferModal(true)}
-						className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground font-semibold rounded-lg hover:bg-secondary/80 transition-colors cursor-pointer"
-					>
-						<ArrowRightLeft className="h-4 w-4" />
-						Transferir
 					</button>
 					<button
 						type="button"
@@ -421,22 +369,6 @@ export const InventarioView: React.FC = () => {
 										</td>
 										<td className="px-6 py-4 text-right">
 											<div className="flex justify-end gap-1">
-												<button
-													type="button"
-													onClick={() => {
-														setTransfer({
-															desde: "",
-															hacia: "",
-															itemId: item.item_id,
-															cantidad: 0,
-														});
-														setShowTransferModal(true);
-													}}
-													className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-													title="Transferir"
-												>
-													<ArrowRightLeft className="h-4 w-4" />
-												</button>
 												<button
 													type="button"
 													onClick={() => {
@@ -801,29 +733,6 @@ export const InventarioView: React.FC = () => {
 							</div>
 							<div>
 								<label className="block text-xs font-semibold text-foreground mb-1.5">
-									Sucursal
-								</label>
-								<select
-									required
-									value={addStockData.sucursalId}
-									onChange={(e) =>
-										setAddStockData({
-											...addStockData,
-											sucursalId: e.target.value,
-										})
-									}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-								>
-									<option value="">Seleccionar sucursal...</option>
-									{sucursales?.map((s) => (
-										<option key={s.id} value={s.id}>
-											{s.nombre}
-										</option>
-									))}
-								</select>
-							</div>
-							<div>
-								<label className="block text-xs font-semibold text-foreground mb-1.5">
 									Cantidad
 								</label>
 								<input
@@ -857,149 +766,6 @@ export const InventarioView: React.FC = () => {
 										<Loader2 className="h-4 w-4 animate-spin" />
 									) : (
 										"Añadir"
-									)}
-								</button>
-							</div>
-						</form>
-					</div>
-				</div>
-			)}
-			{/* MODAL: Transferir */}
-			{showTransferModal && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-					<div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-fade-in">
-						<div className="p-4 border-b border-border flex justify-between items-center bg-secondary/50">
-							<h3 className="font-bold text-foreground flex items-center gap-2">
-								<ArrowRightLeft className="h-5 w-5 text-primary" />
-								Transferir Inventario
-							</h3>
-							<button
-								type="button"
-								onClick={() => setShowTransferModal(false)}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-						<form onSubmit={handleTransfer} className="p-5 space-y-4">
-							<div>
-								<label
-									htmlFor="transferItemId"
-									className="block text-xs font-semibold text-foreground mb-1.5"
-								>
-									Material a Transferir
-								</label>
-								<select
-									id="transferItemId"
-									required
-									value={transfer.itemId}
-									onChange={(e) =>
-										setTransfer({ ...transfer, itemId: e.target.value })
-									}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-								>
-									<option value="">-- Seleccionar --</option>
-									{inventario?.map((item) => (
-										<option key={item.item_id} value={item.item_id}>
-											{item.nombre} (Disp: {item.cantidad_total})
-										</option>
-									))}
-								</select>
-							</div>
-							<div className="grid grid-cols-2 gap-4">
-								<div>
-									<label
-										htmlFor="transferDesde"
-										className="block text-xs font-semibold text-foreground mb-1.5"
-									>
-										Origen
-									</label>
-									<select
-										id="transferDesde"
-										required
-										value={transfer.desde}
-										onChange={(e) =>
-											setTransfer({ ...transfer, desde: e.target.value })
-										}
-										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-									>
-										<option value="">-- Origen --</option>
-										{sucursales.map((s) => (
-											<option key={s.id} value={s.id}>
-												{s.nombre}
-											</option>
-										))}
-									</select>
-								</div>
-								<div>
-									<label
-										htmlFor="transferHacia"
-										className="block text-xs font-semibold text-foreground mb-1.5"
-									>
-										Destino
-									</label>
-									<select
-										id="transferHacia"
-										required
-										value={transfer.hacia}
-										onChange={(e) =>
-											setTransfer({ ...transfer, hacia: e.target.value })
-										}
-										className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-									>
-										<option value="">-- Destino --</option>
-										{sucursales.map((s) => (
-											<option key={s.id} value={s.id}>
-												{s.nombre}
-											</option>
-										))}
-									</select>
-								</div>
-							</div>
-							<div>
-								<label
-									htmlFor="transferCantidad"
-									className="block text-xs font-semibold text-foreground mb-1.5"
-								>
-									Cantidad a Mover
-								</label>
-								<input
-									id="transferCantidad"
-									type="number"
-									required
-									min="1"
-									value={
-										Number.isNaN(transfer.cantidad) ? "" : transfer.cantidad
-									}
-									onChange={(e) =>
-										setTransfer({
-											...transfer,
-											cantidad:
-												e.target.value === ""
-													? 0
-													: parseInt(e.target.value, 10),
-										})
-									}
-									className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-								/>
-							</div>
-							<div className="pt-4 flex gap-3">
-								<button
-									type="button"
-									onClick={() => setShowTransferModal(false)}
-									className="w-full py-2.5 rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-secondary transition-colors cursor-pointer"
-								>
-									Cancelar
-								</button>
-								<button
-									type="submit"
-									disabled={isSubmitting || transfer.desde === transfer.hacia}
-									className="w-full flex justify-center py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-								>
-									{isSubmitting ? (
-										<Loader2 className="h-4 w-4 animate-spin" />
-									) : (
-										"Transferir"
 									)}
 								</button>
 							</div>

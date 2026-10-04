@@ -3,7 +3,7 @@ import { v, ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUserContext, requirePermission } from "./auth";
 
-// 3.5 A) Función fetchClientes() DESPUÉS (con filtro Automático)
+// 3.5 A) Función fetchClientes() (Arquitectura Single-Org)
 export const fetchClientes = query({
   args: { 
     usuarioId: v.id("usuarios"),
@@ -17,52 +17,27 @@ export const fetchClientes = query({
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) return [];
 
-    // 3. Consultar la base filtrando directamente por la Empresa
+    // 3. Consultar la base filtrando directamente por la Empresa única
     const allClientes = await ctx.db
       .query("clientes")
-      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
-    // Si tiene permiso de ver todas las sucursales o es SuperAdmin, también incluir clientes sin empresaId asignado
-    if (userContext.permisos.includes("ver_todas_sucursales")) {
-      const huerfanos = await ctx.db.query("clientes").collect();
-      const idsExistentes = new Set(allClientes.map((c) => c._id));
-      for (const h of huerfanos) {
-        if (!idsExistentes.has(h._id) && (!h.empresaId || h.empresaId === userContext.empresa!.id)) {
-          allClientes.push(h);
-        }
+    // Si existen clientes sin empresaId asignado en la BD, incluirlos para retrocompatibilidad
+    const huerfanos = await ctx.db.query("clientes").collect();
+    const idsExistentes = new Set(allClientes.map((c) => c._id));
+    for (const h of huerfanos) {
+      if (!idsExistentes.has(h._id) && (!h.empresaId || h.empresaId === userContext.empresa!.id)) {
+        allClientes.push(h);
       }
     }
 
-    // 4. Filtrar granularmente dependiendo del nivel de acceso y enriquecer
-    const clientesFiltrados = [];
-    
-    for (const c of allClientes) {
-      const tipoCliente = c.sucursalId === userContext.sucursal?.id ? 'Local' : 'Global';
-      const clienteEnriquecido = {
-        ...c,
-        tipo_cliente: tipoCliente,
-        empresaId: c.empresaVinculadaId || c.empresaId, // retrocompatibilidad para mostrar empresa vinculada en UI
-      };
-
-      // Super Admin ve todo
-      if (userContext.permisos.includes("ver_todas_sucursales")) {
-        clientesFiltrados.push(clienteEnriquecido);
-        continue;
-      }
-
-      // Si pide incluir clientes globales de la empresa, y lo es
-      if (!args.incluirGlobales && c.esClienteGlobal) {
-        clientesFiltrados.push(clienteEnriquecido);
-        continue;
-      }
-
-      // Restringir a su sucursal estricta
-      if (userContext.sucursal && c.sucursalId === userContext.sucursal.id) {
-        clientesFiltrados.push(clienteEnriquecido);
-        continue;
-      }
-    }
+    // 4. Enriquecer clientes (todos pertenecen a la organización central)
+    const clientesFiltrados = allClientes.map((c) => ({
+      ...c,
+      tipo_cliente: "Central",
+      empresaId: c.empresaVinculadaId || c.empresaId, // retrocompatibilidad para mostrar empresa vinculada en UI
+    }));
 
     // Ordenar alfabéticamente
     return clientesFiltrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -83,8 +58,8 @@ export const createCliente = mutation({
     await requirePermission(ctx, args.usuarioId, "crear_cliente");
     
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa || !userContext.sucursal) {
-      throw new ConvexError("El usuario necesita estar asignado a una Empresa y Sucursal");
+    if (!userContext.empresa) {
+      throw new ConvexError("El usuario necesita estar asignado a una Empresa");
     }
 
     if (args.identificacion && args.identificacion.trim() !== "") {
@@ -108,18 +83,17 @@ export const createCliente = mutation({
       identificacion: args.identificacion,
       empresaId: userContext.empresa.id,
       empresaVinculadaId: args.empresaVinculadaId,
-      sucursalId: userContext.sucursal.id,
-      esClienteGlobal: false
+      esClienteGlobal: true,
+      ...(userContext.sucursal?.id ? { sucursalId: userContext.sucursal.id } : {}),
     });
 
-    // 5.6 Registrar Auditoría
+    // Registrar Auditoría
     await ctx.db.insert("auditoria", {
       empresaId: userContext.empresa.id,
       usuarioId: args.usuarioId,
       tablaAfectada: "clientes",
       accion: "CREATE",
       registroId: newClienteId,
-      sucursalId: userContext.sucursal.id,
       cambios: args,
       fecha: new Date().toISOString()
     });
@@ -149,11 +123,11 @@ export const createClienteConEmpresa = mutation({
     await requirePermission(ctx, args.usuarioId, "crear_cliente");
 
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa || !userContext.sucursal) {
-      throw new ConvexError("El usuario necesita estar asignado a una Empresa y Sucursal");
+    if (!userContext.empresa) {
+      throw new ConvexError("El usuario necesita estar asignado a una Empresa");
     }
 
-    // 2. Validar duplicidad de identificación del cliente dentro del tenant
+    // 2. Validar duplicidad de identificación del cliente dentro del taller
     if (args.identificacion && args.identificacion.trim() !== "") {
       const identificacionLimpia = args.identificacion.trim();
       const existingCli = await ctx.db
@@ -206,7 +180,6 @@ export const createClienteConEmpresa = mutation({
         tablaAfectada: "empresas",
         accion: "CREATE",
         registroId: empresaIdResultante,
-        sucursalId: userContext.sucursal.id,
         cambios: {
           nombre: args.empresaNombre.trim(),
           ruc: rucLimpio,
@@ -225,10 +198,10 @@ export const createClienteConEmpresa = mutation({
       email: args.email.trim(),
       direccion: args.direccion?.trim(),
       identificacion: args.identificacion?.trim(),
-      empresaId: userContext.empresa.id, // tenant workspace del taller
+      empresaId: userContext.empresa.id, // workspace del taller
       empresaVinculadaId: empresaIdResultante, // empresa cliente / flota vinculada
-      sucursalId: userContext.sucursal.id,
-      esClienteGlobal: false,
+      esClienteGlobal: true,
+      ...(userContext.sucursal?.id ? { sucursalId: userContext.sucursal.id } : {}),
     });
 
     // Auditoría para creación de cliente
@@ -238,7 +211,6 @@ export const createClienteConEmpresa = mutation({
       tablaAfectada: "clientes",
       accion: "CREATE",
       registroId: newClienteId,
-      sucursalId: userContext.sucursal.id,
       cambios: {
         nombre: args.nombre.trim(),
         telefono: args.telefono.trim(),
@@ -259,7 +231,6 @@ export const createClienteConEmpresa = mutation({
   },
 });
 
-// 5.5 CREAR FUNCIÓN: fetchClienteGlobal()
 export const fetchClienteGlobal = query({
   args: {
     usuarioId: v.id("usuarios"),
@@ -274,32 +245,26 @@ export const fetchClienteGlobal = query({
     // Obtenemos todos los clientes de la empresa
     const allClientes = await ctx.db
       .query("clientes")
-      .withIndex("by_empresa_sucursal", q => q.eq("empresaId", userContext.empresa!.id))
+      .withIndex("by_empresa", q => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
-    // Filtramos manualmente (Convex no tiene ILIKE nativo, se hace en memoria)
+    // Filtramos manualmente (en memoria)
     const matches = allClientes.filter(c => 
       c.nombre.toLowerCase().includes(queryTerm) || 
       c.email.toLowerCase().includes(queryTerm)
     ).slice(0, 10);
 
-    // Enriquecemos con la sucursal y vehículos (simulando JOIN)
+    // Enriquecemos con vehículos
     const enriquecidos = await Promise.all(matches.map(async (c) => {
-      let sucursalNombre = "Desconocida";
-      if (c.sucursalId) {
-        const suc = await ctx.db.get(c.sucursalId);
-        if (suc) sucursalNombre = suc.nombre;
-      }
-
       const vehiculos = await ctx.db
         .query("vehiculos")
-        .withIndex("by_empresa_sucursal", q => q.eq("empresaId", userContext.empresa!.id))
+        .withIndex("by_empresa", q => q.eq("empresaId", userContext.empresa!.id))
         .filter(q => q.eq(q.field("propietarioId"), c._id))
         .collect();
 
       return {
         ...c,
-        sucursal_nombre: sucursalNombre,
+        sucursal_nombre: "Taller Principal",
         vehiculos: vehiculos.map(v => ({ id: v._id, placa: v.placa, marca: v.marca }))
       };
     }));
@@ -317,11 +282,10 @@ export const updateCliente = mutation({
     email: v.string(),
     direccion: v.optional(v.string()),
     identificacion: v.optional(v.string()),
-    empresaId: v.optional(v.string()), // Or v.id("empresas") if strict
+    empresaId: v.optional(v.string()),
     empresaVinculadaId: v.optional(v.union(v.id("empresas"), v.string())),
   },
   handler: async (ctx, args) => {
-    // Validate permission or context if needed, but for simplicity:
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
     if (!userContext.empresa) throw new ConvexError("Sin permisos");
 
@@ -350,7 +314,6 @@ export const updateCliente = mutation({
       direccion: args.direccion,
       identificacion: args.identificacion,
       empresaVinculadaId: empId,
-      // Conservar empresaId original (tenant workspace) para que nunca se desvincule ni desaparezca
       ...(userContext.empresa ? { empresaId: userContext.empresa.id } : {}),
     });
 
@@ -370,5 +333,3 @@ export const deleteCliente = mutation({
     await ctx.db.delete(args.clienteId);
   }
 });
-
-

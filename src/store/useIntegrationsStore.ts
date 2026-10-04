@@ -72,6 +72,7 @@ interface IntegrationsState {
 	) => void;
 	connectWhatsApp: () => void;
 	disconnectWhatsApp: () => void;
+	refreshWhatsAppQr: () => void;
 
 	// 2. Telegram Bot API
 	telegram: {
@@ -110,7 +111,7 @@ interface IntegrationsState {
 		tokenUsageHourly: { hour: string; tokens: number; costUSD: number }[];
 	};
 	updateAiConfig: (config: Partial<IntegrationsState["ai"]>) => void;
-	recordAiUsage: (tokens: number, costUSD: number) => void;
+	recordAiUsage: (tokens: number, costUSD: number, latencyMs?: number) => void;
 	setTimeFilter: (filter: AiTimeFilter, start?: string, end?: string) => void;
 
 	// 4. Plottio Asistente (Agentic RAG)
@@ -176,14 +177,8 @@ const getEnv = (key: string): string => {
 	}
 };
 
-const initialHourlyUsage = [
-	{ hour: "08:00", tokens: 12400, costUSD: 0.024 },
-	{ hour: "10:00", tokens: 28900, costUSD: 0.058 },
-	{ hour: "12:00", tokens: 45200, costUSD: 0.091 },
-	{ hour: "14:00", tokens: 38100, costUSD: 0.076 },
-	{ hour: "16:00", tokens: 62000, costUSD: 0.124 },
-	{ hour: "18:00", tokens: 31000, costUSD: 0.062 },
-];
+const initialHourlyUsage: { hour: string; tokens: number; costUSD: number }[] =
+	[];
 
 export const useIntegrationsStore = create<IntegrationsState>()(
 	persist(
@@ -257,13 +252,24 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				}));
 				setTimeout(() => {
 					set((state) => ({
-						whatsapp: { ...state.whatsapp, status: "connected" },
+						whatsapp: { ...state.whatsapp, status: "connected", qrCode: null },
 					}));
-				}, 1200);
+				}, 600);
 			},
 			disconnectWhatsApp: () =>
 				set((state) => ({
-					whatsapp: { ...state.whatsapp, status: "disconnected" },
+					whatsapp: {
+						...state.whatsapp,
+						status: "disconnected",
+						qrCode: null,
+					},
+				})),
+			refreshWhatsAppQr: () =>
+				set((state) => ({
+					whatsapp: {
+						...state.whatsapp,
+						qrCode: `2@plottio_acadia_${Date.now()}`,
+					},
 				})),
 
 			// 2. Telegram
@@ -302,11 +308,11 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				customEndpoint: "https://ai.internal.plottio.com/v1",
 				activeModel: "Gemini 2.0 Flash",
 				monthlyBudgetUSD: 150.0,
-				currentSpendUSD: 42.85,
-				tokensToday: 218500,
-				totalRequests: 1420,
-				tps: 84.6,
-				latencyMs: 380,
+				currentSpendUSD: 0,
+				tokensToday: 0,
+				totalRequests: 0,
+				tps: 0,
+				latencyMs: 0,
 				timeFilter: "dia",
 				customIntervalStart: new Date(Date.now() - 7 * 86400000)
 					.toISOString()
@@ -330,15 +336,56 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					}
 					return { ai: next };
 				}),
-			recordAiUsage: (tokens, costUSD) =>
-				set((state) => ({
-					ai: {
-						...state.ai,
-						tokensToday: state.ai.tokensToday + tokens,
-						currentSpendUSD: +(state.ai.currentSpendUSD + costUSD).toFixed(4),
-						totalRequests: state.ai.totalRequests + 1,
-					},
-				})),
+			recordAiUsage: (tokens, costUSD, latencyMs) =>
+				set((state) => {
+					const now = new Date();
+					const hourLabel = `${now.getHours().toString().padStart(2, "0")}:00`;
+					const existingHourly = [...state.ai.tokenUsageHourly];
+					const hourIndex = existingHourly.findIndex(
+						(h) => h.hour === hourLabel,
+					);
+					if (hourIndex >= 0) {
+						existingHourly[hourIndex] = {
+							...existingHourly[hourIndex],
+							tokens: existingHourly[hourIndex].tokens + tokens,
+							costUSD: +(existingHourly[hourIndex].costUSD + costUSD).toFixed(
+								4,
+							),
+						};
+					} else {
+						existingHourly.push({
+							hour: hourLabel,
+							tokens,
+							costUSD: +costUSD.toFixed(4),
+						});
+					}
+
+					const nextTokens = state.ai.tokensToday + tokens;
+					const nextSpend = +(state.ai.currentSpendUSD + costUSD).toFixed(4);
+					const nextRequests = state.ai.totalRequests + 1;
+					const nextLatency =
+						latencyMs && latencyMs > 0
+							? latencyMs
+							: state.ai.latencyMs > 0
+								? Math.round((state.ai.latencyMs + (latencyMs || 250)) / 2)
+								: latencyMs || 250;
+					const nextTps =
+						nextLatency > 0
+							? +(tokens / (nextLatency / 1000)).toFixed(1)
+							: 45.0;
+
+					return {
+						ai: {
+							...state.ai,
+							tokensToday: nextTokens,
+							currentSpendUSD: nextSpend,
+							totalRequests: nextRequests,
+							latencyMs: nextLatency,
+							tps: nextTps,
+							tokenUsageHourly: existingHourly,
+						},
+					};
+				}),
 			setTimeFilter: (filter, start, end) =>
 				set((state) => ({
 					ai: {

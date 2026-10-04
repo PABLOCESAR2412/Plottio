@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { getCurrentUserContext, requirePermission } from "./auth";
 import { registrarAccion } from "./lib/auditoria";
 
-// 3.5 B) Función fetchCotizaciones() DESPUÉS (con filtro automático)
+// 3.5 B) Función fetchCotizaciones() (Single-Org)
 export const fetchCotizaciones = query({
   args: { 
     usuarioId: v.id("usuarios"),
@@ -23,23 +23,11 @@ export const fetchCotizaciones = query({
 
     const allCotizaciones = await ctx.db
       .query("cotizaciones")
-      .withIndex("by_empresa_sucursal", (q) => q.eq("empresaId", userContext.empresa!.id))
+      .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
     const filtradas = allCotizaciones.filter(cot => {
-       // 1. Filtro base de roles
-       let hasAccess = false;
-       if (userContext.permisos.includes("ver_todas_sucursales")) {
-         hasAccess = true;
-       } else if (userContext.pv && cot.pvId === userContext.pv.id) {
-         hasAccess = true;
-       } else if (userContext.sucursal && cot.sucursalId === userContext.sucursal.id) {
-         hasAccess = true;
-       }
-
-       if (!hasAccess) return false;
-
-       // 2. Filtros dinámicos
+       // Single-Org: todo el personal con permiso ver_cotizaciones tiene acceso
        if (args.filtros) {
          if (args.filtros.pvId && cot.pvId !== args.filtros.pvId) return false;
          if (args.filtros.estado && cot.estado !== args.filtros.estado) return false;
@@ -56,26 +44,13 @@ export const fetchCotizaciones = query({
 
     filtradas.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-    // 3. Enriquecer datos (Joins)
+    // Enriquecer datos
     return await Promise.all(filtradas.map(async (cot) => {
       let cliente_nombre = cot.clienteNombre;
-      let sucursal_nombre = "Desconocida";
-      let pv_nombre = "Sin asignar";
+      let sucursal_nombre = "Taller Principal";
+      let pv_nombre = "Taller Principal";
       let pv_codigo = "N/A";
       let creado_por_nombre = "Sistema";
-
-      if (cot.sucursalId) {
-        const s = await ctx.db.get(cot.sucursalId);
-        if (s) sucursal_nombre = s.nombre;
-      }
-
-      if (cot.pvId) {
-        const p = await ctx.db.get(cot.pvId);
-        if (p) {
-          pv_nombre = p.nombre;
-          pv_codigo = p.codigo;
-        }
-      }
 
       if (cot.creadoPorUsuarioId) {
         const u = await ctx.db.get(cot.creadoPorUsuarioId);
@@ -285,7 +260,6 @@ export const updateCotizacion = mutation({
     const actual = await ctx.db.get(args.cotizacionId);
     if (!actual) throw new ConvexError("Cotización no encontrada");
 
-    // Validación multi-tenant
     if (
       userContext.empresa &&
       actual.empresaId &&
@@ -378,6 +352,3 @@ export const deleteCotizacion = mutation({
     return { success: true };
   }
 });
-
-
-

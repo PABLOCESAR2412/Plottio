@@ -92,7 +92,7 @@ export const generarCotizacionesMasivasDesdeKit = mutation({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "crear_cotizacion");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.empresa || !userContext.sucursal) throw new ConvexError("Empresa/Sucursal no encontrada");
+    if (!userContext.empresa) throw new ConvexError("Empresa no encontrada");
 
     const kit = await ctx.db.get(args.kitId);
     if (!kit || kit.items.length === 0) {
@@ -139,7 +139,7 @@ export const generarCotizacionesMasivasDesdeKit = mutation({
           estado: "Pendiente",
           fecha: new Date().toISOString(),
           empresaId: userContext.empresa.id,
-          sucursalId: userContext.sucursal.id,
+          sucursalId: userContext.sucursal?.id,
           pvId: args.pvId,
           creadoPorUsuarioId: args.usuarioId,
           esGrupoFlota: false
@@ -191,7 +191,7 @@ export const generarCotizacionesMasivasDesdeKit = mutation({
         estado: "Pendiente",
         fecha: new Date().toISOString(),
         empresaId: userContext.empresa.id,
-        sucursalId: userContext.sucursal.id,
+        sucursalId: userContext.sucursal?.id,
         pvId: args.pvId,
         creadoPorUsuarioId: args.usuarioId,
         esGrupoFlota: true

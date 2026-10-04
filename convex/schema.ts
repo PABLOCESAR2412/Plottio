@@ -24,7 +24,7 @@ export default defineSchema({
     gerenteNombre: v.optional(v.string()),
     gerenteTelefono: v.optional(v.string()),
     activa: v.boolean(),
-    esMatriz: v.boolean(),
+    esMatriz: v.optional(v.boolean()),
   }).index("by_empresa", ["empresaId"]),
 
   puntosVenta: defineTable({
@@ -61,10 +61,10 @@ export default defineSchema({
     empresaId: v.optional(v.id("empresas")),
     empresaVinculadaId: v.optional(v.id("empresas")),
     sucursalId: v.optional(v.id("sucursales")),
-    esClienteGlobal: v.boolean(),
+    esClienteGlobal: v.optional(v.boolean()),
     direccion: v.optional(v.string()),
     identificacion: v.optional(v.string()),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_empresa_identificacion", ["empresaId", "identificacion"]),
+  }).index("by_empresa", ["empresaId"]).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_empresa_identificacion", ["empresaId", "identificacion"]),
 
   vehiculos: defineTable({
     placa: v.string(),
@@ -85,7 +85,7 @@ export default defineSchema({
     }))),
     empresaId: v.optional(v.id("empresas")),
     sucursalId: v.optional(v.id("sucursales")),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_placa", ["placa"]),
+  }).index("by_empresa", ["empresaId"]).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_placa", ["placa"]),
 
   cotizaciones: defineTable({
     clienteNombre: v.string(),
@@ -115,7 +115,7 @@ export default defineSchema({
     pvId: v.optional(v.id("puntosVenta")),
     creadoPorUsuarioId: v.optional(v.id("usuarios")),
     esGrupoFlota: v.optional(v.boolean()),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
+  }).index("by_empresa", ["empresaId"]).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
 
   ordenesTrabajo: defineTable({
     clienteNombre: v.string(),
@@ -142,7 +142,7 @@ export default defineSchema({
     pvOrigen: v.optional(v.string()),
     asignadoAUsuarioId: v.optional(v.id("usuarios")),
     cotizacionId: v.optional(v.id("cotizaciones")),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
+  }).index("by_empresa", ["empresaId"]).index("by_empresa_sucursal", ["empresaId", "sucursalId"]),
 
   auditoria: defineTable({
     empresaId: v.id("empresas"),
@@ -177,7 +177,7 @@ export default defineSchema({
     estado: v.string(), // "Confirmada" | "Pendiente" | "Cancelada"
     empresaId: v.optional(v.id("empresas")),
     sucursalId: v.optional(v.id("sucursales")),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_fecha", ["fecha"]),
+  }).index("by_empresa", ["empresaId"]).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_fecha", ["fecha"]),
 
   // --- FASE 2: ROLES Y PERMISOS ---
 
@@ -207,7 +207,7 @@ export default defineSchema({
   usuariosRolesSucursal: defineTable({
     usuarioId: v.id("usuarios"),
     roleId: v.id("roles"),
-    sucursalId: v.id("sucursales"),
+    sucursalId: v.optional(v.id("sucursales")),
     fechaAsignacion: v.string(),
     fechaExpiracion: v.optional(v.string()),
     activo: v.boolean(),
@@ -227,7 +227,7 @@ export default defineSchema({
   }).index("by_empresa", ["empresaId"]),
 
   inventarioSucursal: defineTable({
-    sucursalId: v.id("sucursales"),
+    sucursalId: v.optional(v.id("sucursales")),
     itemId: v.id("inventarioItems"),
     cantidad: v.number(),
     cantidadMinima: v.number(),
@@ -235,7 +235,7 @@ export default defineSchema({
   }).index("by_sucursal", ["sucursalId"]).index("by_item", ["itemId"]).index("by_sucursal_item", ["sucursalId", "itemId"]),
 
   movimientosInventario: defineTable({
-    sucursalId: v.id("sucursales"),
+    sucursalId: v.optional(v.id("sucursales")),
     itemId: v.id("inventarioItems"),
     tipoMovimiento: v.string(), // ENTRADA, SALIDA, TRANSFERENCIA_SALIDA, TRANSFERENCIA_ENTRADA
     cantidad: v.number(),
@@ -250,7 +250,7 @@ export default defineSchema({
   // --- FASE 10: LOTES DE PRODUCCIÓN (PLACAS) ---
   lotesProduccion: defineTable({
     empresaId: v.id("empresas"),
-    sucursalId: v.id("sucursales"),
+    sucursalId: v.optional(v.id("sucursales")),
     clienteId: v.optional(v.id("clientes")),
     cotizacionId: v.optional(v.id("cotizaciones")),
     numero: v.string(),
@@ -265,7 +265,7 @@ export default defineSchema({
     creadoPorUsuarioId: v.optional(v.id("usuarios")),
     fechaCreacion: v.string(),
     fechaActualizacion: v.string(),
-  }).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_cliente", ["clienteId"]).index("by_estado", ["estado"]),
+  }).index("by_empresa", ["empresaId"]).index("by_empresa_sucursal", ["empresaId", "sucursalId"]).index("by_cliente", ["clienteId"]).index("by_estado", ["estado"]),
 
   placasStock: defineTable({
     loteId: v.id("lotesProduccion"),
@@ -363,7 +363,3 @@ export default defineSchema({
   }).index("by_nombre", ["nombre"]),
 
 });
-
-
-
-

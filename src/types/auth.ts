@@ -5,6 +5,9 @@ import type { Cliente, Empresa, Vehiculo } from "./data";
 
 export type RolUsuario =
 	| "SuperAdmin"
+	| "Administrador"
+	| "Operador / Técnico"
+	| "Vendedor / Asesor"
 	| "AdminSucursal"
 	| "GerentePV"
 	| "Cotizador"

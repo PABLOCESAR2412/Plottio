@@ -117,14 +117,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 		[rawCitas],
 	);
 
-	// SaaS Multi-tenant filtering
-	// SaaS Multi-tenant filtering
-	const visibleOrders = ordenesTrabajo.filter(
-		(o) =>
-			!currentUser?.sucursalId ||
-			!o.sucursalId ||
-			o.sucursalId === currentUser.sucursalId,
-	);
+	// Single-Org: todas las órdenes pertenecen al taller central
+	const visibleOrders = ordenesTrabajo;
 
 	// Statistics calculations
 	const pendingOrdersCount = visibleOrders.filter(

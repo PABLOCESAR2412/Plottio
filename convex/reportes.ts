@@ -120,14 +120,13 @@ export const getDashboardSucursal = query({
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.usuarioId, "ver_reportes");
     const userContext = await getCurrentUserContext(ctx, args.usuarioId);
-    if (!userContext.sucursal) throw new ConvexError("No tienes sucursal asignada");
+    if (!userContext.empresa) throw new ConvexError("Empresa no encontrada");
 
-    const empresaId = userContext.empresa!.id;
-    const sucursalId = userContext.sucursal.id;
+    const empresaId = userContext.empresa.id;
 
     const ordenes = await ctx.db
       .query("ordenesTrabajo")
-      .withIndex("by_empresa_sucursal", q => q.eq("empresaId", empresaId).eq("sucursalId", sucursalId))
+      .withIndex("by_empresa_sucursal", q => q.eq("empresaId", empresaId))
       .collect();
 
     let ingresos_mes = { total_mes: 0, ordenes_completadas: 0 };
@@ -186,13 +185,10 @@ export const getReporteIngresos = query({
       .withIndex("by_empresa_sucursal", q => q.eq("empresaId", userContext.empresa!.id))
       .collect();
 
-    const esSuper = userContext.permisos.includes("ver_todas_sucursales");
-
     const filtradas = allOrdenes.filter(o => {
-      if (!esSuper && userContext.sucursal && o.sucursalId !== userContext.sucursal.id) return false;
       if (args.filtros) {
         if (args.filtros.estado && o.estado !== args.filtros.estado) return false;
-        if (esSuper && args.filtros.sucursalId && o.sucursalId !== args.filtros.sucursalId) return false;
+        if (args.filtros.sucursalId && o.sucursalId !== args.filtros.sucursalId) return false;
         
         if (args.filtros.desde && args.filtros.hasta) {
           const fecha = new Date(o.fechaInicio);

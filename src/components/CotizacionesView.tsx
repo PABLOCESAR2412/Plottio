@@ -560,9 +560,6 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						propietarioId: clienteIdParaVehiculo,
 						propietarioTipo: "cliente",
 						estado: "Activo",
-						sucursalId: currentUser?.sucursalId
-							? (currentUser.sucursalId as Id<"sucursales">)
-							: undefined,
 					})) as unknown as { _id: string; placa: string };
 					setPlaca(inlineVeh.placa);
 					currentVehiculoId = inlineVeh._id;
@@ -593,12 +590,6 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 				})),
 				estado: "Pendiente",
 				fecha: new Date().toISOString().split("T")[0],
-				sucursalId: currentUser?.sucursalId
-					? (currentUser.sucursalId as Id<"sucursales">)
-					: undefined,
-				pvId: currentUser?.pvId
-					? (currentUser.pvId as Id<"puntosVenta">)
-					: undefined,
 			})) as unknown as Cotizacion & { _id: string };
 
 			setAlertConfig({
@@ -748,18 +739,8 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 		});
 	};
 
-	// Filtered list of quotes
+	// Filtered list of quotes (Single-Org)
 	const filteredCotizaciones = (cotizaciones ?? []).filter((c) => {
-		// SaaS Multi-tenant filtering
-		if (
-			c.sucursalId &&
-			currentUser?.sucursalId &&
-			c.sucursalId !== currentUser.sucursalId
-		)
-			return false;
-		if (currentUser?.pvId && c.pvId && c.pvId !== currentUser.pvId)
-			return false;
-
 		return (
 			c._id.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
 			c.clienteNombre.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||

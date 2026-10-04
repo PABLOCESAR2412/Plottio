@@ -215,3 +215,44 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     2. Garantizar que la gestión de Empresas Clientes no requiera rol SuperAdmin del tenant y no altere la configuración de sedes/sucursales del taller.
   - **Criterios de Aceptación:** Separación limpia de conceptos en UI y backend; usuarios autorizados del taller pueden gestionar flotas y empresas clientes sin conflicto con la estructura multi-sucursal interna.
 
+---
+
+## Fase 4: Single-Org Simplificado, Analíticas Reales, WhatsApp QR y Chat Impecable
+
+- [x] **Tarea 23 (P0): Eliminación Radical de Multi-Tenant, Sucursales y Puntos de Venta (Arquitectura Single-Org)**
+  - **Archivos:** `convex/schema.ts`, `convex/organizacion.ts`, `convex/auth.ts`, `convex/usuarios.ts`, `convex/clientes.ts`, `convex/ordenes.ts`, `convex/cotizaciones.ts`, `convex/inventario.ts`, `convex/vehiculos.ts`, `convex/lotesProduccion.ts`, `convex/citas.ts`, `src/components/SucursalesAdmin.tsx` (eliminar/desactivar), `src/components/ConfiguracionView.tsx`, `src/components/Sidebar.tsx`, `src/routes/index.tsx`, `src/store/useSessionStore.ts`, `tests/singleOrg.test.ts`
+  - **Requerimiento:**
+    1. Erradicar en el modelo de datos y backend toda dependencia de `sucursales` y `puntosVenta` (`sucursalId`, `pvId`, `esMatriz`, filtros por sucursal).
+    2. Convertir el sistema a Single-Org: una sola organización/taller central donde todas las operaciones pertenecen a la empresa única.
+    3. Eliminar la pestaña y vista de Sucursales en Configuración (`SucursalesAdmin.tsx`), selectores de sucursal en el header/sidebar y filtros de sucursal en todas las consultas y mutaciones.
+    4. Conservar `empresas` únicamente para las cuentas de clientes corporativos / flotas B2B.
+  - **Criterios de Aceptación:** Cero menciones de sucursales o puntos de venta en la UI; backend opera limpiamente como organización única sin filtros multi-sucursal; compilación y tests al 100%.
+
+- [x] **Tarea 24 (P1): Analíticas y Configuración — Datos Reales y Detección Dinámica de Modelos por API Key**
+  - **Archivos:** `src/components/ConfiguracionView.tsx`, `src/components/FinOpsMetricsPanel.tsx`, `src/store/useIntegrationsStore.ts`, `src/services/aiModelsDiscovery.ts`, `tests/analiticasConfig.test.ts`
+  - **Requerimiento:**
+    1. Renombrar pestaña en Configuración: "IA / FinOps" -> "Analíticas y Configuración".
+    2. Erradicar métricas simuladas o hardcodeadas: calcular usos, tokens, tiempos y costos en base a interacciones reales registradas en auditoría/asistente/órdenes.
+    3. Al ingresar o validar la API Key de cada proveedor (Google, Groq, Opencode Zen, Nvidia), ejecutar auto-reconocimiento dinámico de modelos disponibles consultando el endpoint del proveedor (con fallback canónico en caso de error o sin conexión).
+  - **Criterios de Aceptación:** Pestaña "Analíticas y Configuración" operativa con datos reales y auto-detección reactiva de modelos al ingresar credenciales.
+
+- [x] **Tarea 25 (P1): WhatsApp — Ocultación de Credenciales y Visualización de Código QR**
+  - **Archivos:** `src/components/WhatsAppConfigModal.tsx`, `src/store/useIntegrationsStore.ts`, `src/components/WhatsAppQrCode.tsx`, `tests/whatsappQrFlow.test.ts`
+  - **Requerimiento:**
+    1. En el modal/panel de WhatsApp: una vez guardada la configuración o realizada la conexión (`instanceName`, `serverUrl`, `apiKey`), ocultar los campos de texto de credenciales.
+    2. Mostrar en su lugar el Código QR interactivo de vinculación con instrucciones claras para escanear desde la app de WhatsApp.
+    3. Incluir botón "Modificar Configuración" / "Editar Credenciales" para volver a mostrar los inputs si el usuario necesita cambiar URLs o llaves.
+  - **Criterios de Aceptación:** Credenciales se ocultan tras guardar; QR de vinculación se despliega como vista principal de conexión con opción para re-editar configuración.
+
+- [x] **Tarea 26 (P1): Rediseño Impeccable del Chat de Plottio Asistente**
+  - **Archivos:** `src/components/PlottioAsistenteModal.tsx`, `tests/impeccableChat.test.ts`
+  - **Requerimiento:**
+    1. Aplicar estándares de diseño /impeccable en `PlottioAsistenteModal.tsx`:
+       - Layout ultra-pulido, tipografía impecable con spacing armónico.
+       - Burbujas de mensaje modernas con microinteracciones y timestamps elegantes.
+       - Visualización clara y compacta de las herramientas de negocio invocadas (chips de acción de negocio ejecutada).
+       - Citas contextuales de RAG desplegables de manera sobria y profesional.
+       - Input de mensaje con auto-resize, botones de acción rápida y atajos visuales accesibles.
+  - **Criterios de Aceptación:** Chat de Plottio Asistente con estética premium, responsive, accesible y sin clutter visual.
+
+

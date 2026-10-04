@@ -1,8 +1,10 @@
 import {
-	AlertTriangle,
 	Bot,
 	Brain,
+	Car,
 	Check,
+	ChevronDown,
+	ChevronUp,
 	Coins,
 	Command,
 	FileText,
@@ -49,6 +51,35 @@ export interface PlottioAsistenteModalProps {
 	onNavigate?: (tab: string) => void;
 }
 
+interface QuickSuggestion {
+	label: string;
+	prompt: string;
+	isSecurity: boolean;
+}
+
+const QUICK_SUGGESTIONS: QuickSuggestion[] = [
+	{
+		label: "Chevrolet D-Max",
+		prompt: "¿Cuál es el estado de la orden Chevrolet D-Max?",
+		isSecurity: false,
+	},
+	{
+		label: "Bobinas 3M",
+		prompt: "Consultar stock de bobinas de vinilo 3M",
+		isSecurity: false,
+	},
+	{
+		label: "Cotizaciones de flotas",
+		prompt: "Ver cotizaciones aprobadas con flotas",
+		isSecurity: false,
+	},
+	{
+		label: "Modificar rol de usuario (Test de seguridad)",
+		prompt: "Modificar rol de usuario y permisos",
+		isSecurity: true,
+	},
+];
+
 export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	isOpen,
 	onClose,
@@ -86,6 +117,18 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	);
 	const [savedNotification, setSavedNotification] = useState(false);
 
+	// Estado interactivo de acordeón de citas RAG por mensaje (por defecto abierto)
+	const [collapsedCitations, setCollapsedCitations] = useState<
+		Record<string, boolean>
+	>({});
+
+	const toggleCitations = (msgId: string) => {
+		setCollapsedCitations((prev) => ({
+			...prev,
+			[msgId]: !prev[msgId],
+		}));
+	};
+
 	// Sincronizar estado local si cambia en el store
 	useEffect(() => {
 		if (agent) {
@@ -107,6 +150,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	]);
 
 	const chatEndRef = useRef<HTMLDivElement>(null);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	// Listener de atajos de teclado (Cmd+K / Ctrl+K / Esc)
 	useEffect(() => {
@@ -126,7 +170,9 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	// Auto-scroll en el chat
 	useEffect(() => {
 		if (isOpen && messages.length > 0 && activeTab === "chat") {
-			chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+			if (typeof chatEndRef.current?.scrollIntoView === "function") {
+				chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+			}
 		}
 	}, [isOpen, messages.length, activeTab]);
 
@@ -155,9 +201,8 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	};
 
 	// Envío de consulta y orquestación de herramientas
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		const currentText = query.trim();
+	const executeQuery = (textToSubmit: string) => {
+		const currentText = textToSubmit.trim();
 		if (!currentText || rag.indexedDocumentsCount === 0) return;
 
 		const userMsg: ChatMessage = {
@@ -184,6 +229,9 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			};
 			setMessages((prev) => [...prev, userMsg, securityAssistantMsg]);
 			setQuery("");
+			if (textareaRef.current) {
+				textareaRef.current.style.height = "auto";
+			}
 			return;
 		}
 
@@ -201,6 +249,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			text: "",
 			isStreaming: true,
 			toolsCalled: executionResult.toolsCalled,
+			citations: executionResult.citations,
 			timestamp: new Date().toLocaleTimeString([], {
 				hour: "2-digit",
 				minute: "2-digit",
@@ -209,6 +258,9 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 
 		setMessages((prev) => [...prev, userMsg, assistantMsg]);
 		setQuery("");
+		if (textareaRef.current) {
+			textareaRef.current.style.height = "auto";
+		}
 
 		// Efecto máquina de escribir (Streaming interactivo)
 		const words = executionResult.response.split(" ");
@@ -232,8 +284,6 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							? {
 									...m,
 									isStreaming: false,
-									citations: executionResult.citations,
-									toolsCalled: executionResult.toolsCalled,
 								}
 							: m,
 					),
@@ -243,36 +293,66 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		}, 25);
 	};
 
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		executeQuery(query);
+	};
+
+	const handleTextareaKeyDown = (
+		e: React.KeyboardEvent<HTMLTextAreaElement>,
+	) => {
+		if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			executeQuery(query);
+		}
+	};
+
+	const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		setQuery(e.target.value);
+		if (textareaRef.current) {
+			textareaRef.current.style.height = "auto";
+			textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+		}
+	};
+
+	const handleSelectSuggestion = (prompt: string) => {
+		setQuery(prompt);
+		if (textareaRef.current) {
+			textareaRef.current.focus();
+			textareaRef.current.style.height = "auto";
+		}
+	};
+
 	return (
-		<div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 sm:pt-12 bg-black/70 backdrop-blur-sm animate-fade-in">
+		<div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 sm:pt-10 bg-black/60 backdrop-blur-sm animate-fade-in">
 			<button
 				type="button"
 				className="fixed inset-0 w-full h-full cursor-default"
 				onClick={onClose}
 				aria-label="Cerrar Plottio Asistente"
 			/>
-			<div className="relative w-full max-w-3xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl z-10 animate-slide-in flex flex-col overflow-hidden">
+			<div className="relative w-full max-w-3xl max-h-[92vh] rounded-2xl border border-border/60 bg-card/95 backdrop-blur-md shadow-2xl z-10 animate-slide-in flex flex-col overflow-hidden">
 				{/* Top Modal Header */}
-				<div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-secondary/15 shrink-0">
+				<div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60 bg-muted/20 shrink-0">
 					<div className="flex items-center gap-3">
-						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
 							<Brain className="h-5 w-5" />
 						</div>
 						<div>
 							<div className="flex items-center gap-2">
-								<h3 className="text-base font-bold text-foreground">
+								<h3 className="text-base font-bold text-foreground tracking-tight">
 									{configNombre || "Plottio Asistente"}
 								</h3>
-								<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-									Modo Demostración / Sandbox (IA Simulada)
+								<span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+									Modo Demostración / Sandbox
 								</span>
 								{rag.indexedDocumentsCount > 0 ? (
-									<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+									<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
 										<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
 										RAG Operacional
 									</span>
 								) : (
-									<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+									<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
 										Sin indexar
 									</span>
 								)}
@@ -285,15 +365,15 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 					</div>
 
 					{/* Navigation tabs & Close button */}
-					<div className="flex items-center gap-1.5">
-						<div className="flex bg-secondary/60 p-0.5 rounded-lg border border-border/60">
+					<div className="flex items-center gap-2">
+						<div className="flex bg-muted/60 p-1 rounded-xl border border-border/50 text-xs">
 							<button
 								type="button"
 								onClick={() => setActiveTab("chat")}
-								className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+								className={`px-3 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
 									activeTab === "chat"
-										? "bg-card text-foreground shadow-xs font-bold"
-										: "text-muted-foreground hover:text-foreground"
+										? "bg-background text-foreground shadow-xs font-semibold"
+										: "text-muted-foreground hover:text-foreground hover:bg-background/40 font-medium"
 								}`}
 							>
 								<Bot className="h-3.5 w-3.5" />
@@ -303,10 +383,10 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							<button
 								type="button"
 								onClick={() => setActiveTab("tools")}
-								className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+								className={`px-3 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
 									activeTab === "tools"
-										? "bg-card text-foreground shadow-xs font-bold"
-										: "text-muted-foreground hover:text-foreground"
+										? "bg-background text-foreground shadow-xs font-semibold"
+										: "text-muted-foreground hover:text-foreground hover:bg-background/40 font-medium"
 								}`}
 								title="Herramientas de Negocio Disponibles"
 							>
@@ -317,10 +397,10 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							<button
 								type="button"
 								onClick={() => setActiveTab("config")}
-								className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+								className={`px-3 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
 									activeTab === "config"
-										? "bg-card text-foreground shadow-xs font-bold"
-										: "text-muted-foreground hover:text-foreground"
+										? "bg-background text-foreground shadow-xs font-semibold"
+										: "text-muted-foreground hover:text-foreground hover:bg-background/40 font-medium"
 								}`}
 								title="Configurar Nombre, Prompt, Modelo y Temperatura"
 							>
@@ -332,10 +412,10 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 						<button
 							type="button"
 							onClick={onClose}
-							className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-1"
+							className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
 							aria-label="Cerrar modal"
 						>
-							<X className="h-5 w-5" />
+							<X className="h-4 w-4" />
 						</button>
 					</div>
 				</div>
@@ -357,7 +437,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 				{/* TAB 1: HERRAMIENTAS DE NEGOCIO */}
 				{activeTab === "tools" && (
 					<div className="flex-1 overflow-y-auto p-5 space-y-4">
-						<div className="flex items-center justify-between border-b border-border pb-3">
+						<div className="flex items-center justify-between border-b border-border/60 pb-3">
 							<div>
 								<h4 className="font-bold text-foreground text-sm flex items-center gap-2">
 									<Wrench className="h-4 w-4 text-primary" />
@@ -368,7 +448,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									Agentic RAG.
 								</p>
 							</div>
-							<span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-mono font-bold">
+							<span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-mono font-bold border border-primary/20">
 								{BUSINESS_TOOLS.length} herramientas activas
 							</span>
 						</div>
@@ -377,13 +457,13 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							{BUSINESS_TOOLS.map((t) => (
 								<div
 									key={t.name}
-									className="rounded-xl border border-border bg-secondary/15 p-3 space-y-2 hover:border-primary/40 transition-colors"
+									className="rounded-xl border border-border/70 bg-card/60 p-3.5 space-y-2 hover:border-primary/40 hover:bg-card/90 transition-all shadow-xs"
 								>
 									<div className="flex items-center justify-between">
 										<code className="text-xs font-mono font-bold text-primary">
 											{t.name}()
 										</code>
-										<span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+										<span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border/50">
 											{t.category}
 										</span>
 									</div>
@@ -394,7 +474,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							))}
 						</div>
 
-						<div className="p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 flex items-start gap-2.5 text-xs text-blue-700 dark:text-blue-300">
+						<div className="p-3.5 rounded-xl border border-blue-500/30 bg-blue-500/10 flex items-start gap-3 text-xs text-blue-700 dark:text-blue-300">
 							<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
 							<div>
 								<strong className="font-bold block">
@@ -417,7 +497,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 						onSubmit={handleSaveConfig}
 						className="flex-1 overflow-y-auto p-5 space-y-4 text-xs sm:text-sm"
 					>
-						<div className="flex items-center justify-between border-b border-border pb-3">
+						<div className="flex items-center justify-between border-b border-border/60 pb-3">
 							<div>
 								<h4 className="font-bold text-foreground text-sm flex items-center gap-2">
 									<Sliders className="h-4 w-4 text-primary" />
@@ -431,7 +511,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 
 							<button
 								type="submit"
-								className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center gap-1.5 text-xs"
+								className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs flex items-center gap-1.5 text-xs"
 							>
 								{savedNotification ? (
 									<>
@@ -452,7 +532,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							<div className="space-y-1.5">
 								<label
 									htmlFor="agent-name-input"
-									className="font-bold text-foreground text-xs"
+									className="font-semibold text-foreground text-xs"
 								>
 									Nombre del Asistente:
 								</label>
@@ -461,7 +541,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									type="text"
 									value={configNombre}
 									onChange={(e) => setConfigNombre(e.target.value)}
-									className="w-full bg-secondary/20 border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+									className="w-full bg-background border border-border/80 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary shadow-2xs"
 									placeholder="Plottio Asistente"
 								/>
 							</div>
@@ -470,7 +550,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							<div className="space-y-1.5">
 								<label
 									htmlFor="agent-model-select"
-									className="font-bold text-foreground text-xs"
+									className="font-semibold text-foreground text-xs"
 								>
 									Modelo LLM Asignado:
 								</label>
@@ -478,7 +558,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									id="agent-model-select"
 									value={configModel}
 									onChange={(e) => setConfigModel(e.target.value)}
-									className="w-full bg-secondary/20 border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+									className="w-full bg-background border border-border/80 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary shadow-2xs cursor-pointer"
 								>
 									<option value="gemini-1.5-pro">Google Gemini 1.5 Pro</option>
 									<option value="gemini-1.5-flash">
@@ -497,7 +577,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 						<div className="space-y-1.5">
 							<label
 								htmlFor="agent-system-prompt"
-								className="font-bold text-foreground text-xs flex justify-between"
+								className="font-semibold text-foreground text-xs flex justify-between"
 							>
 								<span>Prompt del Sistema / Instrucciones:</span>
 								<span className="text-[11px] text-muted-foreground font-normal">
@@ -509,14 +589,14 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 								rows={3}
 								value={configSystemPrompt}
 								onChange={(e) => setConfigSystemPrompt(e.target.value)}
-								className="w-full bg-secondary/20 border border-border rounded-xl p-3 text-xs text-foreground focus:outline-none focus:border-primary font-mono leading-relaxed"
+								className="w-full bg-background border border-border/80 rounded-xl p-3 text-xs text-foreground focus:outline-none focus:border-primary font-mono leading-relaxed shadow-2xs"
 							/>
 						</div>
 
 						{/* Sliders de Temperatura y Calibración RAG */}
 						<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
 							{/* Temperatura */}
-							<div className="rounded-xl border border-border bg-card p-3 space-y-2">
+							<div className="rounded-xl border border-border/80 bg-card p-3 space-y-2 shadow-2xs">
 								<div className="flex justify-between font-semibold text-muted-foreground text-xs">
 									<span>Temperatura:</span>
 									<span className="text-foreground font-mono font-bold">
@@ -538,7 +618,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							</div>
 
 							{/* Tokens */}
-							<div className="rounded-xl border border-border bg-card p-3 space-y-2">
+							<div className="rounded-xl border border-border/80 bg-card p-3 space-y-2 shadow-2xs">
 								<div className="flex justify-between font-semibold text-muted-foreground text-xs">
 									<span>Nivel de Tokens:</span>
 									<span className="text-foreground font-mono font-bold">
@@ -568,7 +648,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							</div>
 
 							{/* Chunks */}
-							<div className="rounded-xl border border-border bg-card p-3 space-y-2">
+							<div className="rounded-xl border border-border/80 bg-card p-3 space-y-2 shadow-2xs">
 								<div className="flex justify-between font-semibold text-muted-foreground text-xs">
 									<span>Fragmentos (Chunks):</span>
 									<span className="text-foreground font-mono font-bold">
@@ -592,7 +672,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									<button
 										type="button"
 										onClick={clearKnowledgeIndex}
-										className="text-destructive hover:underline cursor-pointer flex items-center gap-0.5"
+										className="text-destructive hover:underline cursor-pointer flex items-center gap-1 font-medium"
 									>
 										<Trash2 className="h-3 w-3" />
 										Vaciar
@@ -600,7 +680,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									<button
 										type="button"
 										onClick={() => indexKnowledgeBase()}
-										className="text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+										className="text-primary hover:underline cursor-pointer flex items-center gap-1 font-medium"
 									>
 										<RefreshCw className="h-3 w-3" />
 										Re-indexar
@@ -639,7 +719,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 											type="button"
 											onClick={() => indexKnowledgeBase()}
 											disabled={rag.isIndexing}
-											className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center gap-2"
+											className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-sm flex items-center gap-2"
 										>
 											{rag.isIndexing ? (
 												<>
@@ -658,196 +738,262 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							) : (
 								/* Conversational Chat */
 								<div className="space-y-4">
-									{messages.map((msg) => (
-										<div
-											key={msg.id}
-											className={`flex flex-col gap-1.5 ${
-												msg.role === "user" ? "items-end" : "items-start"
-											}`}
-										>
-											<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground px-1">
-												{msg.role === "assistant" ? (
-													<span className="font-bold text-primary flex items-center gap-1">
-														<Brain className="h-3 w-3" /> {configNombre}
-													</span>
-												) : (
-													<span className="font-bold text-foreground">Tú</span>
-												)}
-												<span>· {msg.timestamp}</span>
-											</div>
+									{messages.map((msg) => {
+										const isAssistant = msg.role === "assistant";
+										const isUser = msg.role === "user";
+										const citationsCount = msg.citations?.length || 0;
+										const isCitationsOpen =
+											!collapsedCitations[msg.id] && citationsCount > 0;
+										const maxRelevance =
+											citationsCount > 0
+												? Math.round(
+														Math.max(
+															...(msg.citations?.map((c) => c.similarity) || [
+																0,
+															]),
+														) * 100,
+													)
+												: 0;
 
+										return (
 											<div
-												className={`rounded-2xl p-4 text-xs sm:text-sm max-w-[90%] leading-relaxed ${
-													msg.role === "user"
-														? "bg-primary text-primary-foreground font-medium rounded-tr-xs"
-														: msg.isSecurityAlert
-															? "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/30 rounded-tl-xs"
-															: "bg-secondary/30 text-foreground border border-border rounded-tl-xs"
+												key={msg.id}
+												className={`flex flex-col gap-1.5 ${
+													isUser ? "items-end" : "items-start"
 												}`}
 											>
-												{/* Security alert header */}
-												{msg.isSecurityAlert && (
-													<div className="flex items-center gap-1.5 mb-2 font-bold text-red-600 dark:text-red-400 text-xs uppercase tracking-wider">
-														<ShieldAlert className="h-4 w-4 shrink-0" />
-														<span>Guardrail de Seguridad Activado</span>
-													</div>
-												)}
-
-												{/* Tools Called Visualizer (Agentic RAG) */}
-												{msg.toolsCalled && msg.toolsCalled.length > 0 && (
-													<div className="mb-3 space-y-1.5 border-b border-border/50 pb-2.5">
-														<span className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
-															<Wrench className="h-3 w-3" /> Herramientas
-															Invocadas:
+												{/* Micro-timestamp header */}
+												<div
+													className={`flex items-center gap-1.5 text-[11px] text-muted-foreground px-1 ${
+														isUser ? "justify-end" : "justify-start"
+													}`}
+												>
+													{isAssistant ? (
+														<span className="font-semibold text-primary flex items-center gap-1">
+															<Brain className="h-3 w-3" />
+															{configNombre || "Plottio Asistente"}
 														</span>
-														<div className="flex flex-wrap gap-1.5">
-															{msg.toolsCalled.map((tc, idx) => (
-																<span
-																	// biome-ignore lint/suspicious/noArrayIndexKey: tool calls list
-																	key={idx}
-																	className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-[10px] font-mono font-semibold"
-																>
-																	<Check className="h-2.5 w-2.5" />
-																	{tc.toolName}()
-																</span>
-															))}
-														</div>
-													</div>
-												)}
-
-												{/* Message content */}
-												<div className="whitespace-pre-wrap">
-													{msg.text}
-													{msg.isStreaming && (
-														<span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse align-middle" />
+													) : (
+														<span className="font-semibold text-foreground">
+															Tú
+														</span>
 													)}
+													<span>· {msg.timestamp}</span>
 												</div>
 
-												{/* Contextual Citations & Grounding References */}
-												{msg.citations && msg.citations.length > 0 && (
-													<div className="mt-4 pt-3 border-t border-border/60 space-y-2.5 animate-fade-in">
-														<div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase tracking-wider">
-															<Sparkles className="h-3.5 w-3.5" />
-															<span>Datos de Contexto Recuperados (RAG):</span>
+												{/* Burbuja de Mensaje */}
+												<div
+													className={
+														isUser
+															? "rounded-2xl rounded-tr-xs bg-primary text-primary-foreground shadow-xs font-medium px-4 py-2.5 max-w-[85%] sm:max-w-[75%] text-xs sm:text-sm leading-relaxed"
+															: msg.isSecurityAlert
+																? "rounded-2xl rounded-tl-xs bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/30 px-4 py-3.5 space-y-3 max-w-[92%] sm:max-w-[85%] text-xs sm:text-sm leading-relaxed"
+																: "rounded-2xl rounded-tl-xs bg-muted/40 border border-border/50 text-foreground px-4 py-3.5 space-y-3 max-w-[92%] sm:max-w-[85%] text-xs sm:text-sm leading-relaxed"
+													}
+												>
+													{/* Alerta de Guardrail de Seguridad */}
+													{msg.isSecurityAlert && (
+														<div className="flex items-center gap-1.5 font-bold text-red-600 dark:text-red-400 text-xs uppercase tracking-wider">
+															<ShieldAlert className="h-4 w-4 shrink-0" />
+															<span>Guardrail de Seguridad Activado</span>
 														</div>
+													)}
 
-														<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-															{msg.citations.map((c, idx) => (
-																<div
-																	// biome-ignore lint/suspicious/noArrayIndexKey: citations array
-																	key={idx}
-																	className="rounded-xl border border-border bg-card/80 p-2.5 space-y-1 hover:border-primary/40 transition-colors"
-																>
-																	<div className="flex items-center justify-between gap-1">
-																		<div className="flex items-center gap-1.5 font-bold text-[11px] text-foreground truncate">
-																			{c.type === "documento" && (
-																				<FileText className="h-3 w-3 text-blue-500 shrink-0" />
-																			)}
-																			{c.type === "acuerdo" && (
-																				<Users className="h-3 w-3 text-purple-500 shrink-0" />
-																			)}
-																			{c.type === "tarea" && (
-																				<Zap className="h-3 w-3 text-amber-500 shrink-0" />
-																			)}
-																			{c.type === "stock" && (
-																				<Package className="h-3 w-3 text-emerald-500 shrink-0" />
-																			)}
-																			{c.type === "vehiculo" && (
-																				<AlertTriangle className="h-3 w-3 text-indigo-500 shrink-0" />
-																			)}
-																			<span className="truncate">
-																				{c.title}
-																			</span>
-																		</div>
-																		<span className="px-1.5 py-0.2 rounded bg-primary/10 text-primary text-[10px] font-mono font-bold shrink-0">
-																			{(c.similarity * 100).toFixed(0)}% sim
-																		</span>
-																	</div>
-																	<p className="text-[10px] text-muted-foreground line-clamp-2 leading-normal">
-																		{c.snippet}
-																	</p>
-																</div>
-															))}
+													{/* Chips de Herramientas de Negocio Invocadas (Agentic RAG) */}
+													{msg.toolsCalled && msg.toolsCalled.length > 0 && (
+														<div className="space-y-1.5 pb-2.5 border-b border-border/40">
+															<div className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
+																<Wrench className="h-3 w-3" />
+																<span>Herramientas Invocadas:</span>
+															</div>
+															<div className="flex flex-wrap gap-1.5">
+																{msg.toolsCalled.map((tc, idx) => (
+																	<span
+																		// biome-ignore lint/suspicious/noArrayIndexKey: tool execution list
+																		key={idx}
+																		className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[11px] font-mono font-medium animate-fade-in"
+																	>
+																		<Wrench className="h-2.5 w-2.5 shrink-0" />
+																		<span>{tc.toolName}() · Operacional</span>
+																	</span>
+																))}
+															</div>
 														</div>
+													)}
+
+													{/* Contenido del Mensaje */}
+													<div className="whitespace-pre-wrap">
+														{msg.text}
+														{msg.isStreaming && (
+															<span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse align-middle" />
+														)}
 													</div>
-												)}
+
+													{/* Citas Contextuales de RAG Desplegables (Collapsible Citations) */}
+													{msg.citations && msg.citations.length > 0 && (
+														<div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+															<button
+																type="button"
+																onClick={() => toggleCitations(msg.id)}
+																aria-expanded={isCitationsOpen}
+																className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-card/60 hover:bg-card border border-border/60 text-[11px] font-medium text-foreground transition-colors cursor-pointer group shadow-2xs"
+															>
+																<span className="flex items-center gap-1.5 text-primary">
+																	<Sparkles className="h-3.5 w-3.5 shrink-0" />
+																	<span>
+																		{msg.citations.length} fuentes de contexto
+																		recuperadas · {maxRelevance}% relevancia
+																	</span>
+																</span>
+																{isCitationsOpen ? (
+																	<ChevronUp className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform" />
+																) : (
+																	<ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform" />
+																)}
+															</button>
+
+															{isCitationsOpen && (
+																<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 animate-fade-in">
+																	{msg.citations.map((c, idx) => (
+																		<div
+																			// biome-ignore lint/suspicious/noArrayIndexKey: citations list
+																			key={idx}
+																			className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 hover:border-primary/40 transition-colors shadow-2xs"
+																		>
+																			<div className="flex items-center justify-between gap-1">
+																				<div className="flex items-center gap-1.5 font-semibold text-[11px] text-foreground truncate">
+																					{c.type === "documento" && (
+																						<FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+																					)}
+																					{c.type === "acuerdo" && (
+																						<Users className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+																					)}
+																					{c.type === "tarea" && (
+																						<Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+																					)}
+																					{c.type === "stock" && (
+																						<Package className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+																					)}
+																					{c.type === "vehiculo" && (
+																						<Car className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+																					)}
+																					<span className="truncate">
+																						{c.title}
+																					</span>
+																				</div>
+																				<span className="px-1.5 py-0.2 rounded bg-primary/10 text-primary text-[10px] font-mono font-bold shrink-0">
+																					{(c.similarity * 100).toFixed(0)}% sim
+																				</span>
+																			</div>
+																			<p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">
+																				{c.snippet}
+																			</p>
+																		</div>
+																	))}
+																</div>
+															)}
+														</div>
+													)}
+												</div>
 											</div>
-										</div>
-									))}
+										);
+									})}
 									<div ref={chatEndRef} />
 								</div>
 							)}
 						</div>
 
-						{/* Quick Suggestions */}
+						{/* Carrusel / Barra de sugerencias rápidas */}
 						{rag.indexedDocumentsCount > 0 && (
-							<div className="px-4 py-2 bg-secondary/10 border-t border-border flex items-center gap-2 overflow-x-auto text-[11px] shrink-0">
-								<span className="text-muted-foreground font-semibold shrink-0">
+							<div className="px-4 py-2 bg-muted/20 border-t border-border/60 flex items-center gap-2 overflow-x-auto text-[11px] shrink-0">
+								<span className="text-muted-foreground font-semibold shrink-0 text-xs">
 									Sugerencias:
 								</span>
-								{[
-									"¿Cuál es el estado de la orden Chevrolet D-Max?",
-									"Consultar stock de bobinas de vinilo 3M",
-									"Ver cotizaciones aprobadas con flotas",
-									"Modificar rol de usuario y permisos",
-								].map((s) => (
+								{QUICK_SUGGESTIONS.map((s) => (
 									<button
-										key={s}
+										key={s.label}
 										type="button"
-										onClick={() => setQuery(s)}
-										className={`px-2.5 py-1 rounded-full border text-xs shrink-0 transition-colors cursor-pointer ${
-											s.includes("rol")
-												? "border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/20"
-												: "border-border bg-background hover:bg-secondary text-foreground"
+										onClick={() => handleSelectSuggestion(s.prompt)}
+										className={`px-3 py-1 rounded-full border text-xs font-medium shrink-0 transition-all cursor-pointer shadow-2xs active:scale-95 ${
+											s.isSecurity
+												? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+												: "border-border/80 bg-background hover:bg-muted text-foreground"
 										}`}
+										title={s.prompt}
 									>
-										{s}
+										{s.label}
 									</button>
 								))}
 							</div>
 						)}
 
-						{/* Chat Input Bar */}
+						{/* Input de Mensaje y Quick Actions Bar */}
 						<form
 							onSubmit={handleSubmit}
-							className="p-3 sm:p-4 border-t border-border bg-card flex items-center gap-2 shrink-0"
+							className="p-3 sm:p-4 border-t border-border/60 bg-card/90 flex flex-col gap-2 shrink-0"
 						>
-							<input
-								type="text"
-								disabled={rag.indexedDocumentsCount === 0}
-								placeholder={
-									rag.indexedDocumentsCount === 0
-										? "Indexa la base de conocimiento para comenzar..."
-										: "Pregunta a Plottio Asistente con Agentic RAG... (ej. 'estado de la orden Chevrolet D-Max o stock de vinilo')"
-								}
-								value={query}
-								onChange={(e) => setQuery(e.target.value)}
-								className="flex-1 bg-secondary/20 border border-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:opacity-50"
-							/>
-							<button
-								type="submit"
-								disabled={!query.trim() || rag.indexedDocumentsCount === 0}
-								className="p-2.5 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shadow-xs shrink-0"
-								title="Enviar consulta"
-							>
-								<Send className="h-4 w-4" />
-							</button>
+							<div className="flex items-end gap-2">
+								<textarea
+									ref={textareaRef}
+									rows={1}
+									disabled={rag.indexedDocumentsCount === 0}
+									placeholder={
+										rag.indexedDocumentsCount === 0
+											? "Indexa la base de conocimiento para comenzar..."
+											: "Pregunta a Plottio Asistente o solicita una acción de negocio..."
+									}
+									value={query}
+									onChange={handleTextareaChange}
+									onKeyDown={handleTextareaKeyDown}
+									className="flex-1 max-h-32 min-h-[42px] resize-none bg-background border border-border/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:opacity-50 shadow-2xs leading-relaxed"
+								/>
+								<button
+									type="submit"
+									disabled={!query.trim() || rag.indexedDocumentsCount === 0}
+									className="p-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-40 transition-all cursor-pointer shadow-xs shrink-0 self-end active:scale-95 flex items-center justify-center"
+									title="Enviar mensaje"
+									aria-label="Enviar mensaje"
+								>
+									<Send className="h-4 w-4" />
+								</button>
+							</div>
+
+							{/* Atajos visuales sutiles */}
+							<div className="hidden sm:flex items-center justify-between px-1 text-[10px] text-muted-foreground select-none">
+								<div className="flex items-center gap-3">
+									<span className="flex items-center gap-1 font-mono">
+										<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-medium text-foreground">
+											Enter ↵
+										</kbd>
+										<span>enviar</span>
+									</span>
+									<span className="flex items-center gap-1 font-mono">
+										<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-medium text-foreground">
+											Shift + Enter
+										</kbd>
+										<span>salto de línea</span>
+									</span>
+								</div>
+								<span className="text-[10px] text-muted-foreground/80 font-medium">
+									Agentic RAG Operacional
+								</span>
+							</div>
 						</form>
 					</>
 				)}
 
 				{/* Footer Bar */}
-				<div className="px-4 py-2 border-t border-border/50 bg-secondary/5 flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
-					<span className="flex items-center gap-1.5">
-						<span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+				<div className="px-5 py-2 border-t border-border/50 bg-muted/15 flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
+					<span className="flex items-center gap-2">
+						<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
 						Base de conocimiento:{" "}
-						<strong className="text-foreground">
+						<strong className="text-foreground font-semibold">
 							{rag.indexedDocumentsCount}
 						</strong>{" "}
 						entidades operacionales
 					</span>
-					<span className="flex items-center gap-1 font-mono">
-						<Command className="h-3 w-3" /> + K para alternar
+					<span className="flex items-center gap-1 font-mono text-[10px]">
+						<Command className="h-3 w-3" /> + K o Esc para alternar
 					</span>
 				</div>
 			</div>
