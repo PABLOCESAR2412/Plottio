@@ -96,12 +96,14 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 
 	const handleSave = (e?: React.FormEvent) => {
 		if (e) e.preventDefault();
+		const cleanUrl = sanitizeWhatsAppUrl(serverUrl);
 		updateWhatsAppConfig({
 			instanceName: instanceName.trim(),
-			serverUrl: serverUrl.trim(),
-			apiUrl: serverUrl.trim(),
+			serverUrl: cleanUrl,
+			apiUrl: cleanUrl,
 			apiKey: apiKey.trim(),
 		});
+		setServerUrl(cleanUrl);
 		setSaveToast(true);
 		setTimeout(() => {
 			setSaveToast(false);
@@ -140,12 +142,26 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({
 				return;
 			}
 
+			// Intercepción preventiva de Onrender / instancias descontinuadas:
+			if (
+				serverUrl.includes("onrender.com") ||
+				serverUrl.includes("evolution")
+			) {
+				setTestResult({
+					success: false,
+					message:
+						"La URL ingresada pertenece a una instancia descontinuada (Onrender). La pasarela oficial del sistema es https://plottio.vercel.app/api/webhook/wha",
+					timestamp: new Date().toLocaleTimeString(),
+				});
+				return;
+			}
+
 			let isSuccess = false;
 			let statusDetail = "";
 
 			try {
 				const controller = new AbortController();
-				const timeoutId = setTimeout(() => controller.abort(), 3500);
+				const timeoutId = setTimeout(() => controller.abort(), 4000);
 
 				const res = await fetch(serverUrl.trim(), {
 					method: "POST",

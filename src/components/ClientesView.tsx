@@ -18,6 +18,11 @@ import { useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
+	buscarClienteDuplicado,
+	filtrarClientes,
+	norm,
+} from "../lib/clienteBusqueda";
+import {
 	consultarCacheIdentidad,
 	guardarCacheIdentidad,
 } from "../lib/consultaIdentidadCache";
@@ -27,6 +32,8 @@ import type { Cliente, Empresa, Vehiculo } from "../types/data";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
 import { WhatsAppClientChatModal } from "./WhatsAppClientChatModal";
+
+export { norm, filtrarClientes, buscarClienteDuplicado };
 
 interface ClientesViewProps {
 	onNavigate: (
@@ -158,20 +165,18 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const [errorNombre, setErrorNombre] = useState("");
 	const [errorTelefono, setErrorTelefono] = useState("");
 
+	// Verificación preventiva de duplicados en BD local
+	const [clienteExistenteEnBd, setClienteExistenteEnBd] =
+		useState<Cliente | null>(null);
+
 	// Selected client for editing
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
 
 	// Modal para integración (WhatsApp)
 	const [chatClient, setChatClient] = useState<Cliente | null>(null);
 
-	// Filter clients by Search Term (Single-Org)
-	const filteredClientes = clientes.filter((c) => {
-		return (
-			c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			c.telefono.includes(searchTerm) ||
-			c.email.toLowerCase().includes(searchTerm.toLowerCase())
-		);
-	});
+	// Filter clients by Search Term (Single-Org) - Búsqueda avanzada normalizada
+	const filteredClientes = filtrarClientes(clientes, empresas, searchTerm);
 
 	// Ensure selected client is valid in current view
 	const activeClientId = filteredClientes.find((c) => c.id === selectedClientId)
@@ -199,6 +204,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		setDireccion("");
 		setIdentificacion("");
 		setEmpresaId("");
+		setClienteExistenteEnBd(null);
 		setConsultaData(null);
 		setIsConsultaModalOpen(false);
 		setIsEmpresaCreateOpen(false);
@@ -214,6 +220,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	};
 
 	const buscarIdentidad = async (valor: string) => {
+		// Verificación preventiva antes de consulta externa
+		const clienteEncontrado = buscarClienteDuplicado(clientes, valor);
+		if (clienteEncontrado) {
+			setClienteExistenteEnBd(clienteEncontrado);
+			setBuscarIdentidadCargando(false);
+			setConsultaData(null);
+			setIsConsultaModalOpen(false);
+			return;
+		}
+
 		setBuscarIdentidadCargando(true);
 		setBuscado(true);
 		setErrorIdentificacion("");
@@ -305,8 +321,23 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 
 		if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
 
-		if (!valida || soloNumeros.length === 0) return;
+		if (!valida || soloNumeros.length === 0) {
+			setClienteExistenteEnBd(null);
+			return;
+		}
 
+		// Verificación Preventiva de Duplicados en BD al alcanzar longitud válida (10 para cédula, 13 para RUC)
+		const clienteEncontrado = buscarClienteDuplicado(clientes, soloNumeros);
+		if (clienteEncontrado) {
+			setClienteExistenteEnBd(clienteEncontrado);
+			if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+			setConsultaData(null);
+			setIsConsultaModalOpen(false);
+			setBuscarIdentidadCargando(false);
+			return;
+		}
+
+		setClienteExistenteEnBd(null);
 		searchTimerRef.current = window.setTimeout(() => {
 			void buscarIdentidad(soloNumeros);
 		}, 600);
@@ -338,6 +369,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 	const handleCreate = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!nombre.trim() || !currentUser) return;
+
+		if (clienteExistenteEnBd) {
+			setAlertConfig({
+				isOpen: true,
+				title: "Cliente ya registrado",
+				message: `El cliente "${clienteExistenteEnBd.nombre}" con identificación "${identificacion.trim()}" ya existe en el sistema.`,
+				type: "error",
+			});
+			return;
+		}
 
 		if (nombre.trim() && !/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]+$/.test(nombre.trim())) {
 			setAlertConfig({
@@ -645,7 +686,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 						<Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
 						<input
 							type="text"
-							placeholder="Buscar por nombre, tlf o email..."
+							placeholder="Buscar por nombre, C.I./RUC, empresa, tlf..."
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 							className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -672,9 +713,16 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 										{client.nombre}
 									</div>
 									<div
-										className={`text-xs truncate ${selectedClientId === client.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+										className={`text-xs truncate flex items-center gap-1.5 ${selectedClientId === client.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}
 									>
-										{client.telefono}
+										{client.identificacion && (
+											<span className="font-mono">{client.identificacion}</span>
+										)}
+										{client.identificacion && client.telefono && <span>•</span>}
+										{client.telefono && <span>{client.telefono}</span>}
+										{!client.identificacion && !client.telefono && (
+											<span>{client.email || "Sin contacto"}</span>
+										)}
 									</div>
 								</div>
 								<ChevronRight className="h-4 w-4 opacity-50 shrink-0" />
@@ -945,7 +993,11 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 									<button
 										type="button"
 										onClick={() => void buscarIdentidad(identificacion)}
-										disabled={buscarIdentidadCargando || !identificacionValida}
+										disabled={
+											buscarIdentidadCargando ||
+											!identificacionValida ||
+											Boolean(clienteExistenteEnBd)
+										}
 										aria-label="Buscar por C.I. / RUC"
 										className="shrink-0 flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
 									>
@@ -968,11 +1020,94 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								{!buscarIdentidadCargando &&
 									buscado &&
 									!consultaData &&
+									!clienteExistenteEnBd &&
 									!errorIdentificacion && (
 										<p className="mt-1 text-xs text-muted-foreground">
 											No se encontró un cliente con esa cédula/RUC.
 										</p>
 									)}
+
+								{/* Tarjeta destacada: Cliente ya existente en Base de Datos */}
+								{clienteExistenteEnBd && (
+									<div
+										data-testid="tarjeta-cliente-existente"
+										className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3"
+									>
+										<div className="flex items-start gap-2.5">
+											<Info className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+											<div className="flex-1">
+												<h4 className="text-sm font-bold text-amber-800 dark:text-amber-300">
+													Cliente ya registrado en la base de datos
+												</h4>
+												<p className="text-xs text-amber-700/90 dark:text-amber-300/80 mt-0.5">
+													Esta identificación ya pertenece a un cliente en tu
+													sistema.
+												</p>
+											</div>
+										</div>
+
+										<div className="rounded-lg border border-amber-500/20 bg-background/80 p-3 text-xs space-y-1.5 text-foreground">
+											<div className="flex justify-between items-center">
+												<span className="text-muted-foreground font-medium">
+													Nombre:
+												</span>
+												<span className="font-semibold text-right">
+													{clienteExistenteEnBd.nombre}
+												</span>
+											</div>
+											<div className="flex justify-between items-center">
+												<span className="text-muted-foreground font-medium">
+													Identificación:
+												</span>
+												<span className="font-mono font-medium">
+													{clienteExistenteEnBd.identificacion}
+												</span>
+											</div>
+											<div className="flex justify-between items-center">
+												<span className="text-muted-foreground font-medium">
+													Teléfono:
+												</span>
+												<span>
+													{clienteExistenteEnBd.telefono || "No registrado"}
+												</span>
+											</div>
+											<div className="flex justify-between items-center">
+												<span className="text-muted-foreground font-medium">
+													Empresa:
+												</span>
+												<span className="text-right">
+													{empresas.find(
+														(e) => e.id === clienteExistenteEnBd.empresaId,
+													)?.nombre || "Cliente particular (Sin empresa)"}
+												</span>
+											</div>
+										</div>
+
+										<div className="flex flex-col sm:flex-row gap-2 pt-1">
+											<button
+												type="button"
+												onClick={() => {
+													setIsCreateOpen(false);
+													setSelectedClientId(clienteExistenteEnBd.id);
+													setActiveSubTab("contacto");
+												}}
+												className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity text-center cursor-pointer"
+											>
+												Ver Cliente en Lista
+											</button>
+											<button
+												type="button"
+												onClick={() => {
+													setIsCreateOpen(false);
+													handleOpenEdit(clienteExistenteEnBd);
+												}}
+												className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary transition-colors text-center cursor-pointer"
+											>
+												Editar este Cliente
+											</button>
+										</div>
+									</div>
+								)}
 							</div>
 
 							<div>
@@ -1086,9 +1221,12 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 								</button>
 								<button
 									type="submit"
-									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
+									disabled={
+										Boolean(clienteExistenteEnBd) || buscarIdentidadCargando
+									}
+									className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
 								>
-									Registrar
+									Registrar Cliente
 								</button>
 							</div>
 						</form>

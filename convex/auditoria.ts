@@ -75,18 +75,7 @@ export const registrarAccion = internalMutation({
     tablaAfectada: v.string(),
     accion: v.string(),
     registroId: v.string(),
-    cambios: v.optional(
-      v.record(
-        v.string(),
-        v.union(
-          v.string(),
-          v.number(),
-          v.boolean(),
-          v.null(),
-          v.array(v.string())
-        )
-      )
-    ),
+    cambios: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("auditoria", {
@@ -96,7 +85,7 @@ export const registrarAccion = internalMutation({
       tablaAfectada: args.tablaAfectada,
       accion: args.accion,
       registroId: args.registroId,
-      cambios: args.cambios,
+      cambios: args.cambios !== undefined ? JSON.parse(JSON.stringify(args.cambios)) : undefined,
       fecha: new Date().toISOString(),
     });
   },

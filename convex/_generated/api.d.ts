@@ -17,6 +17,7 @@ import type * as clientes from "../clientes.js";
 import type * as consultaIdentidad from "../consultaIdentidad.js";
 import type * as cotizaciones from "../cotizaciones.js";
 import type * as emails from "../emails.js";
+import type * as http from "../http.js";
 import type * as inventario from "../inventario.js";
 import type * as kitsFlota from "../kitsFlota.js";
 import type * as lib_auditoria from "../lib/auditoria.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   consultaIdentidad: typeof consultaIdentidad;
   cotizaciones: typeof cotizaciones;
   emails: typeof emails;
+  http: typeof http;
   inventario: typeof inventario;
   kitsFlota: typeof kitsFlota;
   "lib/auditoria": typeof lib_auditoria;

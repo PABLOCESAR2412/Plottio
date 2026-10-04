@@ -112,13 +112,11 @@ describe("Consistencia de esquema, anti-race conditions e índices en Convex", (
 	describe("1. Índices y tipado estricto en convex/schema.ts", () => {
 		const tables = (schema as any).tables;
 
-		it("tabla auditoria: cambios no usa v.any() y es un record tipado", () => {
+		it("tabla auditoria: cambios usa v.optional(v.any()) flexible para registrar arrays de objetos e IDs sin Server Error", () => {
 			const cambiosField = tables.auditoria.validator.fields.cambios;
 			expect(cambiosField).toBeDefined();
-			// No debe ser kind "any"
-			expect(cambiosField.kind).not.toBe("any");
-			expect(cambiosField.kind).toBe("record");
 			expect(cambiosField.isOptional).toBe("optional");
+			expect(cambiosField.kind).toBe("any");
 		});
 
 		it("tabla usuarios: tiene índice by_invitation_token sobre invitationToken", () => {

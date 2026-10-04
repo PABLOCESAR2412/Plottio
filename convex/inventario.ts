@@ -427,3 +427,23 @@ export const deleteInventarioItem = mutation({
     return { success: true };
   }
 });
+
+// 6.11 FUNCIÓN: fetchInventario()
+export const fetchInventario = query({
+  args: {
+    usuarioId: v.optional(v.id("usuarios")),
+  },
+  handler: async (ctx, args) => {
+    if (args.usuarioId) {
+      const userContext = await getCurrentUserContext(ctx, args.usuarioId);
+      if (userContext.empresa) {
+        return await ctx.db
+          .query("inventarioItems")
+          .withIndex("by_empresa", (q) => q.eq("empresaId", userContext.empresa!.id))
+          .collect();
+      }
+    }
+    return await ctx.db.query("inventarioItems").collect();
+  },
+});
+

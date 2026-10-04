@@ -39,8 +39,8 @@ export const fetchClientes = query({
       empresaId: c.empresaVinculadaId || c.empresaId, // retrocompatibilidad para mostrar empresa vinculada en UI
     }));
 
-    // Ordenar alfabéticamente
-    return clientesFiltrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    // Ordenar alfabéticamente de forma segura
+    return clientesFiltrados.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
   },
 });
 
@@ -62,8 +62,13 @@ export const createCliente = mutation({
       throw new ConvexError("El usuario necesita estar asignado a una Empresa");
     }
 
-    if (args.identificacion && args.identificacion.trim() !== "") {
-      const identificacionLimpia = args.identificacion.trim();
+    const nombreLimpio = args.nombre.trim();
+    const telefonoLimpio = args.telefono.trim();
+    const emailLimpio = args.email.trim();
+    const direccionLimpia = args.direccion?.trim() || undefined;
+    const identificacionLimpia = args.identificacion?.trim() || undefined;
+
+    if (identificacionLimpia) {
       const existing = await ctx.db
         .query("clientes")
         .withIndex("by_empresa_identificacion", (q) =>
@@ -71,16 +76,16 @@ export const createCliente = mutation({
         )
         .first();
       if (existing) {
-        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
+        throw new ConvexError(`Ya existe un cliente con la identificación ${identificacionLimpia}`);
       }
     }
 
     const newClienteId = await ctx.db.insert("clientes", {
-      nombre: args.nombre,
-      telefono: args.telefono,
-      email: args.email,
-      direccion: args.direccion,
-      identificacion: args.identificacion,
+      nombre: nombreLimpio,
+      telefono: telefonoLimpio,
+      email: emailLimpio,
+      direccion: direccionLimpia,
+      identificacion: identificacionLimpia,
       empresaId: userContext.empresa.id,
       empresaVinculadaId: args.empresaVinculadaId,
       esClienteGlobal: true,
@@ -88,15 +93,29 @@ export const createCliente = mutation({
     });
 
     // Registrar Auditoría
-    await ctx.db.insert("auditoria", {
-      empresaId: userContext.empresa.id,
-      usuarioId: args.usuarioId,
-      tablaAfectada: "clientes",
-      accion: "CREATE",
-      registroId: newClienteId,
-      cambios: args,
-      fecha: new Date().toISOString()
-    });
+    try {
+      await ctx.db.insert("auditoria", {
+        empresaId: userContext.empresa.id,
+        usuarioId: args.usuarioId,
+        tablaAfectada: "clientes",
+        accion: "CREATE",
+        registroId: newClienteId,
+        cambios: JSON.parse(
+          JSON.stringify({
+            nombre: nombreLimpio,
+            telefono: telefonoLimpio,
+            email: emailLimpio,
+            direccion: direccionLimpia ?? null,
+            identificacion: identificacionLimpia ?? null,
+            empresaId: userContext.empresa.id,
+            empresaVinculadaId: args.empresaVinculadaId ?? null,
+          })
+        ),
+        fecha: new Date().toISOString(),
+      });
+    } catch (audErr) {
+      console.error("[auditoria] Error registrando auditoría en createCliente:", audErr);
+    }
 
     return await ctx.db.get(newClienteId);
   }
@@ -127,9 +146,20 @@ export const createClienteConEmpresa = mutation({
       throw new ConvexError("El usuario necesita estar asignado a una Empresa");
     }
 
+    const nombreLimpio = args.nombre.trim();
+    const telefonoLimpio = args.telefono.trim();
+    const emailLimpio = args.email.trim();
+    const direccionLimpia = args.direccion?.trim() || undefined;
+    const identificacionLimpia = args.identificacion?.trim() || undefined;
+
+    const empresaNombreLimpio = args.empresaNombre.trim();
+    const empresaRucLimpio = args.empresaRuc.trim();
+    const empresaRazonSocialLimpia = args.empresaRazonSocial?.trim() || empresaNombreLimpio;
+    const empresaTelefonoLimpio = args.empresaTelefono?.trim() || undefined;
+    const empresaDireccionLimpia = args.empresaDireccion?.trim() || undefined;
+
     // 2. Validar duplicidad de identificación del cliente dentro del taller
-    if (args.identificacion && args.identificacion.trim() !== "") {
-      const identificacionLimpia = args.identificacion.trim();
+    if (identificacionLimpia) {
       const existingCli = await ctx.db
         .query("clientes")
         .withIndex("by_empresa_identificacion", (q) =>
@@ -137,67 +167,103 @@ export const createClienteConEmpresa = mutation({
         )
         .first();
       if (existingCli) {
-        throw new ConvexError(`Ya existe un cliente con la identificación ${args.identificacion}`);
+        throw new ConvexError(`Ya existe un cliente con la identificación ${identificacionLimpia}`);
       }
     }
 
     // 3. Gestionar Empresa Vinculada (cliente B2B / flota)
-    const rucLimpio = args.empresaRuc.trim();
     let empresaIdResultante: Id<"empresas">;
 
     // Buscar si ya existe por RUC
     const existingEmpresa = await ctx.db
       .query("empresas")
-      .withIndex("by_ruc", (q) => q.eq("ruc", rucLimpio))
+      .withIndex("by_ruc", (q) => q.eq("ruc", empresaRucLimpio))
       .first();
 
     if (existingEmpresa) {
       empresaIdResultante = existingEmpresa._id;
-      // Si la empresa existía pero estaba archivada/inactiva, la reactivamos
+      // Actualizar datos si es necesario (incluso si estaba inactiva o si cambiaron datos)
+      const updates: {
+        activa?: boolean;
+        nombre?: string;
+        razonSocial?: string;
+        telefono?: string;
+        direccion?: string;
+      } = {};
+
       if (!existingEmpresa.activa) {
-        await ctx.db.patch(existingEmpresa._id, {
-          activa: true,
-          nombre: args.empresaNombre.trim(),
-          razonSocial: args.empresaRazonSocial?.trim() || args.empresaNombre.trim(),
-          telefono: args.empresaTelefono?.trim() || existingEmpresa.telefono,
-          direccion: args.empresaDireccion?.trim() || existingEmpresa.direccion,
-        });
+        updates.activa = true;
+      }
+      if (empresaNombreLimpio && empresaNombreLimpio !== existingEmpresa.nombre) {
+        updates.nombre = empresaNombreLimpio;
+      }
+      if (empresaRazonSocialLimpia && empresaRazonSocialLimpia !== existingEmpresa.razonSocial) {
+        updates.razonSocial = empresaRazonSocialLimpia;
+      }
+      if (empresaTelefonoLimpio && empresaTelefonoLimpio !== existingEmpresa.telefono) {
+        updates.telefono = empresaTelefonoLimpio;
+      }
+      if (empresaDireccionLimpia && empresaDireccionLimpia !== existingEmpresa.direccion) {
+        updates.direccion = empresaDireccionLimpia;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(existingEmpresa._id, updates);
+        try {
+          await ctx.db.insert("auditoria", {
+            empresaId: userContext.empresa.id,
+            usuarioId: args.usuarioId,
+            tablaAfectada: "empresas",
+            accion: "UPDATE",
+            registroId: empresaIdResultante,
+            cambios: JSON.parse(JSON.stringify(updates)),
+            fecha: new Date().toISOString(),
+          });
+        } catch (audErr) {
+          console.error("[auditoria] No se pudo registrar auditoría de update empresa vinculada:", audErr);
+        }
       }
     } else {
       empresaIdResultante = await ctx.db.insert("empresas", {
-        nombre: args.empresaNombre.trim(),
-        ruc: rucLimpio,
-        razonSocial: args.empresaRazonSocial?.trim() || args.empresaNombre.trim(),
-        telefono: args.empresaTelefono?.trim() || undefined,
-        direccion: args.empresaDireccion?.trim() || undefined,
+        nombre: empresaNombreLimpio,
+        ruc: empresaRucLimpio,
+        razonSocial: empresaRazonSocialLimpia,
+        telefono: empresaTelefonoLimpio,
+        direccion: empresaDireccionLimpia,
         activa: true,
       });
 
       // Auditoría para creación de empresa vinculada
-      await ctx.db.insert("auditoria", {
-        empresaId: userContext.empresa.id,
-        usuarioId: args.usuarioId,
-        tablaAfectada: "empresas",
-        accion: "CREATE",
-        registroId: empresaIdResultante,
-        cambios: {
-          nombre: args.empresaNombre.trim(),
-          ruc: rucLimpio,
-          razonSocial: args.empresaRazonSocial?.trim() || args.empresaNombre.trim(),
-          telefono: args.empresaTelefono?.trim() || null,
-          direccion: args.empresaDireccion?.trim() || null,
-        },
-        fecha: new Date().toISOString(),
-      });
+      try {
+        await ctx.db.insert("auditoria", {
+          empresaId: userContext.empresa.id,
+          usuarioId: args.usuarioId,
+          tablaAfectada: "empresas",
+          accion: "CREATE",
+          registroId: empresaIdResultante,
+          cambios: JSON.parse(
+            JSON.stringify({
+              nombre: empresaNombreLimpio,
+              ruc: empresaRucLimpio,
+              razonSocial: empresaRazonSocialLimpia,
+              telefono: empresaTelefonoLimpio ?? null,
+              direccion: empresaDireccionLimpia ?? null,
+            })
+          ),
+          fecha: new Date().toISOString(),
+        });
+      } catch (audErr) {
+        console.error("[auditoria] No se pudo registrar auditoría de creación de empresa:", audErr);
+      }
     }
 
     // 4. Crear cliente vinculado al workspace y a la empresa B2B
     const newClienteId = await ctx.db.insert("clientes", {
-      nombre: args.nombre.trim(),
-      telefono: args.telefono.trim(),
-      email: args.email.trim(),
-      direccion: args.direccion?.trim(),
-      identificacion: args.identificacion?.trim(),
+      nombre: nombreLimpio,
+      telefono: telefonoLimpio,
+      email: emailLimpio,
+      direccion: direccionLimpia,
+      identificacion: identificacionLimpia,
       empresaId: userContext.empresa.id, // workspace del taller
       empresaVinculadaId: empresaIdResultante, // empresa cliente / flota vinculada
       esClienteGlobal: true,
@@ -205,23 +271,29 @@ export const createClienteConEmpresa = mutation({
     });
 
     // Auditoría para creación de cliente
-    await ctx.db.insert("auditoria", {
-      empresaId: userContext.empresa.id,
-      usuarioId: args.usuarioId,
-      tablaAfectada: "clientes",
-      accion: "CREATE",
-      registroId: newClienteId,
-      cambios: {
-        nombre: args.nombre.trim(),
-        telefono: args.telefono.trim(),
-        email: args.email.trim(),
-        direccion: args.direccion?.trim() || null,
-        identificacion: args.identificacion?.trim() || null,
+    try {
+      await ctx.db.insert("auditoria", {
         empresaId: userContext.empresa.id,
-        empresaVinculadaId: empresaIdResultante,
-      },
-      fecha: new Date().toISOString(),
-    });
+        usuarioId: args.usuarioId,
+        tablaAfectada: "clientes",
+        accion: "CREATE",
+        registroId: newClienteId,
+        cambios: JSON.parse(
+          JSON.stringify({
+            nombre: nombreLimpio,
+            telefono: telefonoLimpio,
+            email: emailLimpio,
+            direccion: direccionLimpia ?? null,
+            identificacion: identificacionLimpia ?? null,
+            empresaId: userContext.empresa.id,
+            empresaVinculadaId: empresaIdResultante,
+          })
+        ),
+        fecha: new Date().toISOString(),
+      });
+    } catch (audErr) {
+      console.error("[auditoria] No se pudo registrar auditoría de create cliente:", audErr);
+    }
 
     const newCliente = await ctx.db.get(newClienteId);
     return {

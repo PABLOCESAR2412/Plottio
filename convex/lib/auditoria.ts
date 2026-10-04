@@ -39,7 +39,7 @@ export async function registrarAccion(
       tablaAfectada: args.tablaAfectada,
       accion: args.accion,
       registroId: args.registroId,
-      cambios: (args.cambios ?? {}) as Record<string, string | number | boolean | string[] | null>,
+      cambios: args.cambios !== undefined ? JSON.parse(JSON.stringify(args.cambios)) : {},
       fecha: new Date().toISOString(),
     });
   } catch (err) {
@@ -51,15 +51,4 @@ export async function registrarAccion(
 /**
  * Validador tipado para el campo `cambios` en la tabla de auditoría.
  */
-export const cambiosValidator = v.optional(
-  v.record(
-    v.string(),
-    v.union(
-      v.string(),
-      v.number(),
-      v.boolean(),
-      v.null(),
-      v.array(v.string())
-    )
-  )
-);
+export const cambiosValidator = v.optional(v.any());

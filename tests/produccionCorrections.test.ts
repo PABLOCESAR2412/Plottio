@@ -12,6 +12,12 @@ import {
 } from "../src/services/plottioAgent";
 import { useIntegrationsStore } from "../src/store/useIntegrationsStore";
 
+vi.mock("convex/react", () => ({
+	useQuery: vi.fn().mockReturnValue([]),
+	useMutation: vi.fn().mockReturnValue(vi.fn()),
+	useAction: vi.fn().mockReturnValue(vi.fn()),
+}));
+
 describe("Tarea 27 (P1 - Fase 5): Webhooks de Dominio Plottio, Sanitización WhatsApp y Activación Real de Plottio Asistente", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();

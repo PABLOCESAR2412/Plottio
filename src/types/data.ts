@@ -41,6 +41,7 @@ export interface Empresa {
 	vehiculosIds: string[];
 	direccion?: string;
 	sucursalId?: string;
+	razonSocial?: string;
 }
 
 export interface ServicioVehiculo {

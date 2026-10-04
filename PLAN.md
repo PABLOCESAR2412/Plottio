@@ -288,7 +288,53 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     3. **Purga activa de red onrender en inicio de aplicación:**
        - En `src/routes/__root.tsx`, limpiar en el arranque cualquier residual de `evolution-api-0q39.onrender.com` de `localStorage` para garantizar que ningún cliente conserve URLs descontinuadas.
   - **Criterios de Aceptación:** Llamadas a Google Gemini API exitosas (HTTP 200) sin error 404; respuesta del asistente generada en vivo con el modelo activo; cero rastros de onrender.
+---
 
+## FASE 6: ESTABILIZACIÓN OPERATIVA, BACKEND CONVEX Y PERFECCIONAMIENTO DE PLOTTIO ASISTENTE
 
+- [x] **Tarea 29 (P0): Solución de Server Error en Convex (createClienteConEmpresa, Auditoría y Despliegue Cloud)**
+  - **Archivos:** `convex/schema.ts`, `convex/clientes.ts`, `tests/convexClienteEmpresaFix.test.ts`
+  - **Requerimiento:**
+    1. Flexibilizar validador de `auditoria.cambios` a `v.optional(v.any())` para admitir arrays de objetos (ítems de orden) e Ids de Convex sin violar el esquema.
+    2. Asegurar en `convex/clientes.ts` que `createClienteConEmpresa` maneje empresas existentes o nuevas, valide duplicados con mensajes limpios de `ConvexError` y registre auditoría de forma segura.
+    3. Garantizar que `fetchClientes` recupere todos los clientes de la organización sin pérdidas.
+    4. Desplegar backend en la nube con `bunx convex deploy --yes`.
+  - **Criterios de Aceptación:** `bunx convex dev --once` y `bunx convex deploy --yes` finalizan con código 0; `createClienteConEmpresa` ejecuta transacciones atómicas sin Server Error.
 
+- [x] **Tarea 30 (P0): Búsqueda Avanzada de Clientes y Verificación Preventiva de Duplicados en BD**
+  - **Archivos:** `src/components/ClientesView.tsx`, `tests/clienteBusquedaDuplicados.test.ts`
+  - **Requerimiento:**
+    1. En `ClientesView.tsx`, expandir el filtro de búsqueda (`searchTerm`) para coincidir por `nombre`, `identificacion` (cédula o RUC), `telefono`, `email`, `direccion` y empresa vinculada.
+    2. En el modal de creación de cliente, al ingresar o cambiar la identificación, buscar PRIMERO en la base de datos local/Convex si el cliente ya existe.
+    3. Si ya existe, mostrar tarjeta de advertencia amigable: "Cliente ya registrado en la base de datos: [Nombre] ([Identificación])" con botón para ver o editar dicho cliente, evitando re-creaciones duplicadas y consultas SRI innecesarias.
+  - **Criterios de Aceptación:** Búsqueda por cédula/RUC encuentra clientes inmediatamente; intento de registrar identificación existente avisa preventivamente con opción de ver el cliente existente.
+
+- [x] **Tarea 31 (P0): Endpoint Webhook WhatsApp en Vercel y Bloqueo Activo de Onrender**
+  - **Archivos:** `api/webhook/wha.ts`, `api/webhooks.ts`, `convex/http.ts`, `src/components/WhatsAppConfigModal.tsx`, `tests/whatsappEndpointFix.test.ts`
+  - **Requerimiento:**
+    1. Crear Serverless Functions en `api/webhook/wha.ts` y `api/webhooks.ts` en la raíz para que Vercel responda `HTTP 200 OK` con JSON `{ status: "ok", gateway: "Plottio Gateway" }` ante peticiones POST y GET.
+    2. En `WhatsAppConfigModal.tsx`:
+       - En `handleTestConnection`: validar que si la URL ingresada contiene `onrender.com`, bloquearla inmediatamente y mostrar mensaje explicativo sin disparar la petición fetch que genera el error 404 en consola.
+       - Procesar la prueba de conexión contra el endpoint oficial de Vercel recibiendo 200 OK.
+  - **Criterios de Aceptación:** Cero errores 404 en consola al probar conexión de WhatsApp; endpoint oficial de Vercel responde HTTP 200.
+
+- [x] **Tarea 32 (P1): Impeccable Audit de Plottio Asistente — Respuestas con Datos Reales y Telemetría Técnica**
+  - **Archivos:** `src/services/plottioAgent.ts`, `src/components/PlottioAsistenteModal.tsx`, `tests/asistenteImpeccableTelemetria.test.ts`
+  - **Requerimiento:**
+    1. **Eliminación de Mocks y Contexto Ficticio:**
+       - Erradicar textos inventados de acuerdos comerciales ("SLA 48h", "Cláusula 4.2...") en `plottioAgent.ts`.
+       - Inyectar datos reales del taller (empresas, clientes, órdenes, inventario, vehículos) desde las consultas activas de Convex en `PlottioAsistenteModal.tsx` hacia `executeLiveBusinessAgent`.
+       - Cuando el usuario pregunta "dame las empresas registradas", el agente responde con los nombres y datos reales de las empresas de la base de datos (o informa que no hay si la lista está vacía).
+    2. **Eliminación de 'Herramientas Invocadas' en Mensajes:**
+       - Remover el encabezado y chips de "Herramientas Invocadas: consultar_clientes() · Operacional" de la vista de mensajes del chat.
+    3. **Telemetría Técnica en lugar de Fuentes Falsas:**
+       - Reemplazar las citas ficticias por una tarjeta/desplegable de métricas técnicas reales de inferencia:
+         - Tokens usados (Prompt, Completion, Total)
+         - Tokens por segundo (TPS)
+         - Latencia de respuesta (ms)
+         - Modelo LLM utilizado
+         - Proveedor activo
+    4. **Auditoría /impeccable:**
+       - Pulir tipografía, contraste, badges, bordes, estados de carga y fluidez en móvil y desktop.
+  - **Criterios de Aceptación:** Respuestas del asistente basadas en la BD real sin alucinaciones de SLA falsos; sin clutter visual de herramientas en burbujas; telemetría técnica clara; diseño impeccable.
 

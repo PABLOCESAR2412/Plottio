@@ -150,18 +150,7 @@ export default defineSchema({
     tablaAfectada: v.string(),
     accion: v.string(),
     registroId: v.string(),
-    cambios: v.optional(
-      v.record(
-        v.string(),
-        v.union(
-          v.string(),
-          v.number(),
-          v.boolean(),
-          v.null(),
-          v.array(v.string())
-        )
-      )
-    ),
+    cambios: v.optional(v.any()),
     ipAddress: v.optional(v.string()),
     fecha: v.string(),
     sucursalId: v.optional(v.id("sucursales")),

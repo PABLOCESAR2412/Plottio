@@ -1,15 +1,14 @@
+import { useQuery } from "convex/react";
 import {
+	Activity,
 	Bot,
 	Brain,
-	Car,
 	Check,
 	ChevronDown,
 	ChevronUp,
 	Coins,
 	Command,
-	FileText,
 	Layers,
-	Package,
 	RefreshCw,
 	Save,
 	Send,
@@ -17,22 +16,25 @@ import {
 	Sliders,
 	Sparkles,
 	Trash2,
-	Users,
 	Wrench,
 	X,
-	Zap,
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import {
+	type AgentTelemetry,
 	ASISTENTE_SEGURIDAD_RECHAZO,
 	BUSINESS_TOOLS,
 	type BusinessCitation,
+	type BusinessDataContext,
 	executeLiveBusinessAgent,
 	isRestrictedAction,
 	type ToolCallExecution,
 } from "../services/plottioAgent";
 import { useIntegrationsStore } from "../store/useIntegrationsStore";
+import { useSessionStore } from "../store/useSessionStore";
 
 export interface ChatMessage {
 	id: string;
@@ -41,6 +43,7 @@ export interface ChatMessage {
 	isStreaming?: boolean;
 	citations?: BusinessCitation[];
 	toolsCalled?: ToolCallExecution[];
+	telemetry?: AgentTelemetry;
 	isSecurityAlert?: boolean;
 	timestamp: string;
 }
@@ -59,18 +62,23 @@ interface QuickSuggestion {
 
 const QUICK_SUGGESTIONS: QuickSuggestion[] = [
 	{
-		label: "Chevrolet D-Max",
-		prompt: "¿Cuál es el estado de la orden Chevrolet D-Max?",
+		label: "Empresas registradas",
+		prompt: "Dame las empresas registradas en el taller",
 		isSecurity: false,
 	},
 	{
-		label: "Bobinas 3M",
-		prompt: "Consultar stock de bobinas de vinilo 3M",
+		label: "Clientes en BD",
+		prompt: "¿Cuántos clientes tenemos registrados en la base de datos?",
 		isSecurity: false,
 	},
 	{
-		label: "Cotizaciones de flotas",
-		prompt: "Ver cotizaciones aprobadas con flotas",
+		label: "Órdenes de trabajo",
+		prompt: "¿Cuál es el estado de las órdenes de trabajo activas?",
+		isSecurity: false,
+	},
+	{
+		label: "Inventario de vinilos",
+		prompt: "Consultar inventario de bobinas y materiales",
 		isSecurity: false,
 	},
 	{
@@ -85,6 +93,24 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	onClose,
 	onNavigate: _onNavigate,
 }) => {
+	const currentUser = useSessionStore((s) => s.currentUser);
+
+	// Inyección de consultas reales de la base de datos de Convex
+	const rawEmpresas = useQuery(api.organizacion.getEmpresas);
+	const rawClientes = useQuery(
+		api.clientes.fetchClientes,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
+	const rawOrdenes = useQuery(
+		api.ordenes.fetchOrdenes,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
+	const rawInventario = useQuery(api.inventario.fetchInventario);
+	const rawVehiculos = useQuery(
+		api.vehiculos.fetchVehiculos,
+		currentUser ? { usuarioId: currentUser.id as Id<"usuarios"> } : "skip",
+	);
+
 	const {
 		agent,
 		rag,
@@ -126,13 +152,13 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	);
 	const [savedNotification, setSavedNotification] = useState(false);
 
-	// Estado interactivo de acordeón de citas RAG por mensaje (por defecto abierto)
-	const [collapsedCitations, setCollapsedCitations] = useState<
+	// Estado interactivo de acordeón de telemetría técnica por mensaje (por defecto abierto)
+	const [collapsedTelemetry, setCollapsedTelemetry] = useState<
 		Record<string, boolean>
 	>({});
 
-	const toggleCitations = (msgId: string) => {
-		setCollapsedCitations((prev) => ({
+	const toggleTelemetry = (msgId: string) => {
+		setCollapsedTelemetry((prev) => ({
 			...prev,
 			[msgId]: !prev[msgId],
 		}));
@@ -209,7 +235,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 		return ((maxTokens / 1000) * ratePer1k).toFixed(5);
 	};
 
-	// Envío de consulta y orquestación de herramientas
+	// Envío de consulta y orquestación de herramientas con datos reales
 	const executeQuery = async (textToSubmit: string) => {
 		const currentText = textToSubmit.trim();
 		if (!currentText || rag.indexedDocumentsCount === 0) return;
@@ -274,7 +300,46 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			textareaRef.current.style.height = "auto";
 		}
 
-		// 3. Ejecutar Agentic RAG de Negocio (en vivo si hay apiKey o con fallback automático)
+		// 3. Preparar contexto de datos reales desde Convex
+		const businessData: BusinessDataContext = {
+			empresas: (rawEmpresas || []).map((e) => ({
+				id: e._id,
+				nombre: e.nombre,
+				ruc: e.ruc,
+				telefono: e.telefono,
+				direccion: e.direccion,
+				activa: e.activa,
+			})),
+			clientes: (rawClientes || []).map((c) => ({
+				id: c._id,
+				nombre: c.nombre,
+				identificacion: c.identificacion,
+				telefono: c.telefono,
+				email: c.email,
+			})),
+			ordenes: (rawOrdenes || []).map((o) => ({
+				id: o.numeroOrden || o._id,
+				placa: o.placa,
+				clienteNombre: o.clienteNombre,
+				estado: o.estado,
+				total: o.total,
+				prioridad: o.prioridad,
+			})),
+			inventario: (rawInventario || []).map((i) => ({
+				id: i._id,
+				nombre: i.nombre,
+				stock: i.costoUnitario,
+				unidad: i.unidadMedida,
+			})),
+			vehiculos: (rawVehiculos || []).map((v) => ({
+				id: v._id,
+				placa: v.placa,
+				marca: v.marca,
+				modelo: v.modelo,
+			})),
+		};
+
+		// 4. Ejecutar Agentic RAG de Negocio con datos reales y telemetría técnica
 		const startTime = Date.now();
 		const executionResult = await executeLiveBusinessAgent(currentText, {
 			assistantName: configNombre,
@@ -283,10 +348,11 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			provider: ai?.provider || "google",
 			temperature: configTemperature,
 			model: configModel,
+			businessData,
 		});
 		const latencyMs = Date.now() - startTime;
 
-		// Actualizar mensaje con herramientas y citas
+		// Actualizar mensaje con telemetría técnica
 		setMessages((prev) =>
 			prev.map((m) =>
 				m.id === assistantMsgId
@@ -294,6 +360,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							...m,
 							toolsCalled: executionResult.toolsCalled,
 							citations: executionResult.citations,
+							telemetry: executionResult.telemetry,
 						}
 					: m,
 			),
@@ -484,9 +551,9 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 								Modo Demostración / Sandbox (IA Simulada)
 							</span>
 							<span className="text-[11px] leading-tight">
-								Aviso para el operador: Los análisis, inferencias y
-								recomendaciones son una maqueta interactiva simulada con
-								ejecución autónoma de herramientas de negocio.
+								Aviso para el operador: Los análisis y recomendaciones son una
+								maqueta interactiva simulada con ejecución autónoma de
+								herramientas de negocio.
 							</span>
 						</div>
 					</div>
@@ -771,19 +838,9 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									{messages.map((msg) => {
 										const isAssistant = msg.role === "assistant";
 										const isUser = msg.role === "user";
-										const citationsCount = msg.citations?.length || 0;
-										const isCitationsOpen =
-											!collapsedCitations[msg.id] && citationsCount > 0;
-										const maxRelevance =
-											citationsCount > 0
-												? Math.round(
-														Math.max(
-															...(msg.citations?.map((c) => c.similarity) || [
-																0,
-															]),
-														) * 100,
-													)
-												: 0;
+										const hasTelemetry = Boolean(msg.telemetry);
+										const isTelemetryOpen =
+											!collapsedTelemetry[msg.id] && hasTelemetry;
 
 										return (
 											<div
@@ -829,97 +886,97 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 														</div>
 													)}
 
-													{/* Chips de Herramientas de Negocio Invocadas (Agentic RAG) */}
-													{msg.toolsCalled && msg.toolsCalled.length > 0 && (
-														<div className="space-y-1.5 pb-2.5 border-b border-border/40">
-															<div className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
-																<Wrench className="h-3 w-3" />
-																<span>Herramientas Invocadas:</span>
-															</div>
-															<div className="flex flex-wrap gap-1.5">
-																{msg.toolsCalled.map((tc, idx) => (
-																	<span
-																		// biome-ignore lint/suspicious/noArrayIndexKey: tool execution list
-																		key={idx}
-																		className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[11px] font-mono font-medium animate-fade-in"
-																	>
-																		<Wrench className="h-2.5 w-2.5 shrink-0" />
-																		<span>{tc.toolName}() · Operacional</span>
-																	</span>
-																))}
-															</div>
-														</div>
-													)}
-
 													{/* Contenido del Mensaje */}
-													<div className="whitespace-pre-wrap">
+													<div className="whitespace-pre-wrap leading-relaxed">
 														{msg.text}
 														{msg.isStreaming && (
 															<span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse align-middle" />
 														)}
 													</div>
 
-													{/* Citas Contextuales de RAG Desplegables (Collapsible Citations) */}
-													{msg.citations && msg.citations.length > 0 && (
+													{/* Panel de Telemetría Técnica de Inferencia */}
+													{isAssistant && msg.telemetry && (
 														<div className="mt-3 pt-3 border-t border-border/50 space-y-2">
 															<button
 																type="button"
-																onClick={() => toggleCitations(msg.id)}
-																aria-expanded={isCitationsOpen}
-																className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-card/60 hover:bg-card border border-border/60 text-[11px] font-medium text-foreground transition-colors cursor-pointer group shadow-2xs"
+																onClick={() => toggleTelemetry(msg.id)}
+																aria-expanded={isTelemetryOpen}
+																className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-card/70 hover:bg-card border border-border/60 text-[11px] font-medium text-foreground transition-all cursor-pointer group shadow-2xs"
 															>
-																<span className="flex items-center gap-1.5 text-primary">
-																	<Sparkles className="h-3.5 w-3.5 shrink-0" />
-																	<span>
-																		{msg.citations.length} fuentes de contexto
-																		recuperadas · {maxRelevance}% relevancia
+																<span className="flex items-center gap-1.5 text-primary font-semibold">
+																	<Activity className="h-3.5 w-3.5 text-primary shrink-0" />
+																	<span>Telemetría de Inferencia</span>
+																	<span className="ml-1 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-mono font-bold">
+																		{msg.telemetry.latencyMs}ms ·{" "}
+																		{msg.telemetry.tps} tok/s
 																	</span>
 																</span>
-																{isCitationsOpen ? (
+																{isTelemetryOpen ? (
 																	<ChevronUp className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform" />
 																) : (
 																	<ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform" />
 																)}
 															</button>
 
-															{isCitationsOpen && (
-																<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 animate-fade-in">
-																	{msg.citations.map((c, idx) => (
-																		<div
-																			// biome-ignore lint/suspicious/noArrayIndexKey: citations list
-																			key={idx}
-																			className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 hover:border-primary/40 transition-colors shadow-2xs"
+															{isTelemetryOpen && (
+																<div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border border-border/70 bg-card/90 text-[11px] animate-fade-in shadow-2xs">
+																	<div className="space-y-0.5">
+																		<span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+																			Tokens Usados
+																		</span>
+																		<span className="font-mono font-bold text-foreground block">
+																			~{msg.telemetry.totalTokens} tokens
+																		</span>
+																		<span className="text-[9px] text-muted-foreground block font-mono">
+																			({msg.telemetry.promptTokens} in /{" "}
+																			{msg.telemetry.completionTokens} out)
+																		</span>
+																	</div>
+
+																	<div className="space-y-0.5">
+																		<span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+																			Velocidad (TPS)
+																		</span>
+																		<span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 block">
+																			{msg.telemetry.tps} tok/s
+																		</span>
+																		<span className="text-[9px] text-muted-foreground block">
+																			Rendimiento real
+																		</span>
+																	</div>
+
+																	<div className="space-y-0.5">
+																		<span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+																			Latencia
+																		</span>
+																		<span className="font-mono font-bold text-foreground block">
+																			{msg.telemetry.latencyMs} ms
+																		</span>
+																		<span className="text-[9px] text-muted-foreground block">
+																			Tiempo respuesta
+																		</span>
+																	</div>
+
+																	<div className="space-y-0.5 col-span-2 sm:col-span-2 pt-2 border-t border-border/40">
+																		<span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+																			Modelo LLM
+																		</span>
+																		<span
+																			className="font-mono font-semibold text-foreground truncate block"
+																			title={msg.telemetry.model}
 																		>
-																			<div className="flex items-center justify-between gap-1">
-																				<div className="flex items-center gap-1.5 font-semibold text-[11px] text-foreground truncate">
-																					{c.type === "documento" && (
-																						<FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-																					)}
-																					{c.type === "acuerdo" && (
-																						<Users className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-																					)}
-																					{c.type === "tarea" && (
-																						<Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-																					)}
-																					{c.type === "stock" && (
-																						<Package className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-																					)}
-																					{c.type === "vehiculo" && (
-																						<Car className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-																					)}
-																					<span className="truncate">
-																						{c.title}
-																					</span>
-																				</div>
-																				<span className="px-1.5 py-0.2 rounded bg-primary/10 text-primary text-[10px] font-mono font-bold shrink-0">
-																					{(c.similarity * 100).toFixed(0)}% sim
-																				</span>
-																			</div>
-																			<p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">
-																				{c.snippet}
-																			</p>
-																		</div>
-																	))}
+																			{msg.telemetry.model}
+																		</span>
+																	</div>
+
+																	<div className="space-y-0.5 pt-2 border-t border-border/40">
+																		<span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+																			Proveedor
+																		</span>
+																		<span className="font-mono font-semibold text-primary truncate block">
+																			{msg.telemetry.provider}
+																		</span>
+																	</div>
 																</div>
 															)}
 														</div>

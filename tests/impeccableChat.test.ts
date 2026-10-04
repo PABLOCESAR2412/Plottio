@@ -9,6 +9,12 @@ import {
 } from "../src/services/plottioAgent";
 import { useIntegrationsStore } from "../src/store/useIntegrationsStore";
 
+vi.mock("convex/react", () => ({
+	useQuery: vi.fn().mockReturnValue([]),
+	useMutation: vi.fn().mockReturnValue(vi.fn()),
+	useAction: vi.fn().mockReturnValue(vi.fn()),
+}));
+
 describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asistente", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
@@ -170,11 +176,11 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 	});
 
 	// =========================================================================
-	// 3. CHIPS DE HERRAMIENTAS INVOCADAS (AGENTIC RAG)
+	// 3. LIMPIEZA VISUAL: SIN HERRAMIENTAS INVOCADAS EN BURBUJAS
 	// =========================================================================
-	describe("3. Visualización de Herramientas de Negocio Invocadas", () => {
-		it("muestra chips de herramientas invocadas cuando el agente ejecuta una acción", async () => {
-			const { container } = render(
+	describe("3. Limpieza Visual: Sin 'Herramientas Invocadas' en las burbujas", () => {
+		it("no muestra encabezado ni chips de 'Herramientas Invocadas' en las burbujas de mensaje para evitar clutter visual", async () => {
+			render(
 				React.createElement(PlottioAsistenteModal, {
 					isOpen: true,
 					onClose: vi.fn(),
@@ -192,26 +198,19 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 			});
 			fireEvent.click(sendButton);
 
-			// Debe aparecer el chip de herramienta invocada
+			// Se asegura que NO aparezca el texto "Herramientas Invocadas:" ni chips de herramientas dentro de la burbuja
 			await waitFor(() => {
-				const toolChip = screen.getByText(/consultar_ordenes\(\) · Operacional/i);
-				expect(toolChip).toBeDefined();
+				expect(screen.queryByText(/Herramientas Invocadas:/i)).toBeNull();
+				expect(screen.queryByText(/consultar_ordenes\(\) · Operacional/i)).toBeNull();
 			});
-
-			// Validar clases del chip
-			const chipElement = container.querySelector(".font-mono.font-medium");
-			expect(chipElement).not.toBeNull();
-			expect(chipElement?.className).toContain("bg-primary/10");
-			expect(chipElement?.className).toContain("text-primary");
-			expect(chipElement?.className).toContain("border-primary/20");
 		});
 	});
 
 	// =========================================================================
-	// 4. CITAS CONTEXTUALES RAG DESPLEGABLES (COLLAPSIBLE CITATIONS)
+	// 4. TELEMETRÍA TÉCNICA DE INFERENCIA
 	// =========================================================================
-	describe("4. Citas Contextuales de RAG Desplegables", () => {
-		it("permite colapsar y expandir las fuentes de contexto recuperadas con su botón interactivo", async () => {
+	describe("4. Telemetría Técnica de Inferencia", () => {
+		it("permite colapsar y expandir el panel de telemetría técnica de inferencia con su botón interactivo", async () => {
 			render(
 				React.createElement(PlottioAsistenteModal, {
 					isOpen: true,
@@ -229,11 +228,11 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 			});
 			fireEvent.click(sendButton);
 
-			// Esperar a que el streaming concluya o genere citas
+			// Esperar a que el streaming concluya o genere la telemetría
 			await waitFor(
 				() => {
 					const toggleBtn = screen.getByRole("button", {
-						name: /fuentes de contexto recuperadas/i,
+						name: /Telemetría de Inferencia/i,
 					});
 					expect(toggleBtn).toBeDefined();
 				},
@@ -241,7 +240,7 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 			);
 
 			const toggleBtn = screen.getByRole("button", {
-				name: /fuentes de contexto recuperadas/i,
+				name: /Telemetría de Inferencia/i,
 			});
 
 			// Inicialmente expandido
@@ -296,8 +295,8 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 	// =========================================================================
 	// 6. BARRA DE SUGERENCIAS RÁPIDAS
 	// =========================================================================
-	describe("6. Barra de Sugerencias Rápidas", () => {
-		it("muestra los 4 chips interactivos y populan el input al hacer click", () => {
+	describe("6. Barra de Sugerencias Rápidas Operacionales", () => {
+		it("muestra los chips interactivos actualizados a datos de taller y populan el input al hacer click", () => {
 			render(
 				React.createElement(PlottioAsistenteModal, {
 					isOpen: true,
@@ -305,27 +304,31 @@ describe("Tarea 26 (P1 - Fase 4): Rediseño Impeccable del Chat de Plottio Asist
 				}),
 			);
 
-			const chipDMax = screen.getByRole("button", { name: "Chevrolet D-Max" });
-			const chipBobinas = screen.getByRole("button", { name: "Bobinas 3M" });
-			const chipCotizaciones = screen.getByRole("button", {
-				name: "Cotizaciones de flotas",
+			const chipEmpresas = screen.getByRole("button", { name: "Empresas registradas" });
+			const chipClientes = screen.getByRole("button", { name: "Clientes en BD" });
+			const chipOrdenes = screen.getByRole("button", {
+				name: "Órdenes de trabajo",
+			});
+			const chipVinilos = screen.getByRole("button", {
+				name: "Inventario de vinilos",
 			});
 			const chipSeguridad = screen.getByRole("button", {
 				name: "Modificar rol de usuario (Test de seguridad)",
 			});
 
-			expect(chipDMax).toBeDefined();
-			expect(chipBobinas).toBeDefined();
-			expect(chipCotizaciones).toBeDefined();
+			expect(chipEmpresas).toBeDefined();
+			expect(chipClientes).toBeDefined();
+			expect(chipOrdenes).toBeDefined();
+			expect(chipVinilos).toBeDefined();
 			expect(chipSeguridad).toBeDefined();
 
 			const textarea = screen.getByPlaceholderText(
 				/Pregunta a Plottio Asistente o solicita una acción de negocio.../i,
 			) as HTMLTextAreaElement;
 
-			// Click en Chevrolet D-Max
-			fireEvent.click(chipDMax);
-			expect(textarea.value).toBe("¿Cuál es el estado de la orden Chevrolet D-Max?");
+			// Click en Empresas registradas
+			fireEvent.click(chipEmpresas);
+			expect(textarea.value).toBe("Dame las empresas registradas en el taller");
 
 			// Click en Modificar rol de usuario
 			fireEvent.click(chipSeguridad);
