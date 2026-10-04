@@ -276,5 +276,19 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
        - En la pestaña de Configuración de `PlottioAsistenteModal.tsx`, eliminar el selector `Modelo LLM Asignado:`, preservando `Nombre del Asistente` y `Prompt del Sistema / Instrucciones`.
   - **Criterios de Aceptación:** Cero llamadas fallidas a onrender; webhooks con dominio `plottio.vercel.app`; asistente en modo operacional real cuando hay API key; configuración sin selector de modelo.
 
+- [x] **Tarea 28 (P0): Corrección de Modelos Gemini (gemini-flash-latest / gemini-3.8-flash) y Eliminación de Error 404 en API de Google**
+  - **Archivos:** `src/services/plottioAgent.ts`, `src/store/useIntegrationsStore.ts`, `src/services/aiModelsDiscovery.ts`, `src/routes/__root.tsx`, `tests/geminiLiveModelFix.test.ts`
+  - **Requerimiento:**
+    1. **Reemplazo de modelo Gemini deprecado:**
+       - En `src/services/plottioAgent.ts`, erradicar la URL fija con `gemini-1.5-flash` (modelo descontinuado para nuevas keys `AQ.` que arroja HTTP 404).
+       - Utilizar como endpoint canónico `gemini-flash-latest` (o `gemini-3.8-flash`), resolviendo automáticamente a las versiones activas de Google AI Studio.
+       - Si la petición con el modelo seleccionado arroja 404, ejecutar retry automático inmediato hacia `gemini-flash-latest`.
+    2. **Actualización del catálogo de modelos Google:**
+       - En `src/store/useIntegrationsStore.ts` y `src/services/aiModelsDiscovery.ts`, actualizar el catálogo canónico de Google a: `["Gemini Flash Latest", "Gemini 3.8 Flash", "Gemini 2.5 Flash", "Gemini 2.5 Pro"]`.
+    3. **Purga activa de red onrender en inicio de aplicación:**
+       - En `src/routes/__root.tsx`, limpiar en el arranque cualquier residual de `evolution-api-0q39.onrender.com` de `localStorage` para garantizar que ningún cliente conserve URLs descontinuadas.
+  - **Criterios de Aceptación:** Llamadas a Google Gemini API exitosas (HTTP 200) sin error 404; respuesta del asistente generada en vivo con el modelo activo; cero rastros de onrender.
+
+
 
 

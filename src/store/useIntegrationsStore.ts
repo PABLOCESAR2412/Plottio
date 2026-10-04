@@ -45,7 +45,12 @@ export type AiProvider = "google" | "groq" | "opencode_zen" | "nvidia";
 export type AiTimeFilter = "dia" | "semana" | "15dias" | "1mes" | "intervalos";
 
 export const AI_MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
-	google: ["Gemini 2.0 Flash", "Gemini 1.5 Pro", "Gemini 1.5 Flash"],
+	google: [
+		"Gemini Flash Latest",
+		"Gemini 3.8 Flash",
+		"Gemini 2.5 Flash",
+		"Gemini 2.5 Pro",
+	],
 	groq: ["Llama 3.3 70B Versatile", "Llama 3.1 8B Instant", "Mixtral 8x7B"],
 	opencode_zen: ["DeepSeek R1", "DeepSeek V3", "Qwen 2.5 Coder"],
 	nvidia: ["Nemotron 70B", "Llama 3.1 Nemotron 70B Ultra", "Mistral NeMo"],
@@ -306,7 +311,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					getEnv("VITE_GEMINI_API_KEY") || getEnv("VITE_GOOGLE_API_KEY"),
 				openaiApiKey: getEnv("VITE_OPENAI_API_KEY"),
 				customEndpoint: "https://ai.internal.plottio.com/v1",
-				activeModel: "Gemini 2.0 Flash",
+				activeModel: "Gemini Flash Latest",
 				monthlyBudgetUSD: 150.0,
 				currentSpendUSD: 0,
 				tokensToday: 0,
@@ -401,7 +406,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				nombre: "Plottio Asistente",
 				systemPrompt:
 					"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.",
-				model: "gemini-1.5-pro",
+				model: "gemini-flash-latest",
 				temperature: 0.2,
 			},
 			updateAgentConfig: (config) =>
@@ -431,7 +436,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				nombre: "Plottio Asistente",
 				systemPrompt:
 					"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.",
-				model: "gemini-1.5-pro",
+				model: "gemini-flash-latest",
 			},
 			updateRagConfig: (config) =>
 				set((state) => ({
@@ -551,6 +556,43 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					state.inboundEndpoint?.includes("plottio.app")
 				) {
 					state.inboundEndpoint = "https://plottio.vercel.app/api/webhooks";
+				}
+				// Migración de modelos Gemini deprecados
+				if (state.agent?.model) {
+					if (
+						state.agent.model.includes("1.5-flash") ||
+						state.agent.model === "gemini-2.0-flash"
+					) {
+						state.agent.model = "gemini-flash-latest";
+					} else if (
+						state.agent.model.includes("1.5-pro") ||
+						state.agent.model.includes("1.5")
+					) {
+						state.agent.model = "gemini-pro-latest";
+					}
+				}
+				if (state.rag?.model) {
+					if (
+						state.rag.model.includes("1.5-flash") ||
+						state.rag.model === "gemini-2.0-flash"
+					) {
+						state.rag.model = "gemini-flash-latest";
+					} else if (
+						state.rag.model.includes("1.5-pro") ||
+						state.rag.model.includes("1.5")
+					) {
+						state.rag.model = "gemini-pro-latest";
+					}
+				}
+				if (state.ai?.activeModel) {
+					if (
+						state.ai.activeModel === "Gemini 2.0 Flash" ||
+						state.ai.activeModel === "Gemini 1.5 Flash"
+					) {
+						state.ai.activeModel = "Gemini Flash Latest";
+					} else if (state.ai.activeModel === "Gemini 1.5 Pro") {
+						state.ai.activeModel = "Gemini 2.5 Pro";
+					}
 				}
 			},
 		},

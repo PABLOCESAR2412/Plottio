@@ -5,6 +5,7 @@ import {
 	Outlet,
 } from "@tanstack/react-router";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { Loader } from "../components/Loader";
 import { ThemeProvider } from "../components/ThemeProvider";
@@ -108,6 +109,47 @@ export function RootErrorFallback({ error, reset }: ErrorComponentProps) {
 	);
 }
 
+export function purgeObsoleteEndpoints(): void {
+	if (typeof window === "undefined" || !window.localStorage) return;
+	try {
+		const keys: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i);
+			if (k) keys.push(k);
+		}
+		for (const key of keys) {
+			const val = localStorage.getItem(key);
+			// Si la clave misma contiene onrender, removerla
+			if (
+				key.includes("evolution-api-0q39.onrender.com") ||
+				key.includes("onrender.com")
+			) {
+				localStorage.removeItem(key);
+				continue;
+			}
+			// Si el valor contiene la URL descontinuada, sanitizarlo
+			if (
+				val &&
+				(val.includes("evolution-api-0q39.onrender.com") ||
+					val.includes("onrender.com"))
+			) {
+				const sanitized = val
+					.replace(
+						/https?:\/\/[^"'\s]*onrender\.com[^\s"']*/g,
+						"https://plottio.vercel.app/api/webhook/wha",
+					)
+					.replaceAll(
+						"evolution-api-0q39.onrender.com",
+						"plottio.vercel.app/api/webhook/wha",
+					);
+				localStorage.setItem(key, sanitized);
+			}
+		}
+	} catch (_err) {
+		// Ignorar restricciones de almacenamiento
+	}
+}
+
 export const Route = createRootRoute({
 	component: RootComponent,
 	pendingComponent: Loader,
@@ -115,6 +157,10 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+	useEffect(() => {
+		purgeObsoleteEndpoints();
+	}, []);
+
 	return (
 		<ConvexProvider client={convexClient}>
 			<QueryClientProvider client={queryClient}>

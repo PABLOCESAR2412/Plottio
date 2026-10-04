@@ -452,7 +452,8 @@ export const FinOpsMetricsPanel: React.FC = () => {
 							<p className="text-[11px] text-muted-foreground leading-relaxed">
 								Ingresa en <strong>aistudio.google.com</strong>, pulsa{" "}
 								<strong>Get API Key</strong> y cópiala aquí. Compatible con
-								Gemini 2.0 Flash, Gemini 1.5 Pro y Gemini 1.5 Flash.
+								Gemini Flash Latest, Gemini 3.8 Flash, Gemini 2.5 Flash y Gemini
+								2.5 Pro.
 							</p>
 						</div>
 

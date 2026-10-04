@@ -454,27 +454,50 @@ export async function executeLiveBusinessAgent(
 		let liveText = "";
 
 		if (provider === "google" || provider === "gemini") {
-			const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-			const res = await fetch(url, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					contents: [
-						{
-							role: "user",
-							parts: [
-								{
-									text: `${combinedContext}\n\nConsulta del operador: ${query}`,
-								},
-							],
+			let selectedModel = options.model?.toLowerCase() || "gemini-flash-latest";
+			if (
+				selectedModel.includes("1.5") ||
+				selectedModel === "gemini-2.0-flash"
+			) {
+				selectedModel = "gemini-flash-latest";
+			} else if (selectedModel.includes("pro")) {
+				selectedModel = "gemini-pro-latest";
+			}
+			selectedModel = selectedModel
+				.replace(/^models\//, "")
+				.trim()
+				.replace(/\s+/g, "-");
+
+			const sendGoogleRequest = async (modelName: string) => {
+				const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${apiKey}`;
+				return fetch(url, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						contents: [
+							{
+								role: "user",
+								parts: [
+									{
+										text: `${combinedContext}\n\nConsulta del operador: ${query}`,
+									},
+								],
+							},
+						],
+						generationConfig: {
+							temperature: options.temperature ?? 0.2,
 						},
-					],
-					generationConfig: {
-						temperature: options.temperature ?? 0.2,
-					},
-				}),
-				signal: controller.signal,
-			});
+					}),
+					signal: controller.signal,
+				});
+			};
+
+			let res = await sendGoogleRequest(selectedModel);
+
+			// Si el modelo retorna 404 y no es gemini-flash-latest, reintentar con gemini-flash-latest
+			if (res.status === 404 && selectedModel !== "gemini-flash-latest") {
+				res = await sendGoogleRequest("gemini-flash-latest");
+			}
 			clearTimeout(timeoutId);
 
 			if (res.ok) {

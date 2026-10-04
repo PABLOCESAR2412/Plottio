@@ -119,7 +119,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.",
 	);
 	const [configModel, setConfigModel] = useState(
-		agent?.model || rag?.model || "gemini-1.5-pro",
+		agent?.model || rag?.model || "gemini-flash-latest",
 	);
 	const [configTemperature, setConfigTemperature] = useState(
 		agent?.temperature ?? rag?.temperature ?? 0.2,
