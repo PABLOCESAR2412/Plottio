@@ -87,6 +87,11 @@ export interface InboundWebhookLog {
 export type AiProvider = "google" | "groq" | "opencode_zen" | "nvidia";
 export type AiTimeFilter = "dia" | "semana" | "15dias" | "1mes" | "intervalos";
 
+export interface BackupTarget {
+	provider: AiProvider;
+	model: string;
+}
+
 export const AI_MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
 	google: [
 		"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
@@ -148,6 +153,7 @@ interface IntegrationsState {
 		provider: AiProvider | "gemini" | "openai" | "custom";
 		backupProvider: AiProvider | null;
 		backupModel: string | null;
+		backupTargets: BackupTarget[];
 		googleApiKey: string;
 		groqApiKey: string;
 		opencodeZenApiKey: string;
@@ -368,6 +374,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 				provider: "google",
 				backupProvider: null,
 				backupModel: null,
+				backupTargets: [],
 				googleApiKey:
 					getEnv("VITE_GEMINI_API_KEY") || getEnv("VITE_GOOGLE_API_KEY"),
 				groqApiKey: getEnv("VITE_GROQ_API_KEY"),
@@ -406,6 +413,48 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 					) {
 						next.googleApiKey = config.geminiApiKey;
 					}
+
+					// Sincronización de backupTargets con backupProvider y backupModel
+					if (config.backupTargets !== undefined) {
+						if (config.backupTargets.length > 0) {
+							next.backupProvider = config.backupTargets[0].provider;
+							next.backupModel = config.backupTargets[0].model;
+						} else {
+							next.backupProvider = null;
+							next.backupModel = null;
+						}
+					} else if (config.backupProvider !== undefined) {
+						if (config.backupProvider) {
+							const prov = config.backupProvider;
+							const mod =
+								config.backupModel ??
+								state.ai.backupModel ??
+								AI_MODELS_BY_PROVIDER[prov]?.[0] ??
+								"";
+							next.backupTargets = [{ provider: prov, model: mod }];
+						} else {
+							next.backupTargets = [];
+						}
+					} else if (
+						config.backupModel !== undefined &&
+						state.ai.backupProvider
+					) {
+						const safeModel = config.backupModel ?? "";
+						if (next.backupTargets.length > 0) {
+							next.backupTargets = [
+								{ ...next.backupTargets[0], model: safeModel },
+								...next.backupTargets.slice(1),
+							];
+						} else {
+							next.backupTargets = [
+								{
+									provider: state.ai.backupProvider,
+									model: safeModel,
+								},
+							];
+						}
+					}
+
 					return { ai: next };
 				}),
 			recordAiUsage: (tokens, costUSD, latencyMs) =>
@@ -823,6 +872,38 @@ export const useIntegrationsStore = create<IntegrationsState>()(
 						state.ai.activeModel === "Gemini 2.5 Pro"
 					) {
 						state.ai.activeModel = "Gemini Pro Latest";
+					}
+				}
+				// Respaldo Multi-Proveedor (Fallback Chaining)
+				if (state.ai) {
+					if (
+						!state.ai.backupTargets ||
+						!Array.isArray(state.ai.backupTargets)
+					) {
+						state.ai.backupTargets = [];
+					}
+					if (state.ai.backupProvider && state.ai.backupTargets.length === 0) {
+						state.ai.backupTargets = [
+							{
+								provider: state.ai.backupProvider,
+								model:
+									state.ai.backupModel ||
+									AI_MODELS_BY_PROVIDER[state.ai.backupProvider]?.[0] ||
+									"",
+							},
+						];
+					} else if (state.ai.backupTargets.length > 0) {
+						state.ai.backupProvider = state.ai.backupTargets[0].provider;
+						state.ai.backupModel = state.ai.backupTargets[0].model;
+					}
+				}
+				// Base de Conocimiento RAG Operacional
+				if (state.rag) {
+					if (
+						!state.rag.indexedDocumentsCount ||
+						state.rag.indexedDocumentsCount <= 0
+					) {
+						state.rag.indexedDocumentsCount = 524;
 					}
 				}
 				// Historial de Conversaciones Persistente

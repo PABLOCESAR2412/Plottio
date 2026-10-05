@@ -146,7 +146,7 @@ describe("Tarea 24 (P1 - Fase 4): Analíticas y Configuración — Datos Reales 
 			]);
 		});
 
-		it("Opencode Zen: consulta endpoint oficial y devuelve modelos disponibles o fallback", async () => {
+		it("Opencode Zen: consulta endpoint oficial canónico https://opencode.ai/zen/v1/models y devuelve modelos", async () => {
 			const mockFetch = vi.fn().mockResolvedValue({
 				ok: true,
 				json: async () => ({
@@ -160,11 +160,31 @@ describe("Tarea 24 (P1 - Fase 4): Analíticas y Configuración — Datos Reales 
 			globalThis.fetch = mockFetch;
 
 			const models = await fetchAvailableModels("opencode_zen", "zen_secret_key");
+			expect(mockFetch).toHaveBeenCalledWith(
+				"https://opencode.ai/zen/v1/models",
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						Authorization: "Bearer zen_secret_key",
+					}),
+				}),
+			);
 			expect(models).toEqual([
 				"DeepSeek R1",
 				"DeepSeek V3",
 				"Qwen 2.5 Coder 32B",
 			]);
+		});
+
+		it("Opencode Zen: ante error de red, fallo DNS (ERR_NAME_NOT_RESOLVED) o CORS, retorna inmediatamente fallback oficial", async () => {
+			const mockFetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch: net::ERR_NAME_NOT_RESOLVED"));
+			globalThis.fetch = mockFetch;
+
+			const models = await fetchAvailableModels("opencode_zen", "zen_key_dns_fail");
+			expect(mockFetch).toHaveBeenCalledWith(
+				"https://opencode.ai/zen/v1/models",
+				expect.any(Object),
+			);
+			expect(models).toEqual(AI_MODELS_BY_PROVIDER.opencode_zen);
 		});
 
 		it("Nvidia NIM: consulta endpoint de integración y extrae catálogo acelerado", async () => {

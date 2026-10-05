@@ -69,7 +69,13 @@ type ReportRow = {
 	sucursalId?: string | null;
 };
 
-export const ConfiguracionView: React.FC = () => {
+export interface ConfiguracionViewProps {
+	onNavigate?: (tab: any) => void;
+}
+
+export const ConfiguracionView: React.FC<ConfiguracionViewProps> = ({
+	onNavigate,
+}) => {
 	const currentUser = useSessionStore((s) => s.currentUser);
 	const theme = useSessionStore((s) => s.theme);
 	const toggleTheme = useSessionStore((s) => s.toggleTheme);
@@ -601,7 +607,13 @@ export const ConfiguracionView: React.FC = () => {
 								</span>
 								<button
 									type="button"
-									onClick={() => setIsPlottioAsistenteModalOpen(true)}
+									onClick={() => {
+										if (onNavigate) {
+											onNavigate("asistente");
+										} else {
+											setIsPlottioAsistenteModalOpen(true);
+										}
+									}}
 									className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer shadow-xs"
 								>
 									Abrir Asistente

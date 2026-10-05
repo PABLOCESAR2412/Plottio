@@ -672,6 +672,11 @@ export interface LiveAgentOptions {
 	backupProvider?: AiProvider | null;
 	backupModel?: string | null;
 	backupApiKey?: string;
+	backupTargets?: Array<{
+		provider: AiProvider;
+		model: string;
+		apiKey?: string;
+	}>;
 }
 
 interface ProviderCallResult {
@@ -989,7 +994,7 @@ async function invokeProvider(
 	}
 	if (prov === "opencode_zen") {
 		return callOpenAiCompatibleProvider(
-			"https://api.opencodezen.com/v1/chat/completions",
+			"https://opencode.ai/zen/v1/chat/completions",
 			apiKey,
 			model || "deepseek-ai/deepseek-v3",
 			"opencode_zen",
@@ -1059,10 +1064,30 @@ export async function executeLiveBusinessAgent(
 		businessData: options.businessData,
 	});
 
-	// Si no hay API Key activa para el primario ni para el respaldo, retornar baseExecution
+	// Normalizar lista de objetivos de respaldo para conmutación encadenada
+	const configuredBackupTargets: Array<{
+		provider: AiProvider;
+		model: string;
+		apiKey?: string;
+	}> =
+		options.backupTargets && options.backupTargets.length > 0
+			? options.backupTargets
+			: options.backupProvider
+				? [
+						{
+							provider: options.backupProvider,
+							model: options.backupModel || "",
+							apiKey: options.backupApiKey,
+						},
+					]
+				: [];
+
+	// Si no hay API Key activa para el primario ni para ningún respaldo, retornar baseExecution
 	const primaryApiKey = options.apiKey?.trim() || "";
-	const backupApiKey = options.backupApiKey?.trim() || "";
-	if (!primaryApiKey && !backupApiKey) {
+	const hasAnyBackupApiKey = configuredBackupTargets.some((t) =>
+		Boolean(t.apiKey?.trim()),
+	);
+	if (!primaryApiKey && !hasAnyBackupApiKey) {
 		return baseExecution;
 	}
 
@@ -1189,7 +1214,7 @@ export async function executeLiveBusinessAgent(
 
 		if (primaryApiKey) {
 			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 10000);
+			const timeoutId = setTimeout(() => controller.abort(), 4500);
 			try {
 				primaryResult = await invokeProvider(
 					provider,
@@ -1215,43 +1240,59 @@ export async function executeLiveBusinessAgent(
 		if (primaryResult.ok && primaryResult.text) {
 			liveText = primaryResult.text;
 		} else {
-			// Falla el proveedor principal. Intentar conmutación a respaldo si está configurado
-			const backupProv = options.backupProvider?.toLowerCase();
+			// Falla el proveedor principal. Intentar conmutación ordenada a través de la cadena de respaldos
 			let backupSuccess = false;
+			const primaryName = getProviderDisplayName(provider);
 
-			if (backupProv && backupApiKey && backupProv !== provider) {
+			for (let idx = 0; idx < configuredBackupTargets.length; idx++) {
+				const target = configuredBackupTargets[idx];
+				const targetProv = target.provider.toLowerCase();
+				const targetApiKey = target.apiKey?.trim();
+
+				// Evitar re-intentar sobre el mismo proveedor principal o si no tiene API key activa
+				if (!targetApiKey || targetProv === provider) {
+					continue;
+				}
+
 				const backupController = new AbortController();
 				const backupTimeoutId = setTimeout(
 					() => backupController.abort(),
-					10000,
+					4000,
 				);
+
 				try {
 					const backupRes = await invokeProvider(
-						backupProv,
-						backupApiKey,
-						options.backupModel || undefined,
+						targetProv,
+						targetApiKey,
+						target.model || undefined,
 						query,
 						combinedContext,
 						options.temperature ?? 0.2,
 						backupController.signal,
 					);
+
 					if (backupRes.ok && backupRes.text) {
 						backupSuccess = true;
-						const primaryName = getProviderDisplayName(provider);
-						const backupName = getProviderDisplayName(backupProv);
+						const backupName = getProviderDisplayName(targetProv);
 						liveText = `(Aviso: Respuesta generada por el proveedor de respaldo ${backupName} debido a congestión temporal en ${primaryName}.)\n\n${backupRes.text}`;
-						executedModel = options.backupModel || backupRes.model;
-						executedProvider = `${backupName} (Respaldo por falla en ${primaryName})`;
+						executedModel = target.model || backupRes.model;
+						executedProvider =
+							idx === 0
+								? `${backupName} (Respaldo por falla en ${primaryName})`
+								: `${backupName} (Respaldo #${idx + 1} por falla en ${primaryName})`;
 						promptTokens = backupRes.promptTokens;
 						completionTokens = backupRes.completionTokens;
 						totalTokens = backupRes.totalTokens;
+						break; // Conmutación exitosa, romper cadena de fallos
 					}
+				} catch {
+					// Falló este escalón de respaldo, continuar con el siguiente
 				} finally {
 					clearTimeout(backupTimeoutId);
 				}
 			}
 
-			// Si no hubo respaldo o falló el de respaldo:
+			// Si no hubo respaldo o fallaron todos los de la cadena:
 			if (!backupSuccess) {
 				if (
 					(provider === "google" || provider === "gemini") &&

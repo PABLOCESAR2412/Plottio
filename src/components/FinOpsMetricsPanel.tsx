@@ -1,5 +1,7 @@
 import {
 	Activity,
+	ArrowDown,
+	ArrowUp,
 	BookOpen,
 	Calendar,
 	Check,
@@ -10,11 +12,14 @@ import {
 	EyeOff,
 	Gauge,
 	Key,
+	Layers,
 	Lock,
+	Plus,
 	Save,
 	Server,
 	ShieldAlert,
 	Sparkles,
+	Trash2,
 	Zap,
 } from "lucide-react";
 import type React from "react";
@@ -24,6 +29,7 @@ import {
 	AI_MODELS_BY_PROVIDER,
 	type AiProvider,
 	type AiTimeFilter,
+	type BackupTarget,
 	useIntegrationsStore,
 } from "../store/useIntegrationsStore";
 
@@ -66,13 +72,28 @@ export const FinOpsMetricsPanel: React.FC = () => {
 		null,
 	);
 
-	// Respaldo Multi-Proveedor (Fallback)
-	const [backupProvider, setBackupProvider] = useState<AiProvider | null>(
-		ai.backupProvider || null,
-	);
-	const [backupModel, setBackupModel] = useState<string | null>(
-		ai.backupModel || null,
-	);
+	// Respaldo Multi-Proveedor (Fallback Chaining)
+	const [backupTargets, setBackupTargets] = useState<BackupTarget[]>(() => {
+		if (ai.backupTargets && ai.backupTargets.length > 0) {
+			return ai.backupTargets;
+		}
+		if (ai.backupProvider) {
+			return [
+				{
+					provider: ai.backupProvider,
+					model:
+						ai.backupModel ||
+						AI_MODELS_BY_PROVIDER[ai.backupProvider]?.[0] ||
+						"",
+				},
+			];
+		}
+		return [];
+	});
+
+	const firstBackupTarget = backupTargets[0] || null;
+	const backupProvider = firstBackupTarget?.provider || null;
+	const backupModel = firstBackupTarget?.model || null;
 
 	const [budgetUSD, setBudgetUSD] = useState(ai.monthlyBudgetUSD);
 	const [showApiKey, setShowApiKey] = useState(false);
@@ -150,13 +171,65 @@ export const FinOpsMetricsPanel: React.FC = () => {
 	) => {
 		const val = e.target.value;
 		if (!val || val === "none") {
-			setBackupProvider(null);
-			setBackupModel(null);
+			setBackupTargets([]);
 		} else {
 			const prov = val as AiProvider;
-			setBackupProvider(prov);
 			const models = AI_MODELS_BY_PROVIDER[prov] || [];
-			setBackupModel(models[0] || null);
+			const defaultModel = models[0] || "";
+			setBackupTargets((prev) => {
+				const filtered = prev.filter((t) => t.provider !== prov);
+				return [{ provider: prov, model: defaultModel }, ...filtered];
+			});
+		}
+	};
+
+	const handleAddBackupTarget = (prov: AiProvider) => {
+		if (backupTargets.some((t) => t.provider === prov)) return;
+		const defaultModel = AI_MODELS_BY_PROVIDER[prov]?.[0] || "";
+		setBackupTargets((prev) => [
+			...prev,
+			{ provider: prov, model: defaultModel },
+		]);
+	};
+
+	const handleRemoveBackupTarget = (prov: AiProvider) => {
+		setBackupTargets((prev) => prev.filter((t) => t.provider !== prov));
+	};
+
+	const handleMoveBackupTarget = (index: number, direction: "up" | "down") => {
+		setBackupTargets((prev) => {
+			const targetIndex = direction === "up" ? index - 1 : index + 1;
+			if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+			const nextList = [...prev];
+			const temp = nextList[index];
+			nextList[index] = nextList[targetIndex];
+			nextList[targetIndex] = temp;
+			return nextList;
+		});
+	};
+
+	const handleUpdateTargetModel = (index: number, newModel: string) => {
+		setBackupTargets((prev) => {
+			const nextList = [...prev];
+			if (nextList[index]) {
+				nextList[index] = { ...nextList[index], model: newModel };
+			}
+			return nextList;
+		});
+	};
+
+	const getProviderDisplayName = (prov: AiProvider) => {
+		switch (prov) {
+			case "google":
+				return "Google Gemini";
+			case "groq":
+				return "Groq Cloud";
+			case "opencode_zen":
+				return "Opencode Zen";
+			case "nvidia":
+				return "Nvidia NIM";
+			default:
+				return prov;
 		}
 	};
 
@@ -197,10 +270,8 @@ export const FinOpsMetricsPanel: React.FC = () => {
 		if (!providerModels.includes(activeModel)) {
 			setActiveModel(providerModels[0] || "");
 		}
-		if (backupProvider === newProvider) {
-			setBackupProvider(null);
-			setBackupModel(null);
-		}
+		// Si el nuevo proveedor principal estaba en la cadena de respaldos, removerlo
+		setBackupTargets((prev) => prev.filter((t) => t.provider !== newProvider));
 		const keyForProv =
 			newProvider === "google"
 				? googleApiKey
@@ -251,6 +322,9 @@ export const FinOpsMetricsPanel: React.FC = () => {
 	// Guardar configuración
 	const handleSave = (e: React.FormEvent) => {
 		e.preventDefault();
+		const validBackupTargets = backupTargets.filter(
+			(t) => t.provider !== selectedProvider,
+		);
 		updateAiConfig({
 			provider: selectedProvider,
 			googleApiKey,
@@ -260,8 +334,9 @@ export const FinOpsMetricsPanel: React.FC = () => {
 			geminiApiKey: googleApiKey,
 			activeModel,
 			monthlyBudgetUSD: Number(budgetUSD),
-			backupProvider: backupProvider || null,
-			backupModel: backupModel || null,
+			backupTargets: validBackupTargets,
+			backupProvider: validBackupTargets[0]?.provider || null,
+			backupModel: validBackupTargets[0]?.model || null,
 		});
 		setSavedNotification(true);
 		setTimeout(() => setSavedNotification(false), 2500);
@@ -1023,7 +1098,7 @@ export const FinOpsMetricsPanel: React.FC = () => {
 					</div>
 
 					{/* Sección / Card: Respaldo de Inferencia (Fallback Multi-Proveedor) */}
-					<div className="rounded-xl border border-border bg-secondary/15 p-4 space-y-3.5">
+					<div className="rounded-xl border border-border bg-secondary/15 p-4 space-y-4">
 						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 							<div className="space-y-0.5">
 								<h4 className="text-xs font-bold text-foreground flex items-center gap-2">
@@ -1031,14 +1106,16 @@ export const FinOpsMetricsPanel: React.FC = () => {
 									<span>Respaldo de Inferencia (Fallback Multi-Proveedor)</span>
 								</h4>
 								<p className="text-[11px] text-muted-foreground">
-									Conmutación automática hacia un segundo proveedor ante fallos
-									o demoras en el proveedor principal.
+									Conmutación automática ordenada hacia múltiples proveedores de
+									respaldo ante fallos o demoras en el proveedor principal.
 								</p>
 							</div>
-							{backupProvider && (
+							{backupTargets.length > 0 && (
 								<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30 self-start sm:self-auto">
 									<span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-									Respaldo Configurado
+									{backupTargets.length === 1
+										? "1 Respaldo Configurado"
+										: `${backupTargets.length} Respaldos en Cadena`}
 								</span>
 							)}
 						</div>
@@ -1058,64 +1135,204 @@ export const FinOpsMetricsPanel: React.FC = () => {
 								Google).
 							</div>
 						) : (
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-								{/* Selector Proveedor de Respaldo */}
-								<div>
-									<label
-										htmlFor="backup-provider-select"
-										className="block text-xs font-semibold text-muted-foreground mb-1.5"
-									>
-										Proveedor de Respaldo
-									</label>
-									<select
-										id="backup-provider-select"
-										value={backupProvider || ""}
-										onChange={handleBackupProviderChange}
-										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
-									>
-										<option value="">
-											Sin respaldo (Solo proveedor principal)
-										</option>
-										{eligibleBackupProviders.map((bp) => (
-											<option key={bp} value={bp}>
-												{bp === "google" && "Google Gemini (API Key activa)"}
-												{bp === "groq" && "Groq Cloud (API Key activa)"}
-												{bp === "opencode_zen" &&
-													"Opencode Zen (API Key activa)"}
-												{bp === "nvidia" && "Nvidia NIM (API Key activa)"}
-											</option>
-										))}
-									</select>
-									<p className="text-[10px] text-muted-foreground mt-1">
-										Solo disponible para proveedores con clave API ingresada.
-									</p>
-								</div>
-
-								{/* Selector Modelo de Respaldo */}
-								{backupProvider && (
+							<div className="space-y-4 pt-1">
+								{/* Selector Primario de Respaldo (compatibilidad directa e inicialización rápida) */}
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<div>
 										<label
-											htmlFor="backup-model-select"
+											htmlFor="backup-provider-select"
 											className="block text-xs font-semibold text-muted-foreground mb-1.5"
 										>
-											Modelo de Respaldo ({backupProvider.toUpperCase()})
+											Proveedor de Respaldo
 										</label>
 										<select
-											id="backup-model-select"
-											value={backupModel || ""}
-											onChange={(e) => setBackupModel(e.target.value)}
+											id="backup-provider-select"
+											value={backupProvider || ""}
+											onChange={handleBackupProviderChange}
 											className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
 										>
-											{backupAvailableModels.map((m) => (
-												<option key={m} value={m}>
-													{m}
+											<option value="">
+												Sin respaldo (Solo proveedor principal)
+											</option>
+											{eligibleBackupProviders.map((bp) => (
+												<option key={bp} value={bp}>
+													{bp === "google" && "Google Gemini (API Key activa)"}
+													{bp === "groq" && "Groq Cloud (API Key activa)"}
+													{bp === "opencode_zen" &&
+														"Opencode Zen (API Key activa)"}
+													{bp === "nvidia" && "Nvidia NIM (API Key activa)"}
 												</option>
 											))}
 										</select>
 										<p className="text-[10px] text-muted-foreground mt-1">
-											Modelo recomendado por costo y velocidad para inferencia
-											de respaldo.
+											Establece el primer escalón de contingencia para
+											inferencias.
 										</p>
+									</div>
+
+									{backupProvider && (
+										<div>
+											<label
+												htmlFor="backup-model-select"
+												className="block text-xs font-semibold text-muted-foreground mb-1.5"
+											>
+												Modelo de Respaldo ({backupProvider.toUpperCase()})
+											</label>
+											<select
+												id="backup-model-select"
+												value={backupModel || ""}
+												onChange={(e) =>
+													handleUpdateTargetModel(0, e.target.value)
+												}
+												className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+											>
+												{backupAvailableModels.map((m) => (
+													<option key={m} value={m}>
+														{m}
+													</option>
+												))}
+											</select>
+											<p className="text-[10px] text-muted-foreground mt-1">
+												Modelo recomendado por costo y velocidad para inferencia
+												de respaldo.
+											</p>
+										</div>
+									)}
+								</div>
+
+								{/* Resumen textual claro de la Cadena de Respaldo Activa */}
+								<div className="p-3 rounded-lg border border-border bg-card/60 text-xs font-mono">
+									<div className="flex items-start gap-1.5">
+										<Layers className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+										<div className="text-[11px] text-muted-foreground break-words">
+											<strong className="text-foreground">
+												Cadena de Respaldo Activa:{" "}
+											</strong>
+											{backupTargets.length > 0
+												? backupTargets
+														.map(
+															(t) =>
+																`${getProviderDisplayName(t.provider)} (${t.model})`,
+														)
+														.join(" -> ")
+												: "Sin respaldos configurados (Solo proveedor principal)"}
+										</div>
+									</div>
+								</div>
+
+								{/* Cadena de Respaldos Configurados (Orden de Conmutación & Prioridades) */}
+								{backupTargets.length > 0 && (
+									<div className="space-y-2">
+										<span className="block text-xs font-semibold text-foreground">
+											Prioridad de Conmutación (Escalones de Respaldo):
+										</span>
+										<div className="space-y-2">
+											{backupTargets.map((target, idx) => {
+												const provModels =
+													AI_MODELS_BY_PROVIDER[target.provider] || [];
+												return (
+													<div
+														key={`target-${target.provider}-${target.model}`}
+														className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg border border-border bg-card shadow-xs"
+													>
+														<div className="flex items-center gap-2">
+															<span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-primary/10 text-primary border border-primary/20 shrink-0">
+																Respaldo #{idx + 1}
+															</span>
+															<span className="text-xs font-bold text-foreground">
+																{getProviderDisplayName(target.provider)}
+															</span>
+														</div>
+
+														<div className="flex flex-1 sm:max-w-md items-center gap-2">
+															<select
+																aria-label={`Modelo para Respaldo #${idx + 1} (${getProviderDisplayName(target.provider)})`}
+																value={target.model}
+																onChange={(e) =>
+																	handleUpdateTargetModel(idx, e.target.value)
+																}
+																className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-mono text-foreground focus:border-primary focus:outline-none"
+															>
+																{provModels.map((m) => (
+																	<option key={m} value={m}>
+																		{m}
+																	</option>
+																))}
+															</select>
+
+															<div className="flex items-center gap-1 shrink-0">
+																<button
+																	type="button"
+																	title="Subir prioridad"
+																	aria-label={`Subir prioridad de ${getProviderDisplayName(target.provider)}`}
+																	disabled={idx === 0}
+																	onClick={() =>
+																		handleMoveBackupTarget(idx, "up")
+																	}
+																	className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+																>
+																	<ArrowUp className="h-3.5 w-3.5" />
+																</button>
+																<button
+																	type="button"
+																	title="Bajar prioridad"
+																	aria-label={`Bajar prioridad de ${getProviderDisplayName(target.provider)}`}
+																	disabled={idx === backupTargets.length - 1}
+																	onClick={() =>
+																		handleMoveBackupTarget(idx, "down")
+																	}
+																	className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+																>
+																	<ArrowDown className="h-3.5 w-3.5" />
+																</button>
+																<button
+																	type="button"
+																	title="Quitar respaldo"
+																	aria-label={`Quitar ${getProviderDisplayName(target.provider)} de respaldos`}
+																	onClick={() =>
+																		handleRemoveBackupTarget(target.provider)
+																	}
+																	className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer transition-colors"
+																>
+																	<Trash2 className="h-3.5 w-3.5" />
+																</button>
+															</div>
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
+
+								{/* Proveedores disponibles para sumar a la cadena */}
+								{eligibleBackupProviders.some(
+									(p) => !backupTargets.some((t) => t.provider === p),
+								) && (
+									<div className="space-y-1.5 pt-1">
+										<span className="block text-xs font-semibold text-muted-foreground">
+											Agregar otro proveedor con API Key a la cadena de
+											respaldo:
+										</span>
+										<div className="flex flex-wrap gap-2">
+											{eligibleBackupProviders
+												.filter(
+													(p) => !backupTargets.some((t) => t.provider === p),
+												)
+												.map((p) => (
+													<button
+														key={p}
+														type="button"
+														onClick={() => handleAddBackupTarget(p)}
+														className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-secondary text-xs font-medium text-foreground transition-colors cursor-pointer shadow-xs"
+													>
+														<Plus className="h-3.5 w-3.5 text-primary" />
+														<span>
+															Agregar {getProviderDisplayName(p)} a Respaldos
+														</span>
+													</button>
+												))}
+										</div>
 									</div>
 								)}
 							</div>

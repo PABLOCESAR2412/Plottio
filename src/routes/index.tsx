@@ -133,7 +133,7 @@ export function AppLayout() {
 			case "agenda":
 				return <AgendaView />;
 			case "configuracion":
-				return <ConfiguracionView />;
+				return <ConfiguracionView onNavigate={setActiveTab} />;
 			case "inventario":
 				return <InventarioView />;
 			case "catalogo":
@@ -232,11 +232,11 @@ export function AppLayout() {
 						</div>
 
 						{/* Top Right Controls */}
-						<div className="flex items-center gap-3">
+						<div className="flex items-center gap-2 sm:gap-3">
 							<button
 								type="button"
 								onClick={() => setActiveTab("asistente")}
-								className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors cursor-pointer shadow-xs ${
+								className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg border transition-colors cursor-pointer shadow-xs ${
 									activeTab === "asistente"
 										? "bg-primary text-primary-foreground border-primary"
 										: "border-border bg-background hover:bg-secondary text-xs text-muted-foreground"
@@ -244,23 +244,23 @@ export function AppLayout() {
 								title="Consultar con Plottio Asistente (Cmd+K)"
 							>
 								<Sparkles
-									className={`h-3.5 w-3.5 ${
+									className={`h-3.5 w-3.5 shrink-0 ${
 										activeTab === "asistente"
 											? "text-primary-foreground"
 											: "text-primary"
 									}`}
 								/>
 								<span
-									className={`font-semibold ${
+									className={`font-semibold text-xs truncate ${
 										activeTab === "asistente"
 											? "text-primary-foreground"
 											: "text-foreground"
 									}`}
 								>
-									Plottio Asistente
+									<span className="hidden sm:inline">Plottio </span>Asistente
 								</span>
 								<span
-									className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+									className={`hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
 										activeTab === "asistente"
 											? "bg-white/20 text-white border border-white/30"
 											: "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
@@ -270,7 +270,7 @@ export function AppLayout() {
 									RAG Operacional
 								</span>
 								<kbd
-									className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+									className={`hidden lg:inline-block px-1.5 py-0.5 rounded text-[10px] font-mono border ${
 										activeTab === "asistente"
 											? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30"
 											: "bg-secondary text-muted-foreground border-border"
@@ -288,13 +288,19 @@ export function AppLayout() {
 					</div>
 				</header>
 
-				{/* Scrollable Container spanning full width, placing scrollbar at the far right edge */}
-				<div className="flex-1 overflow-y-auto w-full overscroll-contain">
-					{/* Core Main Viewport content */}
-					<main className="p-4 sm:p-6 w-full max-w-7xl mx-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
-						<div className="animate-fade-in">{renderActiveView()}</div>
-					</main>
-				</div>
+				{/* Contenedor de Vista: Pantalla completa para Asistente, scroll estándar para otras vistas */}
+				{activeTab === "asistente" ? (
+					<div className="flex-1 flex min-w-0 h-full overflow-hidden w-full">
+						<PlottioAsistenteView onNavigate={setActiveTab} />
+					</div>
+				) : (
+					<div className="flex-1 overflow-y-auto w-full overscroll-contain">
+						{/* Core Main Viewport content */}
+						<main className="p-4 sm:p-6 w-full max-w-7xl mx-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+							<div className="animate-fade-in">{renderActiveView()}</div>
+						</main>
+					</div>
+				)}
 			</div>
 
 			{/* Global Floating Actions */}

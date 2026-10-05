@@ -396,5 +396,39 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
        - Nvidia: `Llama 3.1 Nemotron 70B (Recomendado)`.
   - **Criterios de Aceptación:** Respaldo automático a proveedor secundario ante fallos del primario; selector de respaldo limitado a proveedores con keys; catálogo curado con modelos recomendados.
 
+---
+
+## FASE 8: CORRECCIÓN OPENCODE ZEN, MULTI-RESPALDO EN CADENA, VISTA ASISTENTE FULLSCREEN Y OPTIMIZACIÓN DE RESPUESTA
+
+- [x] **Tarea 38 (P0): Corrección de Endpoints OpenCode Zen y Erradicación de ERR_NAME_NOT_RESOLVED**
+  - **Archivos:** `src/services/aiModelsDiscovery.ts`, `src/services/plottioAgent.ts`, `tests/analiticasConfig.test.ts`
+  - **Requerimiento:**
+    1. Reemplazar la URL errónea `https://api.opencodezen.com/v1/models` por el endpoint canónico oficial `https://opencode.ai/zen/v1/models`.
+    2. Reemplazar `https://api.opencodezen.com/v1/chat/completions` por `https://opencode.ai/zen/v1/chat/completions`.
+    3. En `fetchAvailableModels`, envolver la llamada en try/catch preventivo con timeout ágil (3s); si la resolución falla o hay bloqueo de CORS en el navegador, retornar de inmediato el catálogo oficial sin bucles ni errores no controlados.
+  - **Criterios de Aceptación:** Cero errores `ERR_NAME_NOT_RESOLVED` en consola al seleccionar Opencode Zen; llamadas dirigidas al endpoint oficial con fallback canónico seguro.
+
+- [x] **Tarea 39 (P0): Selección Múltiple de Respaldos (Multi-Backup Fallback Chaining)**
+  - **Archivos:** `src/store/useIntegrationsStore.ts`, `src/components/FinOpsMetricsPanel.tsx`, `src/services/plottioAgent.ts`, `src/components/PlottioAsistenteView.tsx`, `src/components/PlottioAsistenteModal.tsx`, `tests/multiProviderFallback.test.ts`
+  - **Requerimiento:**
+    1. En `useIntegrationsStore.ts`: Añadir en `ai`: `backupTargets: Array<{ provider: AiProvider; model: string }>` (manteniendo `backupProvider`/`backupModel` sincronizados al primero para retrocompatibilidad).
+    2. En `FinOpsMetricsPanel.tsx`: Permitir seleccionar y configurar MÚLTIPLES proveedores y modelos de respaldo en orden de prioridad (solo de entre los proveedores con API Key activa que no sean el principal), visualizando la cadena activa con flechas y controles para reordenar/eliminar.
+    3. En `plottioAgent.ts:executeLiveBusinessAgent`:
+       - Si el proveedor principal falla o se demora, iterar a través de la lista de `backupTargets` en orden de prioridad (ej. intentar Groq, si falla intentar Nvidia, etc.).
+       - Si cualquiera responde, retornar su respuesta con telemetría técnica clara indicando qué proveedor de respaldo atendió la consulta.
+       - Si todos los respaldos fallan, degradar de forma segura a datos locales de la base de datos sin crashear.
+  - **Criterios de Aceptación:** Posibilidad de configurar más de un respaldo; conmutación encadenada secuencial ante fallos; respuesta garantizada siempre.
+
+- [x] **Tarea 40 (P0): Layout Fullscreen para Plottio Asistente, Unificación de Historial y Optimización de Latencia/Respuestas**
+  - **Archivos:** `src/routes/index.tsx`, `src/components/PlottioAsistenteView.tsx`, `src/components/PlottioAsistenteModal.tsx`, `src/components/ConfiguracionView.tsx`, `src/services/plottioAgent.ts`, `tests/plottioAsistenteView.test.ts`
+  - **Requerimiento:**
+    1. En `src/routes/index.tsx`: cuando `activeTab === "asistente"`, desacoplar del layout común con padding y `max-w-7xl`; renderizar `PlottioAsistenteView` ocupando el 100% de la altura y anchura del viewport (`h-full w-full p-0 flex-1 overflow-hidden`), garantizando que la barra lateral de historial de conversaciones sea permanente, nítida y nunca se corte.
+    2. En `ConfiguracionView.tsx`: reconfigurar botón "Probar Asistente" para que navegue directamente a la vista del asistente (`onNavigate?.("asistente")`).
+    3. En `PlottioAsistenteModal.tsx`: sincronizar `messages` con `useIntegrationsStore` (`conversations`, `activeConversationId`) para compartir el mismo historial sin pérdidas.
+    4. Reducir timeout del proveedor principal a 4.5s para no demorar al usuario si Google o un proveedor está congestionado; conmutar de inmediato a los respaldos de alta velocidad (Groq <500ms).
+    5. Erradicar disclaimers ruidosos ("Aviso de disponibilidad: El servicio de Google AI Studio se encuentra temporalmente saturado [HTTP 503]...") del texto visible, respondiendo con un tono natural, directo, pulido y profesional basado en los datos del taller.
+  - **Criterios de Aceptación:** Vista de asistente en pantalla completa con historial lateral accesible; cero demoras iniciales; respuestas naturales, fluidas y directas sin disclaimers molestos.
+
+
 
 
