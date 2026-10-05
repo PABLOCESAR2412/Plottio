@@ -132,7 +132,9 @@ describe("Tarea 24 (P1 - Fase 4): Analíticas y Configuración — Datos Reales 
 			const models = await fetchAvailableModels("groq", "gsk_test_api_key_456");
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				"https://api.groq.com/openai/v1/models",
+				expect.stringMatching(
+					/(\/api\/groq|https:\/\/api\.groq\.com\/openai\/v1\/models)/,
+				),
 				expect.objectContaining({
 					headers: expect.objectContaining({
 						Authorization: "Bearer gsk_test_api_key_456",
@@ -161,7 +163,9 @@ describe("Tarea 24 (P1 - Fase 4): Analíticas y Configuración — Datos Reales 
 
 			const models = await fetchAvailableModels("opencode_zen", "zen_secret_key");
 			expect(mockFetch).toHaveBeenCalledWith(
-				"https://opencode.ai/zen/v1/models",
+				expect.stringMatching(
+					/(\/api\/opencode|https:\/\/opencode\.ai\/zen\/v1\/models)/,
+				),
 				expect.objectContaining({
 					headers: expect.objectContaining({
 						Authorization: "Bearer zen_secret_key",
@@ -181,7 +185,9 @@ describe("Tarea 24 (P1 - Fase 4): Analíticas y Configuración — Datos Reales 
 
 			const models = await fetchAvailableModels("opencode_zen", "zen_key_dns_fail");
 			expect(mockFetch).toHaveBeenCalledWith(
-				"https://opencode.ai/zen/v1/models",
+				expect.stringMatching(
+					/(\/api\/opencode|https:\/\/opencode\.ai\/zen\/v1\/models)/,
+				),
 				expect.any(Object),
 			);
 			expect(models).toEqual(AI_MODELS_BY_PROVIDER.opencode_zen);

@@ -1,6 +1,5 @@
-// Vercel Serverless Function Proxy para NVIDIA NIM (chat/completions y models)
-// Resuelve CORS en navegadores al consultar la API de NVIDIA desde plottio.vercel.app
-// Incluye fallback inteligente a modelos activos ante códigos 404/410 de fin de ciclo
+// Vercel Serverless Function Proxy para Groq Cloud (chat/completions y models)
+// Resuelve CORS en navegadores y reintenta con modelo garantizado ante 404/410
 
 export const CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
@@ -8,7 +7,7 @@ export const CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key",
 };
 
-const NVIDIA_FALLBACK_MODEL = "nvidia/llama-3.1-nemotron-70b-instruct";
+const GROQ_FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 async function parseResponseBody(res: Response): Promise<{ data: any; isJson: boolean }> {
 	const text = await res.text();
@@ -16,12 +15,12 @@ async function parseResponseBody(res: Response): Promise<{ data: any; isJson: bo
 		const json = JSON.parse(text);
 		return { data: json, isJson: true };
 	} catch {
-		return { data: { error: text || "Respuesta no JSON de Nvidia NIM" }, isJson: false };
+		return { data: { error: text || "Respuesta no JSON de Groq" }, isJson: false };
 	}
 }
 
-async function executeNvidiaChat(authHeader: string, bodyObj: any): Promise<{ res: Response; data: any }> {
-	let upstreamRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+async function executeGroqChat(authHeader: string, bodyObj: any): Promise<{ res: Response; data: any }> {
+	let upstreamRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -32,10 +31,10 @@ async function executeNvidiaChat(authHeader: string, bodyObj: any): Promise<{ re
 
 	let { data } = await parseResponseBody(upstreamRes);
 
-	// Si el modelo fue retirado (404 / 410) y no era ya el modelo de fallback activo, reintentar con nemotron
-	if ((upstreamRes.status === 404 || upstreamRes.status === 410) && bodyObj?.model !== NVIDIA_FALLBACK_MODEL) {
-		const retryBody = { ...bodyObj, model: NVIDIA_FALLBACK_MODEL };
-		const retryRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+	// Si el modelo fue retirado (404 / 410) y no era ya el modelo de fallback, reintentar con llama-3.1-8b-instant
+	if ((upstreamRes.status === 404 || upstreamRes.status === 410) && bodyObj?.model !== GROQ_FALLBACK_MODEL) {
+		const retryBody = { ...bodyObj, model: GROQ_FALLBACK_MODEL };
+		const retryRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -57,7 +56,7 @@ export default async function handler(
 	req: any,
 	res?: any,
 ): Promise<Response | void> {
-	// 1. Manejo para runtime Node.js en Vercel
+	// 1. Runtime Node.js en Vercel
 	if (
 		res &&
 		typeof res.setHeader === "function" &&
@@ -80,8 +79,8 @@ export default async function handler(
 
 		try {
 			if (req.method === "GET") {
-				const nvidiaRes = await fetch(
-					"https://integrate.api.nvidia.com/v1/models",
+				const upstreamRes = await fetch(
+					"https://api.groq.com/openai/v1/models",
 					{
 						method: "GET",
 						headers: {
@@ -90,14 +89,14 @@ export default async function handler(
 						},
 					},
 				);
-				const { data } = await parseResponseBody(nvidiaRes);
-				return res.status(nvidiaRes.status).json(data);
+				const { data } = await parseResponseBody(upstreamRes);
+				return res.status(upstreamRes.status).json(data);
 			}
 
 			if (req.method === "POST") {
 				const bodyObj = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-				const { res: nvidiaRes, data } = await executeNvidiaChat(authHeader, bodyObj);
-				return res.status(nvidiaRes.status).json(data);
+				const { res: groqRes, data } = await executeGroqChat(authHeader, bodyObj);
+				return res.status(groqRes.status).json(data);
 			}
 
 			return res
@@ -105,13 +104,13 @@ export default async function handler(
 				.json({ error: "Method not allowed. Use GET or POST." });
 		} catch (err: any) {
 			return res.status(502).json({
-				error: "Failed to connect to Nvidia NIM",
+				error: "Failed to connect to Groq Cloud upstream",
 				detail: err?.message || String(err),
 			});
 		}
 	}
 
-	// 2. Manejo para runtime Web Standard / Fetch API
+	// 2. Runtime Web Standard / Fetch API
 	const method = req?.method || "GET";
 
 	if (method === "OPTIONS") {
@@ -135,8 +134,8 @@ export default async function handler(
 
 	try {
 		if (method === "GET") {
-			const nvidiaRes = await fetch(
-				"https://integrate.api.nvidia.com/v1/models",
+			const upstreamRes = await fetch(
+				"https://api.groq.com/openai/v1/models",
 				{
 					method: "GET",
 					headers: {
@@ -145,9 +144,9 @@ export default async function handler(
 					},
 				},
 			);
-			const { data } = await parseResponseBody(nvidiaRes);
+			const { data } = await parseResponseBody(upstreamRes);
 			return new Response(JSON.stringify(data), {
-				status: nvidiaRes.status,
+				status: upstreamRes.status,
 				headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
 			});
 		}
@@ -160,9 +159,9 @@ export default async function handler(
 				bodyData = {};
 			}
 
-			const { res: nvidiaRes, data } = await executeNvidiaChat(authHeader, bodyData);
+			const { res: groqRes, data } = await executeGroqChat(authHeader, bodyData);
 			return new Response(JSON.stringify(data), {
-				status: nvidiaRes.status,
+				status: groqRes.status,
 				headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
 			});
 		}
@@ -174,7 +173,7 @@ export default async function handler(
 	} catch (err: any) {
 		return new Response(
 			JSON.stringify({
-				error: "Failed to connect to Nvidia NIM",
+				error: "Failed to connect to Groq Cloud upstream",
 				detail: err?.message || String(err),
 			}),
 			{

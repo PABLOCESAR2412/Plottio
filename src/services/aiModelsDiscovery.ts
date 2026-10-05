@@ -60,33 +60,46 @@ export async function fetchAvailableModels(
 		}
 
 		if (provider === "groq") {
-			const res = await fetch("https://api.groq.com/openai/v1/models", {
-				signal: controller.signal,
-				headers: {
-					Authorization: `Bearer ${trimmedKey}`,
-					"Content-Type": "application/json",
-				},
-			});
-			clearTimeout(timer);
-			if (!res.ok) return fallbackModels;
+			try {
+				const endpoint =
+					typeof window !== "undefined" && window.location?.origin
+						? "/api/groq"
+						: "https://api.groq.com/openai/v1/models";
+				const res = await fetch(endpoint, {
+					signal: controller.signal,
+					headers: {
+						Authorization: `Bearer ${trimmedKey}`,
+						"Content-Type": "application/json",
+					},
+				});
+				clearTimeout(timer);
+				if (!res.ok) return fallbackModels;
 
-			const data = (await res.json()) as {
-				data?: Array<{ id?: string; active?: boolean }>;
-			};
+				const data = (await res.json()) as {
+					data?: Array<{ id?: string; active?: boolean }>;
+				};
 
-			if (data && Array.isArray(data.data)) {
-				const models = data.data
-					.filter((m) => m.active !== false && Boolean(m.id))
-					.map((m) => m.id as string);
+				if (data && Array.isArray(data.data)) {
+					const models = data.data
+						.filter((m) => m.active !== false && Boolean(m.id))
+						.map((m) => m.id as string);
 
-				return models.length > 0 ? models : fallbackModels;
+					return models.length > 0 ? models : fallbackModels;
+				}
+				return fallbackModels;
+			} catch {
+				clearTimeout(timer);
+				return fallbackModels;
 			}
-			return fallbackModels;
 		}
 
 		if (provider === "opencode_zen") {
 			try {
-				const res = await fetch("https://opencode.ai/zen/v1/models", {
+				const endpoint =
+					typeof window !== "undefined" && window.location?.origin
+						? "/api/opencode"
+						: "https://opencode.ai/zen/v1/models";
+				const res = await fetch(endpoint, {
 					signal: controller.signal,
 					headers: {
 						Authorization: `Bearer ${trimmedKey}`,

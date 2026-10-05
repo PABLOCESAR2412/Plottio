@@ -429,6 +429,16 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     5. Erradicar disclaimers ruidosos ("Aviso de disponibilidad: El servicio de Google AI Studio se encuentra temporalmente saturado [HTTP 503]...") del texto visible, respondiendo con un tono natural, directo, pulido y profesional basado en los datos del taller.
   - **Criterios de Aceptación:** Vista de asistente en pantalla completa con historial lateral accesible; cero demoras iniciales; respuestas naturales, fluidas y directas sin disclaimers molestos.
 
+- [x] **Tarea 41 (P0): Proxies Serverless de IA (Opencode Zen, Groq, Nvidia), Eliminación Total de CORS y Auto-Fallback ante 404/410**
+  - **Archivos:** `api/opencode.ts`, `api/groq.ts`, `api/nvidia.ts`, `src/services/aiModelsDiscovery.ts`, `src/services/plottioAgent.ts`, `tests/aiProxiesAndFallback.test.ts`
+  - **Requerimiento:**
+    1. Crear `api/opencode.ts` (Vercel Serverless Function proxy) con cabeceras CORS para rutear peticiones de OpenCode Zen eliminando bloqueos de CORS en el navegador.
+    2. Crear `api/groq.ts` (Vercel Serverless Function proxy) con reintento automático ante HTTP 404/410 (modelos retirados como `llama-3.3-70b-versatile` o `mixtral`), conmutando en caliente a `llama-3.1-8b-instant`.
+    3. Actualizar `api/nvidia.ts` con parseo seguro de respuestas (evitar caídas por texto plano) y reintento automático con `nvidia/llama-3.1-nemotron-70b-instruct` activo si el upstream devuelve 404 o 410.
+    4. En `src/services/plottioAgent.ts` y `src/services/aiModelsDiscovery.ts`, enrutar llamadas en navegador a través de `/api/groq`, `/api/opencode` y `/api/nvidia`, con doble capa de reintento de modelo en cliente si un proveedor devuelve 404.
+    5. Pruebas unitarias completas pasando con 100% de éxito.
+  - **Criterios de Aceptación:** Cero errores CORS en OpenCode Zen; cero 404 en Groq y Nvidia; respuesta resiliente garantizada.
+
 
 
 

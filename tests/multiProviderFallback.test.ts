@@ -471,7 +471,9 @@ describe("Tarea 37 (P1 - Fase 7): Respaldo Multi-Proveedor (Fallback Chaining) y
 			});
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				"https://opencode.ai/zen/v1/chat/completions",
+				expect.stringMatching(
+					/(\/api\/opencode|https:\/\/opencode\.ai\/zen\/v1\/chat\/completions)/,
+				),
 				expect.objectContaining({
 					method: "POST",
 					headers: expect.objectContaining({

@@ -778,20 +778,24 @@ function normalizeModelName(
 	}
 	if (provider === "groq") {
 		if (
-			modelLower.includes("3.3") ||
-			modelLower.includes("versatile") ||
-			modelLower.includes("70b")
-		)
-			return "llama-3.3-70b-versatile";
-		if (
 			modelLower.includes("3.1") ||
 			modelLower.includes("instant") ||
 			modelLower.includes("8b")
 		)
 			return "llama-3.1-8b-instant";
+		if (
+			modelLower.includes("3.3") ||
+			modelLower.includes("versatile") ||
+			modelLower.includes("70b")
+		)
+			return "llama-3.3-70b-versatile";
+		if (modelLower.includes("120b")) return "openai/gpt-oss-120b";
+		if (modelLower.includes("20b")) return "openai/gpt-oss-20b";
+		if (modelLower.includes("qwen") || modelLower.includes("27b"))
+			return "qwen/qwen3.8-27b";
 		if (modelLower.includes("mixtral") || modelLower.includes("8x7b"))
-			return "mixtral-8x7b-32768";
-		return "llama-3.3-70b-versatile";
+			return "llama-3.1-8b-instant";
+		return "llama-3.1-8b-instant";
 	}
 	if (provider === "opencode_zen") {
 		if (modelLower.includes("deepseek") || modelLower.includes("v3"))
@@ -805,18 +809,15 @@ function normalizeModelName(
 		return "deepseek-ai/deepseek-v3";
 	}
 	if (provider === "nvidia") {
+		if (modelLower.includes("mistral") || modelLower.includes("large"))
+			return "mistralai/mistral-large-2-instruct";
+		if (modelLower.includes("340b")) return "nvidia/nemotron-4-340b-instruct";
 		if (
 			modelLower.includes("nemotron") ||
 			modelLower.includes("llama") ||
 			modelLower.includes("70b")
 		)
 			return "nvidia/llama-3.1-nemotron-70b-instruct";
-		if (
-			modelLower.includes("mistral") ||
-			modelLower.includes("nemo") ||
-			modelLower.includes("12b")
-		)
-			return "mistralai/mistral-nemo-12b-instruct";
 		return "nvidia/llama-3.1-nemotron-70b-instruct";
 	}
 	return rawModel || "";
@@ -962,20 +963,20 @@ async function callOpenAiCompatibleProvider(
 	temperature: number,
 	signal: AbortSignal,
 ): Promise<ProviderCallResult> {
-	const modelName = normalizeModelName(rawModel, providerKey);
+	let modelName = normalizeModelName(rawModel, providerKey);
 	let res: Response | null = null;
 	let networkError = false;
 	let lastStatus: number | null = null;
 
-	try {
-		res = await fetch(endpoint, {
+	const sendReq = async (targetEndpoint: string, targetModel: string) => {
+		return fetch(targetEndpoint, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				Authorization: `Bearer ${apiKey}`,
 			},
 			body: JSON.stringify({
-				model: modelName,
+				model: targetModel,
 				messages: [
 					{ role: "system", content: combinedContext },
 					{ role: "user", content: query },
@@ -984,9 +985,40 @@ async function callOpenAiCompatibleProvider(
 			}),
 			signal,
 		});
+	};
+
+	try {
+		res = await sendReq(endpoint, modelName);
 		lastStatus = res.status;
 	} catch (_err) {
 		networkError = true;
+	}
+
+	// Si dio 404 o 410 (modelo no disponible o retirado), reintentar automáticamente con el modelo activo garantizado
+	if (res && (res.status === 404 || res.status === 410)) {
+		let fallbackModel: string | null = null;
+		if (providerKey === "groq" && modelName !== "llama-3.1-8b-instant") {
+			fallbackModel = "llama-3.1-8b-instant";
+		} else if (
+			providerKey === "nvidia" &&
+			modelName !== "nvidia/llama-3.1-nemotron-70b-instruct"
+		) {
+			fallbackModel = "nvidia/llama-3.1-nemotron-70b-instruct";
+		}
+
+		if (fallbackModel) {
+			try {
+				const retryRes = await sendReq(endpoint, fallbackModel);
+				lastStatus = retryRes.status;
+				if (retryRes.ok) {
+					res = retryRes;
+					modelName = fallbackModel;
+					networkError = false;
+				}
+			} catch {
+				// mantener estado previo
+			}
+		}
 	}
 
 	if (res?.ok) {
@@ -1050,10 +1082,14 @@ async function invokeProvider(
 		);
 	}
 	if (prov === "groq") {
+		const endpoint =
+			typeof window !== "undefined" && window.location?.origin
+				? "/api/groq"
+				: "https://api.groq.com/openai/v1/chat/completions";
 		return callOpenAiCompatibleProvider(
-			"https://api.groq.com/openai/v1/chat/completions",
+			endpoint,
 			apiKey,
-			model || "llama-3.3-70b-versatile",
+			model || "llama-3.1-8b-instant",
 			"groq",
 			"Groq Cloud",
 			query,
@@ -1063,8 +1099,12 @@ async function invokeProvider(
 		);
 	}
 	if (prov === "opencode_zen") {
+		const endpoint =
+			typeof window !== "undefined" && window.location?.origin
+				? "/api/opencode"
+				: "https://opencode.ai/zen/v1/chat/completions";
 		return callOpenAiCompatibleProvider(
-			"https://opencode.ai/zen/v1/chat/completions",
+			endpoint,
 			apiKey,
 			model || "deepseek-ai/deepseek-v3",
 			"opencode_zen",
