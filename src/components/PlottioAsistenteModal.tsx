@@ -9,6 +9,8 @@ import {
 	Coins,
 	Command,
 	Layers,
+	Mic,
+	MicOff,
 	RefreshCw,
 	Save,
 	Send,
@@ -159,6 +161,49 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	const [collapsedTelemetry, setCollapsedTelemetry] = useState<
 		Record<string, boolean>
 	>({});
+
+	// Control de dictado de instrucciones por voz (Web Speech API)
+	const [isListening, setIsListening] = useState(false);
+	const recognitionRef = useRef<any>(null);
+
+	const toggleListening = () => {
+		if (isListening) {
+			recognitionRef.current?.stop();
+			setIsListening(false);
+			return;
+		}
+
+		const SpeechRecognition =
+			(window as any).SpeechRecognition ||
+			(window as any).webkitSpeechRecognition;
+
+		if (!SpeechRecognition) {
+			alert("El reconocimiento de voz no está soportado en este navegador.");
+			return;
+		}
+
+		try {
+			const recognition = new SpeechRecognition();
+			recognition.lang = "es-EC";
+			recognition.interimResults = false;
+			recognition.maxAlternatives = 1;
+
+			recognition.onstart = () => setIsListening(true);
+			recognition.onresult = (event: any) => {
+				const transcript = event.results[0]?.[0]?.transcript;
+				if (transcript) {
+					setQuery((prev) => (prev ? `${prev} ${transcript}` : transcript));
+				}
+			};
+			recognition.onerror = () => setIsListening(false);
+			recognition.onend = () => setIsListening(false);
+
+			recognitionRef.current = recognition;
+			recognition.start();
+		} catch {
+			setIsListening(false);
+		}
+	};
 
 	const toggleTelemetry = (msgId: string) => {
 		setCollapsedTelemetry((prev) => ({
@@ -1000,29 +1045,30 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 							</div>
 						</div>
 
-						{/* Carrusel / Barra de sugerencias rápidas */}
-						{rag.indexedDocumentsCount > 0 && (
-							<div className="px-4 py-2 bg-muted/20 border-t border-border/60 flex items-center gap-2 overflow-x-auto text-[11px] shrink-0">
-								<span className="text-muted-foreground font-semibold shrink-0 text-xs">
-									Sugerencias:
-								</span>
-								{QUICK_SUGGESTIONS.map((s) => (
-									<button
-										key={s.label}
-										type="button"
-										onClick={() => handleSelectSuggestion(s.prompt)}
-										className={`px-3 py-1 rounded-full border text-xs font-medium shrink-0 transition-all cursor-pointer shadow-2xs active:scale-95 ${
-											s.isSecurity
-												? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
-												: "border-border/80 bg-background hover:bg-muted text-foreground"
-										}`}
-										title={s.prompt}
-									>
-										{s.label}
-									</button>
-								))}
-							</div>
-						)}
+						{/* Carrusel / Barra de sugerencias rápidas: se oculta tras el primer mensaje del usuario */}
+						{rag.indexedDocumentsCount > 0 &&
+							messages.filter((m) => m.role === "user").length === 0 && (
+								<div className="px-4 py-2 bg-muted/20 border-t border-border/60 flex items-center gap-2 overflow-x-auto text-[11px] shrink-0">
+									<span className="text-muted-foreground font-semibold shrink-0 text-xs">
+										Sugerencias:
+									</span>
+									{QUICK_SUGGESTIONS.map((s) => (
+										<button
+											key={s.label}
+											type="button"
+											onClick={() => handleSelectSuggestion(s.prompt)}
+											className={`px-3 py-1 rounded-full border text-xs font-medium shrink-0 transition-all cursor-pointer shadow-2xs active:scale-95 ${
+												s.isSecurity
+													? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+													: "border-border/80 bg-background hover:bg-muted text-foreground"
+											}`}
+											title={s.prompt}
+										>
+											{s.label}
+										</button>
+									))}
+								</div>
+							)}
 
 						{/* Input de Mensaje y Quick Actions Bar */}
 						<form
@@ -1039,6 +1085,31 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 									onKeyDown={handleTextareaKeyDown}
 									className="flex-1 max-h-32 min-h-[42px] resize-none bg-background border border-border/80 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:opacity-50 shadow-2xs leading-relaxed"
 								/>
+								<button
+									type="button"
+									onClick={toggleListening}
+									className={`p-2.5 rounded-xl border transition-all cursor-pointer shadow-xs shrink-0 self-end active:scale-95 flex items-center justify-center ${
+										isListening
+											? "bg-red-500 text-white border-red-600 animate-pulse shadow-md"
+											: "border-border/80 bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground"
+									}`}
+									title={
+										isListening
+											? "Detener dictado por voz"
+											: "Dictar consulta por voz"
+									}
+									aria-label={
+										isListening
+											? "Detener dictado por voz"
+											: "Dictar consulta por voz"
+									}
+								>
+									{isListening ? (
+										<MicOff className="h-4 w-4" />
+									) : (
+										<Mic className="h-4 w-4" />
+									)}
+								</button>
 								<button
 									type="submit"
 									disabled={!query.trim()}

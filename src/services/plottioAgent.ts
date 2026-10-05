@@ -1,3 +1,4 @@
+import { validarCedula, validarRuc } from "../lib/identificacion";
 import type { AiProvider } from "../store/useIntegrationsStore";
 
 /**
@@ -351,7 +352,60 @@ export function executeBusinessAgent(
 
 	let directAnswer = "";
 
-	if (matchesCompanies) {
+	// Verificación prioritaria de Cédula (10 dígitos) o RUC (13 dígitos)
+	const idMatch = userQuery.match(/\b\d{10}(\d{3})?\b/);
+	const rawDigits = userQuery.replace(/\D/g, "");
+	const isPureId =
+		(rawDigits.length === 10 || rawDigits.length === 13) &&
+		userQuery.trim().length <= 16;
+	const idToVerify = idMatch ? idMatch[0] : isPureId ? rawDigits : null;
+
+	if (idToVerify) {
+		const isRuc = idToVerify.length === 13;
+		const esValido = isRuc ? validarRuc(idToVerify) : validarCedula(idToVerify);
+		const foundClient = businessData?.clientes?.find((c) => {
+			if (!c.identificacion) return false;
+			return c.identificacion.replace(/\D/g, "") === idToVerify;
+		});
+
+		if (foundClient) {
+			directAnswer = `Cliente registrado en el sistema:\n• Nombre: ${foundClient.nombre}\n• Identificación: ${foundClient.identificacion || idToVerify} (${isRuc ? "RUC" : "Cédula"})\n• Teléfono: ${foundClient.telefono || "No registrado"}\n• Correo: ${foundClient.email || "No registrado"}\n• Estado: Activo en base de datos.`;
+			toolsCalled.push({
+				toolName: "consultar_clientes",
+				parameters: { identificacion: idToVerify },
+				outputSummary: `Cliente encontrado: ${foundClient.nombre} (${idToVerify})`,
+				timestamp,
+			});
+			citations.push({
+				type: "documento",
+				title: `Ficha de Cliente: ${foundClient.nombre}`,
+				similarity: 0.98,
+				snippet: `Identificación: ${idToVerify} · Contacto: ${foundClient.telefono || "N/A"}.`,
+			});
+		} else if (esValido) {
+			directAnswer = `La identificación ${idToVerify} (${isRuc ? "RUC" : "Cédula"}) es válida conforme al algoritmo oficial de verificación de Ecuador.\nActualmente no se encuentra registrada en la base de datos del taller.\n¿Deseas dar de alta a este cliente o vincularlo a una empresa?`;
+			toolsCalled.push({
+				toolName: "consultar_clientes",
+				parameters: { identificacion: idToVerify },
+				outputSummary: `Identificación ${idToVerify} válida en Ecuador, sin registro previo en el taller.`,
+				timestamp,
+			});
+			citations.push({
+				type: "documento",
+				title: `Validación de Identidad: ${idToVerify}`,
+				similarity: 0.92,
+				snippet: `Algoritmo oficial de Ecuador: Válido (${isRuc ? "RUC" : "Cédula"}). Estado: No registrado.`,
+			});
+		} else {
+			directAnswer = `El número ${idToVerify} no cumple con el algoritmo oficial de verificación de ${isRuc ? "RUC" : "Cédula"} de Ecuador (dígito verificador incorrecto o código de provincia no válido). Por favor, verifica el documento ingresado.`;
+			toolsCalled.push({
+				toolName: "consultar_clientes",
+				parameters: { identificacion: idToVerify },
+				outputSummary: `Identificación ${idToVerify} inválida según algoritmo de Ecuador.`,
+				timestamp,
+			});
+		}
+	} else if (matchesCompanies) {
 		const empresas = businessData?.empresas;
 		if (empresas && empresas.length > 0) {
 			directAnswer = `Actualmente hay ${empresas.length} empresa(s) registrada(s) en la base de datos del taller:\n${empresas
@@ -723,7 +777,11 @@ function normalizeModelName(
 		return cleaned;
 	}
 	if (provider === "groq") {
-		if (modelLower.includes("3.3") || modelLower.includes("versatile"))
+		if (
+			modelLower.includes("3.3") ||
+			modelLower.includes("versatile") ||
+			modelLower.includes("70b")
+		)
 			return "llama-3.3-70b-versatile";
 		if (
 			modelLower.includes("3.1") ||
@@ -733,21 +791,33 @@ function normalizeModelName(
 			return "llama-3.1-8b-instant";
 		if (modelLower.includes("mixtral") || modelLower.includes("8x7b"))
 			return "mixtral-8x7b-32768";
-		return rawModel || "llama-3.3-70b-versatile";
+		return "llama-3.3-70b-versatile";
 	}
 	if (provider === "opencode_zen") {
 		if (modelLower.includes("deepseek") || modelLower.includes("v3"))
 			return "deepseek-ai/deepseek-v3";
-		if (modelLower.includes("qwen") || modelLower.includes("coder"))
+		if (
+			modelLower.includes("qwen") ||
+			modelLower.includes("coder") ||
+			modelLower.includes("32b")
+		)
 			return "qwen/qwen-2.5-coder-32b-instruct";
-		return rawModel || "deepseek-ai/deepseek-v3";
+		return "deepseek-ai/deepseek-v3";
 	}
 	if (provider === "nvidia") {
-		if (modelLower.includes("nemotron") || modelLower.includes("llama"))
+		if (
+			modelLower.includes("nemotron") ||
+			modelLower.includes("llama") ||
+			modelLower.includes("70b")
+		)
 			return "nvidia/llama-3.1-nemotron-70b-instruct";
-		if (modelLower.includes("mistral") || modelLower.includes("nemo"))
+		if (
+			modelLower.includes("mistral") ||
+			modelLower.includes("nemo") ||
+			modelLower.includes("12b")
+		)
 			return "mistralai/mistral-nemo-12b-instruct";
-		return rawModel || "nvidia/llama-3.1-nemotron-70b-instruct";
+		return "nvidia/llama-3.1-nemotron-70b-instruct";
 	}
 	return rawModel || "";
 }
@@ -1006,8 +1076,12 @@ async function invokeProvider(
 		);
 	}
 	if (prov === "nvidia") {
+		const endpoint =
+			typeof window !== "undefined" && window.location?.origin
+				? "/api/nvidia"
+				: "https://integrate.api.nvidia.com/v1/chat/completions";
 		return callOpenAiCompatibleProvider(
-			"https://integrate.api.nvidia.com/v1/chat/completions",
+			endpoint,
 			apiKey,
 			model || "nvidia/llama-3.1-nemotron-70b-instruct",
 			"nvidia",

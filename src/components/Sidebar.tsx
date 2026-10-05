@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import {
 	Bell,
-	Bot,
 	Building2,
 	CalendarDays,
 	Car,
@@ -187,7 +186,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 	const menuItems: readonly MenuItem[] = [
 		{ id: "dashboard", label: "Panel", icon: LayoutDashboard },
-		{ id: "asistente", label: "Plottio Asistente", icon: Bot },
 		{ id: "clientes", label: "Clientes", icon: Users },
 		{ id: "empresas", label: "Empresas", icon: Building2 },
 		{ id: "vehiculos", label: "Vehículos", icon: Car },

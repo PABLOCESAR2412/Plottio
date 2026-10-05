@@ -4,6 +4,7 @@ import { Menu, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
+import { AccessibilityControl } from "../components/AccessibilityControl";
 import { AceptarInvitacionView } from "../components/AceptarInvitacionView";
 import { AgendaView } from "../components/AgendaView";
 import { BugReporter } from "../components/BugReporter";
@@ -17,6 +18,7 @@ import { InventarioView } from "../components/InventarioView";
 import { KitsFlotaView } from "../components/KitsFlotaView";
 import { LoginView } from "../components/LoginView";
 import { LotesProduccionView } from "../components/LotesProduccionView";
+import { NotificationCenter } from "../components/NotificationCenter";
 import { OrdenesTrabajoView } from "../components/OrdenesTrabajoView";
 import { PlottioAsistenteModal } from "../components/PlottioAsistenteModal";
 import { PlottioAsistenteView } from "../components/PlottioAsistenteView";
@@ -233,6 +235,11 @@ export function AppLayout() {
 
 						{/* Top Right Controls */}
 						<div className="flex items-center gap-2 sm:gap-3">
+							<AccessibilityControl />
+							<NotificationCenter
+								onNavigate={(tab) => setActiveTab(tab as TabId)}
+							/>
+
 							<button
 								type="button"
 								onClick={() => setActiveTab("asistente")}

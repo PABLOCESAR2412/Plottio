@@ -120,33 +120,42 @@ export async function fetchAvailableModels(
 		}
 
 		if (provider === "nvidia") {
-			const res = await fetch("https://integrate.api.nvidia.com/v1/models", {
-				signal: controller.signal,
-				headers: {
-					Authorization: `Bearer ${trimmedKey}`,
-					"Content-Type": "application/json",
-				},
-			});
-			clearTimeout(timer);
-			if (!res.ok) return fallbackModels;
+			try {
+				const endpoint =
+					typeof window !== "undefined" && window.location?.origin
+						? "/api/nvidia"
+						: "https://integrate.api.nvidia.com/v1/models";
+				const res = await fetch(endpoint, {
+					signal: controller.signal,
+					headers: {
+						Authorization: `Bearer ${trimmedKey}`,
+						"Content-Type": "application/json",
+					},
+				});
+				clearTimeout(timer);
+				if (!res.ok) return fallbackModels;
 
-			const data = (await res.json()) as
-				| Array<{ id?: string; name?: string }>
-				| { data?: Array<{ id?: string; name?: string }> };
+				const data = (await res.json()) as
+					| Array<{ id?: string; name?: string }>
+					| { data?: Array<{ id?: string; name?: string }> };
 
-			const list = Array.isArray(data)
-				? data
-				: Array.isArray(data?.data)
-					? data.data
-					: [];
+				const list = Array.isArray(data)
+					? data
+					: Array.isArray(data?.data)
+						? data.data
+						: [];
 
-			if (list.length > 0) {
-				const models = list
-					.map((m) => m.id || m.name || "")
-					.filter((name): name is string => Boolean(name));
-				return models.length > 0 ? models : fallbackModels;
+				if (list.length > 0) {
+					const models = list
+						.map((m) => m.id || m.name || "")
+						.filter((name): name is string => Boolean(name));
+					return models.length > 0 ? models : fallbackModels;
+				}
+				return fallbackModels;
+			} catch {
+				clearTimeout(timer);
+				return fallbackModels;
 			}
-			return fallbackModels;
 		}
 
 		clearTimeout(timer);

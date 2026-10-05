@@ -359,43 +359,21 @@ describe("Tarea 35 (P0 - Fase 7): Plottio Asistente como Vista Principal con His
 	// =========================================================================
 	// 3. SIDEBAR: ACCESO DIRECTO A PLOTTIO ASISTENTE
 	// =========================================================================
-	describe("3. Sidebar: Navegación directa a 'asistente'", () => {
-		it("renderiza el botón 'Plottio Asistente' en la navegación del Sidebar", () => {
-			const onNavigateMock = vi.fn();
-
+	describe("3. Sidebar: Acceso exclusivo desde el header global y NO en Sidebar", () => {
+		it("NO renderiza el botón 'Plottio Asistente' en la navegación del Sidebar para mantener la barra limpia", () => {
 			render(
 				React.createElement(Sidebar, {
 					activeTab: "dashboard",
-					onNavigate: onNavigateMock,
-					isOpenMobile: false,
-					onCloseMobile: vi.fn(),
-				}),
-			);
-
-			const asistenteBtns = screen.getAllByRole("button", {
-				name: /Plottio Asistente/i,
-			});
-			expect(asistenteBtns.length).toBeGreaterThan(0);
-
-			fireEvent.click(asistenteBtns[0]);
-			expect(onNavigateMock).toHaveBeenCalledWith("asistente");
-		});
-
-		it("resalta el botón cuando activeTab === 'asistente'", () => {
-			render(
-				React.createElement(Sidebar, {
-					activeTab: "asistente",
 					onNavigate: vi.fn(),
 					isOpenMobile: false,
 					onCloseMobile: vi.fn(),
 				}),
 			);
 
-			const asistenteBtns = screen.getAllByRole("button", {
+			const asistenteBtns = screen.queryAllByRole("button", {
 				name: /Plottio Asistente/i,
 			});
-			expect(asistenteBtns[0].className).toContain("bg-primary");
-			expect(asistenteBtns[0].className).toContain("text-primary-foreground");
+			expect(asistenteBtns.length).toBe(0);
 		});
 	});
 

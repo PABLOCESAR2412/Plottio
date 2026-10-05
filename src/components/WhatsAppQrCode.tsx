@@ -8,8 +8,9 @@ import {
 	Wifi,
 	WifiOff,
 } from "lucide-react";
+import QRCode from "qrcode";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 interface WhatsAppQrCodeProps {
 	code?: string | null;
@@ -21,90 +22,6 @@ interface WhatsAppQrCodeProps {
 	onConnect?: () => void;
 	onRebindDevice?: () => void;
 	onEditCredentials: () => void;
-}
-
-// Generador matricial SVG determinista de 25x25 para el QR de vinculación
-function generateQrMatrix(seedStr: string): number[][] {
-	const size = 25;
-	const matrix: number[][] = Array.from({ length: size }, () =>
-		Array.from({ length: size }, () => 0),
-	);
-
-	// 1. Finder patterns (7x7) en las 3 esquinas
-	const addFinder = (startX: number, startY: number) => {
-		for (let r = 0; r < 7; r++) {
-			for (let c = 0; c < 7; c++) {
-				if (
-					r === 0 ||
-					r === 6 ||
-					c === 0 ||
-					c === 6 ||
-					(r >= 2 && r <= 4 && c >= 2 && c <= 4)
-				) {
-					matrix[startY + r][startX + c] = 1;
-				}
-			}
-		}
-	};
-
-	addFinder(0, 0); // Superior izquierda
-	addFinder(size - 7, 0); // Superior derecha
-	addFinder(0, size - 7); // Inferior izquierda
-
-	// 2. Timing patterns
-	for (let i = 8; i < size - 8; i++) {
-		matrix[6][i] = i % 2 === 0 ? 1 : 0;
-		matrix[i][6] = i % 2 === 0 ? 1 : 0;
-	}
-
-	// 3. Alignment pattern en (16, 16)
-	for (let r = 16; r <= 20; r++) {
-		for (let c = 16; c <= 20; c++) {
-			if (
-				r === 16 ||
-				r === 20 ||
-				c === 16 ||
-				c === 20 ||
-				(r === 18 && c === 18)
-			) {
-				matrix[r][c] = 1;
-			}
-		}
-	}
-
-	// 4. Espacio reservado para logo central (10..14, 10..14)
-	const isReserved = (r: number, c: number): boolean => {
-		// Finders + separador
-		if (r < 8 && c < 8) return true;
-		if (r < 8 && c >= size - 8) return true;
-		if (r >= size - 8 && c < 8) return true;
-		// Timing
-		if (r === 6 || c === 6) return true;
-		// Alignment
-		if (r >= 16 && r <= 20 && c >= 16 && c <= 20) return true;
-		// Logo central
-		if (r >= 10 && r <= 14 && c >= 10 && c <= 14) return true;
-		return false;
-	};
-
-	// 5. Hash determinista simple para rellenar datos pseudo-aleatorios realistas
-	let hash = 2166136261;
-	for (let i = 0; i < seedStr.length; i++) {
-		hash ^= seedStr.charCodeAt(i);
-		hash +=
-			(hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-	}
-
-	for (let r = 0; r < size; r++) {
-		for (let c = 0; c < size; c++) {
-			if (!isReserved(r, c)) {
-				const val = ((hash + r * 37 + c * 59 + r * c) ^ (hash >> 3)) % 100;
-				matrix[r][c] = val > 45 ? 1 : 0;
-			}
-		}
-	}
-
-	return matrix;
 }
 
 export const WhatsAppQrCode: React.FC<WhatsAppQrCodeProps> = ({
@@ -119,23 +36,37 @@ export const WhatsAppQrCode: React.FC<WhatsAppQrCodeProps> = ({
 	onEditCredentials,
 }) => {
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
-	const activeCells = useMemo(() => {
-		const seed = code || `${instanceName}-${serverUrl}-plottio-acadia-2026`;
-		const matrix = generateQrMatrix(seed);
-		const cells: { id: string; x: number; y: number }[] = [];
-		for (let r = 0; r < matrix.length; r++) {
-			for (let c = 0; c < matrix[r].length; c++) {
-				if (matrix[r][c] === 1) {
-					cells.push({
-						id: `cell-${c}-${r}`,
-						x: c * 8,
-						y: r * 8,
-					});
-				}
-			}
+	useEffect(() => {
+		let isMounted = true;
+		const raw =
+			code?.trim() ||
+			`${serverUrl || "https://plottio.vercel.app/api/webhook/wha"}?instance=${encodeURIComponent(instanceName || "matriz")}`;
+
+		if (raw.startsWith("data:image/")) {
+			setQrDataUrl(raw);
+		} else {
+			QRCode.toDataURL(raw, {
+				width: 256,
+				margin: 2,
+				color: {
+					dark: "#0f172a",
+					light: "#ffffff",
+				},
+				errorCorrectionLevel: "M",
+			})
+				.then((url) => {
+					if (isMounted) setQrDataUrl(url);
+				})
+				.catch((err) => {
+					console.error("Error generating QR code:", err);
+				});
 		}
-		return cells;
+
+		return () => {
+			isMounted = false;
+		};
 	}, [code, instanceName, serverUrl]);
 
 	const handleRefresh = () => {
@@ -243,39 +174,30 @@ export const WhatsAppQrCode: React.FC<WhatsAppQrCodeProps> = ({
 						<div className="absolute bottom-1 left-1 w-3 h-3 border-b-2 border-l-2 border-emerald-500 rounded-bl-sm pointer-events-none" />
 						<div className="absolute bottom-1 right-1 w-3 h-3 border-b-2 border-r-2 border-emerald-500 rounded-br-sm pointer-events-none" />
 
-						{/* Componente visual SVG del Código QR */}
-						<svg
+						{/* Componente visual del Código QR Oficial */}
+						<div
 							role="img"
 							aria-label="Código QR de WhatsApp para vincular dispositivo"
-							viewBox="0 0 200 200"
-							className={`w-44 h-44 sm:w-48 sm:h-48 transition-opacity duration-300 ${
+							className={`w-44 h-44 sm:w-48 sm:h-48 relative flex items-center justify-center transition-opacity duration-300 ${
 								isRefreshing ? "opacity-30 blur-[1px]" : "opacity-100"
 							}`}
 						>
-							<title>Código QR de WhatsApp</title>
-							<rect width="200" height="200" fill="#ffffff" rx="8" />
-							{/* Dibujamos módulos */}
-							{activeCells.map((cell) => (
-								<rect
-									key={cell.id}
-									x={cell.x}
-									y={cell.y}
-									width="7.2"
-									height="7.2"
-									rx="1.4"
-									fill="#0f172a"
+							{qrDataUrl ? (
+								<img
+									src={qrDataUrl}
+									alt="Código QR de WhatsApp para vincular dispositivo"
+									aria-label="Código QR de WhatsApp para vincular dispositivo"
+									className="w-full h-full object-contain rounded-lg"
 								/>
-							))}
-
-							{/* Logo WhatsApp central */}
-							<circle cx="100" cy="100" r="18" fill="#ffffff" />
-							<circle cx="100" cy="100" r="15" fill="#25D366" />
-							{/* Icono de teléfono blanco */}
-							<path
-								d="M100 89C94.477 89 90 93.477 90 99c0 1.954.561 3.78 1.533 5.325L90.5 108.5l4.316-.99A9.94 9.94 0 0 0 100 109c5.523 0 10-4.477 10-10s-4.477-10-10-10zm4.945 13.978c-.208.583-1.037 1.085-1.684 1.226-.44.095-.99.17-2.923-.63-2.47-1.022-4.062-3.528-4.184-3.69-.123-.164-1.002-1.332-1.002-2.54 0-1.209.636-1.803.863-2.047.227-.245.495-.306.66-.306.166 0 .332.002.476.01.152.008.358-.058.559.426.208.5.71 1.733.772 1.859.062.126.104.272.02.437-.082.164-.124.267-.247.41-.124.144-.26.32-.37.43-.124.123-.254.256-.109.505.145.248.643 1.06 1.38 1.716.95.845 1.75 1.106 1.998 1.23.248.123.394.103.54-.065.145-.168.622-.724.787-.972.166-.248.332-.207.56-.124.228.083 1.45.684 1.7.808.249.124.415.186.477.29.062.103.062.602-.146 1.185z"
-								fill="#ffffff"
-							/>
-						</svg>
+							) : (
+								<div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-lg text-slate-400 gap-2">
+									<RefreshCw className="h-6 w-6 animate-spin text-emerald-500" />
+									<span className="text-[10px] font-medium">
+										Generando QR...
+									</span>
+								</div>
+							)}
+						</div>
 
 						{/* Overlay de estado Conectado */}
 						{isConnected && (
