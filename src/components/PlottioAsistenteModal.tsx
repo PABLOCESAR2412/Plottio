@@ -395,7 +395,13 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 			inventario: (rawInventario || []).map((i) => ({
 				id: i._id,
 				nombre: i.nombre,
-				stock: i.costoUnitario,
+				stock:
+					(i as any).cantidad_total ??
+					(typeof (i as any).stock === "number"
+						? (i as any).stock
+						: typeof (i as any).cantidad === "number"
+							? (i as any).cantidad
+							: undefined),
 				unidad: i.unidadMedida,
 			})),
 			vehiculos: (rawVehiculos || []).map((v) => ({

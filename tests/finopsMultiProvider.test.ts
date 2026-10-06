@@ -40,28 +40,47 @@ describe(
 			// Modelos Google
 			expect(AI_MODELS_BY_PROVIDER.google).toEqual([
 				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
-				"Gemini 3.7 Flash",
-				"Gemini Flash Lite",
+				"Gemini 3.7 Flash (Recomendado · Balanceado)",
+				"Gemini Flash Lite (Recomendado · Menor Costo)",
 				"Gemini Flash Latest",
+				"Gemini Pro Latest",
+				"Gemini 2.5 Flash",
 			]);
 
 			// Modelos Groq
 			expect(AI_MODELS_BY_PROVIDER.groq).toEqual([
 				"Llama 3.3 70B Versatile (Recomendado · Alto Rendimiento)",
-				"Llama 3.1 8B Instant (Ultra Rápido y Económico)",
-				"Mixtral 8x7B",
+				"Llama 3.1 8B Instant (Recomendado · Ultra Rápido y Económico)",
+				"Llama 3.2 1B Preview (Ultra Liviano)",
+				"Llama 3.2 3B Preview",
+				"Llama 3 70B 8192",
+				"Llama 3 8B 8192",
+				"Mixtral 8x7B 32768",
+				"Gemma 2 9B IT",
+				"DeepSeek R1 Distill Llama 70B",
+				"Qwen 2.5 Coder 32B",
 			]);
 
 			// Modelos Opencode Zen
 			expect(AI_MODELS_BY_PROVIDER.opencode_zen).toEqual([
-				"DeepSeek V3 (Recomendado · Económico)",
-				"Qwen 2.5 Coder 32B",
+				"DeepSeek V3 (Recomendado · Económico y Capaz)",
+				"Qwen 2.5 Coder 32B (Recomendado · Precisión Técnica)",
+				"DeepSeek R1 (Razonamiento Profundo)",
+				"Qwen 2.5 72B Instruct",
+				"Meta Llama 3.3 70B Instruct",
+				"Mistral Large 2",
 			]);
 
 			// Modelos Nvidia NIM
 			expect(AI_MODELS_BY_PROVIDER.nvidia).toEqual([
-				"Llama 3.1 Nemotron 70B (Recomendado)",
-				"Mistral NeMo 12B (Económico)",
+				"Llama 3.1 Nemotron 70B (Recomendado · Precisión Alta)",
+				"Mistral NeMo 12B (Recomendado · Rápido y Económico)",
+				"Meta Llama 3.1 8B Instruct",
+				"Meta Llama 3.1 70B Instruct",
+				"Meta Llama 3.3 70B Instruct",
+				"Mistral Large 2 Instruct",
+				"Nemotron 4 340B Instruct",
+				"DeepSeek R1",
 			]);
 		});
 

@@ -352,6 +352,27 @@ export function executeBusinessAgent(
 
 	let directAnswer = "";
 
+	const isGreeting =
+		/^(hola|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|buenas|saludos|que\s+tal|qu[eé]\s+tal)\b/i.test(
+			q.trim(),
+		) || q.trim() === "hola";
+
+	const isHelp =
+		/^(qu[eé]\s+puedes\s+hacer|ayuda|funciones|comandos|qu[eé]\s+haces|capacidades)\b/i.test(
+			q.trim(),
+		) || q.trim() === "ayuda";
+
+	const isWrappingHelp =
+		q.includes("wrapping") ||
+		q.includes("como rotular") ||
+		q.includes("cómo rotular") ||
+		q.includes("calandrado") ||
+		q.includes("fundido") ||
+		q.includes("poscalentado") ||
+		q.includes("postcalentado") ||
+		q.includes("alcohol isopropilico") ||
+		q.includes("alcohol isopropílico");
+
 	// Verificación prioritaria de Cédula (10 dígitos) o RUC (13 dígitos)
 	const idMatch = userQuery.match(/\b\d{10}(\d{3})?\b/);
 	const rawDigits = userQuery.replace(/\D/g, "");
@@ -360,7 +381,16 @@ export function executeBusinessAgent(
 		userQuery.trim().length <= 16;
 	const idToVerify = idMatch ? idMatch[0] : isPureId ? rawDigits : null;
 
-	if (idToVerify) {
+	if (isGreeting) {
+		directAnswer =
+			"¡Hola! Soy Plottio Asistente. ¿En qué puedo ayudarte hoy en el taller? Puedo consultar órdenes activas, clientes, empresas registradas, inventario de materiales o vehículos.";
+	} else if (isHelp) {
+		directAnswer =
+			"Como asistente de operaciones de Plottio, puedo ayudarte con:\n• **Empresas y Clientes:** Consultar datos de contacto, RUCs y registros.\n• **Órdenes de Trabajo:** Ver avances, estados de producción y entregas.\n• **Inventario:** Stock de vinilos, bobinas y consumibles.\n• **Vehículos:** Placas, marcas y modelos asignados.\n• **Cotizaciones:** Resumen de presupuestos de rotulado.";
+	} else if (isWrappingHelp) {
+		directAnswer =
+			"Pautas técnicas para rotulado vehicular:\n• **Preparación de superficie:** Limpieza rigurosa con alcohol isopropílico al 70% para eliminar ceras y grasas.\n• **Selección de vinilo:** Vinilo fundido (cast) para molduras profundas y remaches; vinilo calandrado polimérico para superficies planas.\n• **Poscalentado:** Fijar memoria térmica a 90°C - 95°C en remaches y curvas profundas.\n• **Reposo:** Esperar al menos 24 horas antes de lavar el vehículo.";
+	} else if (idToVerify) {
 		const isRuc = idToVerify.length === 13;
 		const esValido = isRuc ? validarRuc(idToVerify) : validarCedula(idToVerify);
 		const foundClient = businessData?.clientes?.find((c) => {
@@ -504,173 +534,176 @@ export function executeBusinessAgent(
 		}
 	}
 
-	if (matchesOrders) {
-		const ordenes = businessData?.ordenes;
-		if (ordenes && ordenes.length > 0) {
-			directAnswer = `Actualmente hay ${ordenes.length} orden(es) de trabajo en el taller:\n${ordenes
-				.slice(0, 10)
-				.map(
-					(o) =>
-						`• Orden #${o.id || ""}: Placa: ${o.placa || "N/A"} · Cliente: ${o.clienteNombre || "Sin cliente"} · Estado: ${o.estado || "En Proceso"}${o.total ? ` · $${o.total.toFixed(2)}` : ""}`,
-				)
-				.join(
-					"\n",
-				)}${ordenes.length > 10 ? `\n... y ${ordenes.length - 10} orden(es) más.` : ""}`;
+	if (!isGreeting && !isHelp && !isWrappingHelp) {
+		if (matchesOrders) {
+			const ordenes = businessData?.ordenes;
+			if (ordenes && ordenes.length > 0) {
+				directAnswer = `Actualmente hay ${ordenes.length} orden(es) de trabajo en el taller:\n${ordenes
+					.slice(0, 10)
+					.map(
+						(o) =>
+							`• Orden #${o.id || ""}: Placa: ${o.placa || "N/A"} · Cliente: ${o.clienteNombre || "Sin cliente"} · Estado: ${o.estado || "En Proceso"}${o.total ? ` · $${o.total.toFixed(2)}` : ""}`,
+					)
+					.join(
+						"\n",
+					)}${ordenes.length > 10 ? `\n... y ${ordenes.length - 10} orden(es) más.` : ""}`;
+				toolsCalled.push({
+					toolName: "consultar_ordenes",
+					parameters: { filtro: userQuery.slice(0, 40) },
+					outputSummary: `Se registran ${ordenes.length} orden(es) de trabajo activas en la base de datos.`,
+					timestamp,
+				});
+				citations.push({
+					type: "tarea",
+					title: `Orden #${ordenes[0].id || "OT"}: Placa ${ordenes[0].placa || "N/A"}`,
+					similarity: 0.95,
+					snippet: `Cliente: ${ordenes[0].clienteNombre || "General"} · Estado: ${ordenes[0].estado || "En Proceso"}.`,
+				});
+			} else if (businessData && (!ordenes || ordenes.length === 0)) {
+				directAnswer =
+					"No se registran órdenes de trabajo activas en la base de datos del taller.";
+				toolsCalled.push({
+					toolName: "consultar_ordenes",
+					parameters: { filtro: userQuery.slice(0, 40) },
+					outputSummary: "0 órdenes de trabajo en el taller.",
+					timestamp,
+				});
+			} else {
+				directAnswer =
+					"Consulta de órdenes de trabajo del taller realizada en la base de datos.";
+				toolsCalled.push({
+					toolName: "consultar_ordenes",
+					parameters: { filtro: userQuery.slice(0, 40) },
+					outputSummary: "Registro de órdenes de trabajo operacionales.",
+					timestamp,
+				});
+				citations.push({
+					type: "tarea",
+					title: "Orden de Trabajo Operativa",
+					similarity: 0.95,
+					snippet: "Gestión de producción, rotulado y estado en taller.",
+				});
+			}
+		}
+
+		if (matchesInventory) {
+			const inv = businessData?.inventario;
+			if (inv && inv.length > 0) {
+				directAnswer = `Se registran ${inv.length} ítem(s) en el inventario del taller:\n${inv
+					.slice(0, 10)
+					.map((i) =>
+						i.stock !== undefined
+							? `• ${i.nombre || "Material"}: Stock ${i.stock} ${i.unidad || "uds"}`
+							: `• ${i.nombre || "Material"}: Registrado en catálogo (${i.unidad || "unidad"})`,
+					)
+					.join(
+						"\n",
+					)}${inv.length > 10 ? `\n... y ${inv.length - 10} ítem(s) más.` : ""}`;
+				toolsCalled.push({
+					toolName: "consultar_inventario",
+					parameters: { material: userQuery.slice(0, 40) },
+					outputSummary: `Recuperados ${inv.length} materiales en inventario.`,
+					timestamp,
+				});
+				citations.push({
+					type: "stock",
+					title: `Stock: ${inv[0].nombre || "Material"}`,
+					similarity: 0.96,
+					snippet: `Disponible: ${inv[0].stock ?? 0} ${inv[0].unidad || "unidades"}.`,
+				});
+			} else if (businessData && (!inv || inv.length === 0)) {
+				directAnswer = "No hay ítems registrados en el inventario del taller.";
+				toolsCalled.push({
+					toolName: "consultar_inventario",
+					parameters: { material: userQuery.slice(0, 40) },
+					outputSummary: "0 ítems en inventario.",
+					timestamp,
+				});
+			} else {
+				directAnswer = "Consulta de inventario de vinilos y bobinas en stock.";
+				toolsCalled.push({
+					toolName: "consultar_inventario",
+					parameters: { material: "Materiales de rotulado" },
+					outputSummary: "Inventario verificado en almacén del taller.",
+					timestamp,
+				});
+				citations.push({
+					type: "stock",
+					title: "Stock Almacén Central: Bobina Vinilo",
+					similarity: 0.96,
+					snippet:
+						"Disponibilidad de material y bobinas para rotulado vehicular.",
+				});
+			}
+		}
+
+		if (matchesQuotes) {
+			directAnswer =
+				"Puedes emitir y consultar presupuestos y cotizaciones de rotulado directamente desde el módulo comercial de Cotizaciones.";
 			toolsCalled.push({
-				toolName: "consultar_ordenes",
-				parameters: { filtro: userQuery.slice(0, 40) },
-				outputSummary: `Se registran ${ordenes.length} orden(es) de trabajo activas en la base de datos.`,
+				toolName: "consultar_cotizaciones",
+				parameters: { cliente: userQuery.slice(0, 30) },
+				outputSummary: "Consulta de cotizaciones comerciales y presupuestos.",
 				timestamp,
 			});
 			citations.push({
-				type: "tarea",
-				title: `Orden #${ordenes[0].id || "OT"}: Placa ${ordenes[0].placa || "N/A"}`,
-				similarity: 0.95,
-				snippet: `Cliente: ${ordenes[0].clienteNombre || "General"} · Estado: ${ordenes[0].estado || "En Proceso"}.`,
-			});
-		} else if (businessData && (!ordenes || ordenes.length === 0)) {
-			directAnswer =
-				"No se registran órdenes de trabajo activas en la base de datos del taller.";
-			toolsCalled.push({
-				toolName: "consultar_ordenes",
-				parameters: { filtro: userQuery.slice(0, 40) },
-				outputSummary: "0 órdenes de trabajo en el taller.",
-				timestamp,
-			});
-		} else {
-			directAnswer =
-				"Consulta de órdenes de trabajo del taller realizada en la base de datos.";
-			toolsCalled.push({
-				toolName: "consultar_ordenes",
-				parameters: { filtro: userQuery.slice(0, 40) },
-				outputSummary: "Registro de órdenes de trabajo operacionales.",
-				timestamp,
-			});
-			citations.push({
-				type: "tarea",
-				title: "Orden de Trabajo Operativa",
-				similarity: 0.95,
-				snippet: "Gestión de producción, rotulado y estado en taller.",
+				type: "documento",
+				title: "Presupuestos y Cotizaciones Comerciales",
+				similarity: 0.94,
+				snippet:
+					"Cálculo de materiales, metraje de vinilo y mano de obra para rotulado.",
 			});
 		}
-	}
 
-	if (matchesInventory) {
-		const inv = businessData?.inventario;
-		if (inv && inv.length > 0) {
-			directAnswer = `Se registran ${inv.length} ítem(s) en el inventario del taller:\n${inv
-				.slice(0, 10)
-				.map(
-					(i) =>
-						`• ${i.nombre || "Material"}: Stock ${i.stock ?? 0} ${i.unidad || "uds"}`,
-				)
-				.join(
-					"\n",
-				)}${inv.length > 10 ? `\n... y ${inv.length - 10} ítem(s) más.` : ""}`;
-			toolsCalled.push({
-				toolName: "consultar_inventario",
-				parameters: { material: userQuery.slice(0, 40) },
-				outputSummary: `Recuperados ${inv.length} materiales en inventario.`,
-				timestamp,
-			});
-			citations.push({
-				type: "stock",
-				title: `Stock: ${inv[0].nombre || "Material"}`,
-				similarity: 0.96,
-				snippet: `Disponible: ${inv[0].stock ?? 0} ${inv[0].unidad || "unidades"}.`,
-			});
-		} else if (businessData && (!inv || inv.length === 0)) {
-			directAnswer = "No hay ítems registrados en el inventario del taller.";
-			toolsCalled.push({
-				toolName: "consultar_inventario",
-				parameters: { material: userQuery.slice(0, 40) },
-				outputSummary: "0 ítems en inventario.",
-				timestamp,
-			});
-		} else {
-			directAnswer = "Consulta de inventario de vinilos y bobinas en stock.";
-			toolsCalled.push({
-				toolName: "consultar_inventario",
-				parameters: { material: "Materiales de rotulado" },
-				outputSummary: "Inventario verificado en almacén del taller.",
-				timestamp,
-			});
-			citations.push({
-				type: "stock",
-				title: "Stock Almacén Central: Bobina Vinilo",
-				similarity: 0.96,
-				snippet:
-					"Disponibilidad de material y bobinas para rotulado vehicular.",
-			});
-		}
-	}
-
-	if (matchesQuotes) {
-		directAnswer =
-			"Puedes emitir y consultar presupuestos y cotizaciones de rotulado directamente desde el módulo comercial de Cotizaciones.";
-		toolsCalled.push({
-			toolName: "consultar_cotizaciones",
-			parameters: { cliente: userQuery.slice(0, 30) },
-			outputSummary: "Consulta de cotizaciones comerciales y presupuestos.",
-			timestamp,
-		});
-		citations.push({
-			type: "documento",
-			title: "Presupuestos y Cotizaciones Comerciales",
-			similarity: 0.94,
-			snippet:
-				"Cálculo de materiales, metraje de vinilo y mano de obra para rotulado.",
-		});
-	}
-
-	if (matchesVehicles) {
-		const veh = businessData?.vehiculos;
-		if (veh && veh.length > 0) {
-			directAnswer = `Se registran ${veh.length} vehículo(s) en la base de datos del taller:\n${veh
-				.slice(0, 10)
-				.map(
-					(v) =>
-						`• Placa: ${v.placa || "N/A"}${v.marca || v.modelo ? ` · ${v.marca || ""} ${v.modelo || ""}` : ""}`,
-				)
-				.join(
-					"\n",
-				)}${veh.length > 10 ? `\n... y ${veh.length - 10} vehículo(s) más.` : ""}`;
-			toolsCalled.push({
-				toolName: "consultar_vehiculos",
-				parameters: { placa: userQuery.slice(0, 30) },
-				outputSummary: `Recuperados ${veh.length} vehículos en la base de datos.`,
-				timestamp,
-			});
-			citations.push({
-				type: "vehiculo",
-				title: `Vehículo: Placa ${veh[0].placa || "N/A"}`,
-				similarity: 0.91,
-				snippet: `${veh[0].marca || ""} ${veh[0].modelo || ""} registrado en el sistema.`,
-			});
-		} else if (businessData && (!veh || veh.length === 0)) {
-			directAnswer =
-				"No hay vehículos registrados en la base de datos del taller.";
-			toolsCalled.push({
-				toolName: "consultar_vehiculos",
-				parameters: { placa: userQuery.slice(0, 30) },
-				outputSummary: "0 vehículos en la base de datos.",
-				timestamp,
-			});
-		} else {
-			directAnswer = "Consulta del registro vehicular del taller.";
-			toolsCalled.push({
-				toolName: "consultar_vehiculos",
-				parameters: { placa: "Historial de flota" },
-				outputSummary: "Registro de vehículos vinculados a clientes.",
-				timestamp,
-			});
-			citations.push({
-				type: "vehiculo",
-				title: "Ficha Vehicular del Taller",
-				similarity: 0.91,
-				snippet:
-					"Datos y especificaciones de vehículos registrados para rotulado.",
-			});
+		if (matchesVehicles) {
+			const veh = businessData?.vehiculos;
+			if (veh && veh.length > 0) {
+				directAnswer = `Se registran ${veh.length} vehículo(s) en la base de datos del taller:\n${veh
+					.slice(0, 10)
+					.map(
+						(v) =>
+							`• Placa: ${v.placa || "N/A"}${v.marca || v.modelo ? ` · ${v.marca || ""} ${v.modelo || ""}` : ""}`,
+					)
+					.join(
+						"\n",
+					)}${veh.length > 10 ? `\n... y ${veh.length - 10} vehículo(s) más.` : ""}`;
+				toolsCalled.push({
+					toolName: "consultar_vehiculos",
+					parameters: { placa: userQuery.slice(0, 30) },
+					outputSummary: `Recuperados ${veh.length} vehículos en la base de datos.`,
+					timestamp,
+				});
+				citations.push({
+					type: "vehiculo",
+					title: `Vehículo: Placa ${veh[0].placa || "N/A"}`,
+					similarity: 0.91,
+					snippet: `${veh[0].marca || ""} ${veh[0].modelo || ""} registrado en el sistema.`,
+				});
+			} else if (businessData && (!veh || veh.length === 0)) {
+				directAnswer =
+					"No hay vehículos registrados en la base de datos del taller.";
+				toolsCalled.push({
+					toolName: "consultar_vehiculos",
+					parameters: { placa: userQuery.slice(0, 30) },
+					outputSummary: "0 vehículos en la base de datos.",
+					timestamp,
+				});
+			} else {
+				directAnswer = "Consulta del registro vehicular del taller.";
+				toolsCalled.push({
+					toolName: "consultar_vehiculos",
+					parameters: { placa: "Historial de flota" },
+					outputSummary: "Registro de vehículos vinculados a clientes.",
+					timestamp,
+				});
+				citations.push({
+					type: "vehiculo",
+					title: "Ficha Vehicular del Taller",
+					similarity: 0.91,
+					snippet:
+						"Datos y especificaciones de vehículos registrados para rotulado.",
+				});
+			}
 		}
 	}
 
@@ -684,10 +717,13 @@ export function executeBusinessAgent(
 	}
 
 	const toolNamesStr = toolsCalled.map((t) => t.toolName).join(", ");
-	const responseText = `Basado en la ejecución de herramientas de negocio [${toolNamesStr}] y el contexto operacional recuperado:\n\n${
-		directAnswer ||
-		`• Análisis operacional para "${userQuery}": Se verificaron los registros y antecedentes del taller.\n• Datos recuperados: ${toolsCalled.map((t) => t.outputSummary).join("\n• ")}\n• Recomendación técnica: Proceder respetando las especificaciones del material.`
-	}`;
+	const responseText =
+		isGreeting || isHelp || isWrappingHelp
+			? directAnswer
+			: `Basado en la ejecución de herramientas de negocio [${toolNamesStr}] y el contexto operacional recuperado:\n\n${
+					directAnswer ||
+					`No encontré un registro específico para "${userQuery}" en la base de datos del taller. Puedes consultar directamente por empresas, clientes, órdenes de trabajo, inventario de materiales o vehículos.`
+				}`;
 
 	const promptTokens = Math.max(Math.ceil(userQuery.length / 4), 8);
 	const completionTokens = Math.max(Math.ceil(responseText.length / 4), 12);
@@ -760,8 +796,10 @@ function normalizeModelName(
 		if (modelLower.includes("3.8")) return "gemini-3.8-flash";
 		if (modelLower.includes("3.7")) return "gemini-3.7-flash";
 		if (modelLower.includes("lite")) return "gemini-flash-lite-latest";
-		if (modelLower.includes("pro")) return "gemini-pro-latest";
-		if (modelLower.includes("1.5") || modelLower === "gemini-2.0-flash")
+		if (modelLower.includes("pro latest") || modelLower === "gemini-pro-latest")
+			return "gemini-pro-latest";
+		if (modelLower.includes("2.5")) return "gemini-2.5-flash";
+		if (modelLower.includes("1.5") || modelLower.includes("2.0"))
 			return "gemini-3.8-flash";
 		const cleaned = modelLower
 			.replace(/^models\//, "")
@@ -778,46 +816,88 @@ function normalizeModelName(
 	}
 	if (provider === "groq") {
 		if (
-			modelLower.includes("3.1") ||
-			modelLower.includes("instant") ||
-			modelLower.includes("8b")
+			modelLower.includes("3.1") &&
+			(modelLower.includes("instant") || modelLower.includes("8b"))
 		)
 			return "llama-3.1-8b-instant";
 		if (
 			modelLower.includes("3.3") ||
 			modelLower.includes("versatile") ||
-			modelLower.includes("70b")
+			(modelLower.includes("70b") && modelLower.includes("recomendado"))
 		)
 			return "llama-3.3-70b-versatile";
+		if (modelLower.includes("3.2") && modelLower.includes("1b"))
+			return "llama-3.2-1b-preview";
+		if (modelLower.includes("3.2") && modelLower.includes("3b"))
+			return "llama-3.2-3b-preview";
+		if (modelLower.includes("llama 3 70b") || modelLower.includes("llama3-70b"))
+			return "llama3-70b-8192";
+		if (modelLower.includes("llama 3 8b") || modelLower.includes("llama3-8b"))
+			return "llama3-8b-8192";
+		if (modelLower.includes("mixtral") || modelLower.includes("8x7b"))
+			return "mixtral-8x7b-32768";
+		if (modelLower.includes("gemma")) return "gemma2-9b-it";
+		if (modelLower.includes("deepseek") || modelLower.includes("r1"))
+			return "deepseek-r1-distill-llama-70b";
+		if (modelLower.includes("qwen") || modelLower.includes("coder"))
+			return "qwen-2.5-coder-32b";
 		if (modelLower.includes("120b")) return "openai/gpt-oss-120b";
 		if (modelLower.includes("20b")) return "openai/gpt-oss-20b";
-		if (modelLower.includes("qwen") || modelLower.includes("27b"))
-			return "qwen/qwen3.8-27b";
-		if (modelLower.includes("mixtral") || modelLower.includes("8x7b"))
-			return "llama-3.1-8b-instant";
+		if (rawModel && !rawModel.includes(" ") && rawModel.length > 3) {
+			return rawModel.trim();
+		}
 		return "llama-3.1-8b-instant";
 	}
 	if (provider === "opencode_zen") {
+		if (modelLower.includes("r1") || modelLower.includes("razonamiento"))
+			return "deepseek-ai/deepseek-r1";
 		if (modelLower.includes("deepseek") || modelLower.includes("v3"))
 			return "deepseek-ai/deepseek-v3";
+		if (modelLower.includes("72b")) return "qwen/qwen-2.5-72b-instruct";
 		if (
 			modelLower.includes("qwen") ||
 			modelLower.includes("coder") ||
 			modelLower.includes("32b")
 		)
 			return "qwen/qwen-2.5-coder-32b-instruct";
+		if (modelLower.includes("llama") || modelLower.includes("3.3"))
+			return "meta-llama/llama-3.3-70b-instruct";
+		if (modelLower.includes("mistral"))
+			return "mistralai/mistral-large-2-instruct";
+		if (rawModel && rawModel.includes("/")) return rawModel.trim();
 		return "deepseek-ai/deepseek-v3";
 	}
 	if (provider === "nvidia") {
-		if (modelLower.includes("mistral") || modelLower.includes("large"))
-			return "mistralai/mistral-large-2-instruct";
-		if (modelLower.includes("340b")) return "nvidia/nemotron-4-340b-instruct";
+		if (modelLower.includes("nemo 12b") || modelLower.includes("nemo-12b"))
+			return "mistralai/mistral-nemo-12b-instruct";
+		if (modelLower.includes("3.3") && modelLower.includes("70b"))
+			return "meta/llama-3.3-70b-instruct";
+		if (modelLower.includes("3.1") && modelLower.includes("8b"))
+			return "meta/llama-3.1-8b-instruct";
+		if (
+			modelLower.includes("3.1") &&
+			modelLower.includes("70b") &&
+			!modelLower.includes("nemotron")
+		)
+			return "meta/llama-3.1-70b-instruct";
 		if (
 			modelLower.includes("nemotron") ||
-			modelLower.includes("llama") ||
-			modelLower.includes("70b")
+			(modelLower.includes("70b") && modelLower.includes("recomendado"))
 		)
 			return "nvidia/llama-3.1-nemotron-70b-instruct";
+		if (modelLower.includes("340b")) return "nvidia/nemotron-4-340b-instruct";
+		if (modelLower.includes("mistral") || modelLower.includes("large"))
+			return "mistralai/mistral-large-2-instruct";
+		if (modelLower.includes("deepseek") || modelLower.includes("r1"))
+			return "deepseek-ai/deepseek-r1";
+		if (
+			rawModel &&
+			(rawModel.startsWith("nvidia/") ||
+				rawModel.startsWith("meta/") ||
+				rawModel.startsWith("mistralai/"))
+		) {
+			return rawModel.trim();
+		}
 		return "nvidia/llama-3.1-nemotron-70b-instruct";
 	}
 	return rawModel || "";
@@ -859,6 +939,31 @@ async function callGoogleProvider(
 
 	const sendReq = async (modelName: string) => {
 		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${apiKey}`;
+		try {
+			const resWithSystem = await fetch(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					system_instruction: {
+						parts: [{ text: combinedContext }],
+					},
+					contents: [
+						{
+							role: "user",
+							parts: [{ text: query }],
+						},
+					],
+					generationConfig: { temperature },
+				}),
+				signal,
+			});
+			if (resWithSystem.status !== 400) {
+				return resWithSystem;
+			}
+		} catch (err: any) {
+			if (signal.aborted) throw err;
+		}
+
 		return fetch(url, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -1272,10 +1377,13 @@ export async function executeLiveBusinessAgent(
 				`INVENTARIO (${options.businessData.inventario.length}):\n` +
 					options.businessData.inventario
 						.slice(0, 25)
-						.map(
-							(i) =>
-								`- ${i.nombre || "Material"}: Stock ${i.stock ?? 0} ${i.unidad || "uds"}`,
-						)
+						.map((i) => {
+							const stockLabel =
+								i.stock !== undefined
+									? `Stock: ${i.stock} ${i.unidad || "uds"}`
+									: `Registrado en catálogo (${i.unidad || "unidad"})`;
+							return `- ${i.nombre || "Material"}: ${stockLabel}`;
+						})
 						.join("\n"),
 			);
 		} else {
@@ -1309,9 +1417,26 @@ export async function executeLiveBusinessAgent(
 
 	const systemPrompt =
 		options.systemPrompt ||
-		"Eres Plottio Asistente, un agente operacional y RAG especializado en talleres de rotulado y gráfica vehicular. Tienes acceso exclusivo a herramientas de negocio (órdenes, clientes, inventario, cotizaciones y vehículos). No tienes autorización para alterar usuarios, roles ni configuraciones críticas del sistema.";
+		"Eres Plottio Asistente, copiloto inteligente de operaciones del taller de gráfica vehicular, rotulación automotriz y señalética Plottio.";
 
-	const combinedContext = `${systemPrompt}${dbContextText}\nInstrucciones estrictas: Responde con total veracidad basándote exclusivamente en los datos reales del taller provistos arriba. Si no hay empresas, clientes u órdenes registradas, dilo con amabilidad. Jamás inventes acuerdos comerciales ficticios, SLAs falsos ni cláusulas inexistentes.`;
+	const combinedContext = `${systemPrompt}
+
+ROL Y DIRECTRICES:
+• Responde en español de forma directa, profesional, útil y concisa. Ve al grano sin introducciones robóticas ni rodeos innecesarios.
+• Si el operador te saluda ("hola", "buenas"), saluda amablemente en 1 línea y ofrece asistencia en la gestión del taller.
+• Si el operador pide ayuda o pregunta qué puedes hacer, resume tus capacidades (órdenes, clientes, inventario de vinilos, vehículos, cotizaciones).
+• Si te consultan temas técnicos de rotulado vehicular o gráfica (wrapping, vinilo fundido vs calandrado, preparación con alcohol isopropílico, poscalentado a 90°C, etc.), responde con alto conocimiento técnico experto de taller gráfico.
+• Para consultas sobre el taller, básate ÚNICAMENTE en la base de datos provista a continuación.
+
+DATOS EN TIEMPO REAL DEL TALLER (FUENTE DE VERDAD):
+${dbContextText}
+
+REGLAS DE NEGOCIO Y VERACIDAD:
+1. Responde preguntas operacionales utilizando con fidelidad los datos registrados arriba.
+2. Si una sección indica que no hay registros (0 registros o Ninguno), dilo con amabilidad y sugiere registrarlos desde el módulo correspondiente (Empresas, Clientes, etc.).
+3. Si preguntan por un registro que no aparece en la lista, indica que no se encuentra en el sistema.
+4. Jamás inventes acuerdos comerciales ficticios, SLAs falsos (ej. 48h) ni cláusulas inexistentes.
+5. Seguridad: Tienes estrictamente prohibido alterar contraseñas, credenciales, usuarios o roles del sistema.`;
 
 	const startTime = performance.now();
 

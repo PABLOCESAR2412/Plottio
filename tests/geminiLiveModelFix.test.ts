@@ -276,9 +276,11 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 		it("AI_MODELS_BY_PROVIDER.google contiene los modelos oficiales actualizados", () => {
 			expect(AI_MODELS_BY_PROVIDER.google).toEqual([
 				"Gemini 3.8 Flash (Recomendado · Rápido y Económico)",
-				"Gemini 3.7 Flash",
-				"Gemini Flash Lite",
+				"Gemini 3.7 Flash (Recomendado · Balanceado)",
+				"Gemini Flash Lite (Recomendado · Menor Costo)",
 				"Gemini Flash Latest",
+				"Gemini Pro Latest",
+				"Gemini 2.5 Flash",
 			]);
 		});
 
