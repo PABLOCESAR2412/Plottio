@@ -1,6 +1,7 @@
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { useNotificationStore } from "../../store/useNotificationStore";
 import type { SessionUser } from "../../store/useSessionStore";
 import type { OrderCreateFormData } from "./OrderCreateModal";
 import type { OrdenTrabajo } from "./types";
@@ -88,6 +89,14 @@ export function useOrdenesActions({
 			})) as unknown as { _id: string };
 
 			onOrderCreated?.(newOrd._id);
+
+			useNotificationStore.getState().addNotification({
+				title: "Orden de Trabajo Creada",
+				message: `La orden para "${data.clienteNombre}" (${data.placa}) ha sido creada exitosamente.`,
+				type: "success",
+				linkTab: "ordenes",
+			});
+
 			notify(
 				"Orden Iniciada",
 				`La orden de trabajo "${newOrd._id}" ha sido creada exitosamente.`,

@@ -16,6 +16,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 
@@ -84,6 +85,12 @@ export const InventarioView: React.FC = () => {
 				],
 			});
 			toast.success("Ítem creado exitosamente");
+			useNotificationStore.getState().addNotification({
+				title: "Ítem de Inventario Creado",
+				message: `Se ha registrado "${newItem.nombre.trim()}" en el inventario.`,
+				type: "info",
+				linkTab: "inventario",
+			});
 			setShowNewItemModal(false);
 			setNewItem({
 				nombre: "",

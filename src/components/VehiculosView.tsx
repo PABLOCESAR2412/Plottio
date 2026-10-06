@@ -4,6 +4,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import type { Vehiculo } from "../types/data";
 import { TableSkeleton } from "./Skeleton";
@@ -257,6 +258,14 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 				});
 				setFormModalState({ isOpen: false, mode: "create" });
 				if (newVeh) setSelectedVehiculoId(newVeh._id);
+
+				useNotificationStore.getState().addNotification({
+					title: "Vehículo Registrado",
+					message: `El vehículo "${data.marca} ${data.modelo}" (${data.placa}) se registró exitosamente.`,
+					type: "success",
+					linkTab: "vehiculos",
+				});
+
 				notify(
 					"Vehículo Añadido",
 					`El vehículo con placa "${data.placa}" se registró exitosamente.`,
@@ -328,6 +337,13 @@ export const VehiculosView: React.FC<VehiculosViewProps> = ({
 					`Orden de trabajo iniciada automáticamente para el vehículo con placa ${selectedVehiculo.placa}.`,
 				],
 				fotos: [],
+			});
+
+			useNotificationStore.getState().addNotification({
+				title: "Orden de Trabajo Creada",
+				message: `Se inició la orden de trabajo para "${owner.nombre}" (${selectedVehiculo.placa}).`,
+				type: "success",
+				linkTab: "ordenes",
 			});
 
 			if (onSelectOrder) {

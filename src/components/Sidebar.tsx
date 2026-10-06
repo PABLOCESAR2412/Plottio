@@ -1,10 +1,8 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
-	Bell,
 	Building2,
 	CalendarDays,
 	Car,
-	Check,
 	ClipboardCheck,
 	Component,
 	Factory,
@@ -111,31 +109,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 		api.citas.fetchCitas,
 		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
 	) as Array<LocalCita & { _id: string }> | undefined;
-
-	const [showNotifications, setShowNotifications] = useState(false);
-
-	const noLeidas = useQuery(
-		api.notificaciones.contarNoLeidas,
-		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
-	);
-
-	const notificaciones = useQuery(
-		api.notificaciones.getMisNotificaciones,
-		usuarioId ? { usuarioId: usuarioId as Id<"usuarios"> } : "skip",
-	) as
-		| Array<{
-				_id: string;
-				tipo: string;
-				titulo: string;
-				mensaje: string;
-				leida: boolean;
-				enlace?: string;
-				fecha: string;
-		  }>
-		| undefined;
-
-	const marcarTodasLeidas = useMutation(api.notificaciones.marcarTodasLeidas);
-	const marcarLeida = useMutation(api.notificaciones.marcarLeida);
 
 	const ordenesTrabajo: LocalOrden[] = useMemo(
 		() =>
@@ -264,108 +237,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 				) : (
 					<PlottioLogo size="sm" />
 				)}
-				{/* Campana de notificaciones */}
-				<div className="relative shrink-0">
-					<button
-						type="button"
-						onClick={() => setShowNotifications((v) => !v)}
-						className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors relative"
-						title="Notificaciones"
-					>
-						<Bell className="h-5 w-5" />
-						{(noLeidas ?? 0) > 0 && (
-							<span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-								{noLeidas}
-							</span>
-						)}
-					</button>
-
-					{showNotifications && (
-						<>
-							<button
-								type="button"
-								aria-label="Cerrar notificaciones"
-								className="fixed inset-0 z-10"
-								onClick={() => setShowNotifications(false)}
-							/>
-							<div className="absolute right-0 mt-2 z-20 w-72 max-h-96 overflow-y-auto rounded-xl border border-border bg-card shadow-2xl p-2 text-foreground">
-								<div className="flex items-center justify-between px-2 py-1.5 border-b border-border mb-1">
-									<span className="text-xs font-bold uppercase tracking-wider">
-										Notificaciones
-									</span>
-									{(noLeidas ?? 0) > 0 && (
-										<button
-											type="button"
-											onClick={() => {
-												if (usuarioId) {
-													marcarTodasLeidas({
-														usuarioId: usuarioId as Id<"usuarios">,
-													});
-												}
-											}}
-											className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-										>
-											<Check className="h-3 w-3" />
-											Marcar leídas
-										</button>
-									)}
-								</div>
-
-								{(notificaciones ?? []).length === 0 && (
-									<p className="px-2 py-4 text-center text-xs text-muted-foreground">
-										No tienes notificaciones.
-									</p>
-								)}
-
-								{(notificaciones ?? []).map((n) => (
-									<button
-										type="button"
-										key={n._id}
-										onClick={() => {
-											if (!n.leida && usuarioId) {
-												marcarLeida({
-													usuarioId: usuarioId as Id<"usuarios">,
-													notificacionId: n._id as Id<"notificaciones">,
-												});
-											}
-											if (n.enlace) {
-												const tab = n.enlace.replace("/", "") as
-													| "ordenes"
-													| "cotizaciones";
-												handleLinkClick(tab);
-											}
-											setShowNotifications(false);
-										}}
-										className={`w-full flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
-											n.leida
-												? "hover:bg-secondary/60"
-												: "bg-primary/5 hover:bg-primary/10"
-										}`}
-									>
-										<span
-											className={`mt-1 h-2 w-2 shrink-0 rounded-full ${n.leida ? "bg-muted-foreground/30" : "bg-primary"}`}
-										/>
-										<span className="min-w-0">
-											<span className="block text-xs font-bold text-foreground">
-												{n.titulo}
-											</span>
-											<span className="block text-[11px] text-muted-foreground leading-snug">
-												{n.mensaje}
-											</span>
-											<span className="block text-[10px] text-muted-foreground/70 mt-0.5">
-												{new Date(n.fecha).toLocaleDateString()}{" "}
-												{new Date(n.fecha).toLocaleTimeString([], {
-													hour: "2-digit",
-													minute: "2-digit",
-												})}
-											</span>
-										</span>
-									</button>
-								))}
-							</div>
-						</>
-					)}
-				</div>
 
 				<button
 					type="button"

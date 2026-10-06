@@ -297,7 +297,7 @@ export function AppLayout() {
 
 				{/* Contenedor de Vista: Pantalla completa para Asistente, scroll estándar para otras vistas */}
 				{activeTab === "asistente" ? (
-					<div className="flex-1 flex min-w-0 h-full overflow-hidden w-full">
+					<div className="flex-1 flex min-w-0 h-full overflow-hidden w-full p-3 sm:p-4 md:p-6 pb-24 sm:pb-24 md:pb-24">
 						<PlottioAsistenteView onNavigate={setActiveTab} />
 					</div>
 				) : (

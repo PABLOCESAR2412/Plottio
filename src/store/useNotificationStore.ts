@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -9,6 +10,7 @@ export interface SystemNotification {
 	timestamp: string;
 	unread: boolean;
 	linkTab?: string;
+	skipToast?: boolean;
 }
 
 interface NotificationState {
@@ -54,8 +56,22 @@ export const useNotificationStore = create<NotificationState>()(
 	persist(
 		(set) => ({
 			notifications: INITIAL_NOTIFICATIONS,
-			addNotification: (notif) =>
-				set((state) => ({
+			addNotification: (notif) => {
+				if (!notif.skipToast) {
+					try {
+						if (notif.type === "success") {
+							toast.success(notif.title, { description: notif.message });
+						} else if (notif.type === "warning") {
+							toast.warning(notif.title, { description: notif.message });
+						} else {
+							toast.info(notif.title, { description: notif.message });
+						}
+					} catch {
+						// Ignorar en entornos sin DOM/Toaster
+					}
+				}
+
+				return set((state) => ({
 					notifications: [
 						{
 							...notif,
@@ -68,7 +84,8 @@ export const useNotificationStore = create<NotificationState>()(
 						},
 						...state.notifications,
 					].slice(0, 30), // Límite de 30 notificaciones recientes
-				})),
+				}));
+			},
 			markAsRead: (id) =>
 				set((state) => ({
 					notifications: state.notifications.map((n) =>

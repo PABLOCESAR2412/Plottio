@@ -13,6 +13,7 @@ import type React from "react";
 import { useMemo, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { useNotificationStore } from "../../store/useNotificationStore";
 import { useSessionStore } from "../../store/useSessionStore";
 import type { PlantillaPrecio } from "../../types/data";
 import { SuccessDialog } from "../SuccessDialog";
@@ -255,6 +256,14 @@ export function ConfigPlantillas() {
 			});
 			setNewConcepto("");
 			setNewPrecioSugerido(0);
+
+			useNotificationStore.getState().addNotification({
+				title: "Tarifa Registrada",
+				message: `Se añadió "${concept}" con un precio de $${newPrecioSugerido} USD a ${currentCategory}.`,
+				type: "info",
+				linkTab: "configuracion",
+			});
+
 			setAlertConfig({
 				isOpen: true,
 				title: "Tarifa Registrada",

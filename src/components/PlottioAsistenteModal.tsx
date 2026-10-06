@@ -489,7 +489,7 @@ export const PlottioAsistenteModal: React.FC<PlottioAsistenteModalProps> = ({
 	};
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 sm:pt-10 bg-black/60 backdrop-blur-sm animate-fade-in">
+		<div className="fixed inset-0 z-[100] flex items-start justify-center p-3 sm:p-6 sm:pt-10 bg-black/60 backdrop-blur-sm animate-fade-in">
 			<button
 				type="button"
 				className="fixed inset-0 w-full h-full cursor-default"

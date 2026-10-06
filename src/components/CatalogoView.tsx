@@ -13,6 +13,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 
@@ -63,6 +64,12 @@ export function CatalogoView() {
 				precioBase: Number(formData.precioBase),
 			});
 			toast.success("Servicio agregado al catálogo");
+			useNotificationStore.getState().addNotification({
+				title: "Servicio Agregado",
+				message: `Se ha agregado "${formData.nombre.trim()}" al catálogo de servicios.`,
+				type: "info",
+				linkTab: "catalogo",
+			});
 			setShowModal(false);
 			setFormData({ nombre: "", categoria: "general", precioBase: 0 });
 		} catch (err) {

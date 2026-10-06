@@ -27,6 +27,7 @@ import {
 	guardarCacheIdentidad,
 } from "../lib/consultaIdentidadCache";
 import { validarIdentificacion } from "../lib/identificacion";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import type { Cliente, Empresa, Vehiculo } from "../types/data";
 import { TableSkeleton } from "./Skeleton";
@@ -476,6 +477,13 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 		setPendienteEmpresa(false);
 		setPendingEmpresaData(null);
 
+		useNotificationStore.getState().addNotification({
+			title: "Cliente Creado",
+			message: `El cliente "${nombre.trim()}" ha sido registrado con éxito.`,
+			type: "success",
+			linkTab: "clientes",
+		});
+
 		setAlertConfig({
 			isOpen: true,
 			title: "Cliente Creado",
@@ -546,6 +554,14 @@ export const ClientesView: React.FC<ClientesViewProps> = ({
 			setPendienteEmpresa(false);
 			setPendingEmpresaData(null);
 			setLastCreatedClienteId(null);
+
+			useNotificationStore.getState().addNotification({
+				title: "Cliente y Empresa Registrados",
+				message: `La empresa "${empresaNombre.trim()}" y el cliente "${nombre.trim()}" han sido registrados y vinculados con éxito.`,
+				type: "success",
+				linkTab: "clientes",
+			});
+
 			setAlertConfig({
 				isOpen: true,
 				title: "Cliente y Empresa Registrados",

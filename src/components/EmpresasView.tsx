@@ -24,6 +24,7 @@ import {
 	guardarCacheIdentidad,
 } from "../lib/consultaIdentidadCache";
 import { validarIdentificacion } from "../lib/identificacion";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
@@ -416,6 +417,13 @@ export const EmpresasView: React.FC<EmpresasViewProps> = ({
 
 			setIsCreateOpen(false);
 			setSelectedEmpresaId(newEmp._id);
+
+			useNotificationStore.getState().addNotification({
+				title: "Empresa Registrada",
+				message: `La empresa/flota "${newEmp.nombre}" ha sido creada correctamente.`,
+				type: "success",
+				linkTab: "empresas",
+			});
 
 			setAlertConfig({
 				isOpen: true,

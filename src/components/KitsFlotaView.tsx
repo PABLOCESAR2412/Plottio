@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 
@@ -117,6 +118,12 @@ export function KitsFlotaView() {
 			});
 
 			toast.success("Kit de flota creado exitosamente");
+			useNotificationStore.getState().addNotification({
+				title: "Kit de Flota Creado",
+				message: `Se ha creado el kit "${formData.nombre.trim()}".`,
+				type: "info",
+				linkTab: "kits",
+			});
 			setShowModal(false);
 			setFormData({ nombre: "", descripcion: "", items: [] });
 		} catch (err) {
@@ -200,6 +207,12 @@ export function KitsFlotaView() {
 			toast.success(
 				`Se generaron las cotizaciones para ${vehiculosValidos.length} vehículos exitosamente`,
 			);
+			useNotificationStore.getState().addNotification({
+				title: "Cotizaciones Masivas Generadas",
+				message: `Se generaron cotizaciones para ${vehiculosValidos.length} vehículos desde el kit "${selectedKit.nombre}".`,
+				type: "success",
+				linkTab: "cotizaciones",
+			});
 			setShowGenerarModal(false);
 			setGenerarFormData({
 				modo: "padre_con_subgrupos",

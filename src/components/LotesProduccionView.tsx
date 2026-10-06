@@ -5,6 +5,7 @@ import { startTransition, useDeferredValue, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 
@@ -82,6 +83,12 @@ export function LotesProduccionView() {
 			});
 
 			toast.success(`Lote de ${formData.cantidad} placas enviado a producción`);
+			useNotificationStore.getState().addNotification({
+				title: "Lote de Producción Creado",
+				message: `Lote de ${formData.cantidad} placas enviado a producción.`,
+				type: "info",
+				linkTab: "lotes",
+			});
 			setShowModal(false);
 			setFormData({
 				notas: "",

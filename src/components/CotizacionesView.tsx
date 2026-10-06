@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { generarPdfCotizacion } from "../lib/pdf/cotizacionPdf";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
@@ -546,6 +547,12 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 							.replace(/\s+/g, ".")}@email.com`,
 					})) as unknown as { _id: string };
 					clienteIdParaVehiculo = nuevoCliente._id;
+					useNotificationStore.getState().addNotification({
+						title: "Cliente Creado",
+						message: `El cliente "${clienteNombre.trim()}" ha sido registrado con éxito.`,
+						type: "success",
+						linkTab: "clientes",
+					});
 				}
 				try {
 					const inlineVeh = (await createVehiculoMut({
@@ -563,6 +570,13 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 					})) as unknown as { _id: string; placa: string };
 					setPlaca(inlineVeh.placa);
 					currentVehiculoId = inlineVeh._id;
+
+					useNotificationStore.getState().addNotification({
+						title: "Vehículo Registrado",
+						message: `El vehículo con placa "${inlineVeh.placa}" se registró con éxito.`,
+						type: "success",
+						linkTab: "vehiculos",
+					});
 				} catch {
 					// Si ya existía un vehículo con esa placa, continuar sin bloquear cotización
 				}
@@ -591,6 +605,13 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 				estado: "Pendiente",
 				fecha: new Date().toISOString().split("T")[0],
 			})) as unknown as Cotizacion & { _id: string };
+
+			useNotificationStore.getState().addNotification({
+				title: "Cotización Creada",
+				message: `El presupuesto para "${clienteNombre.trim()}" se guardó con éxito.`,
+				type: "success",
+				linkTab: "cotizaciones",
+			});
 
 			setAlertConfig({
 				isOpen: true,
@@ -681,6 +702,13 @@ export const CotizacionesView: React.FC<CotizacionesViewProps> = ({
 						fotos: [],
 						cotizacionId: cot._id as Id<"cotizaciones">,
 					})) as { _id: string };
+
+					useNotificationStore.getState().addNotification({
+						title: "Orden de Trabajo Creada",
+						message: `Se generó la orden de trabajo para "${cot.clienteNombre}".`,
+						type: "success",
+						linkTab: "ordenes",
+					});
 
 					// Trigger Success feedback
 					setAlertConfig({

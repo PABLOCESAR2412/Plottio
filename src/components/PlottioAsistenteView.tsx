@@ -520,7 +520,7 @@ export const PlottioAsistenteView: React.FC<PlottioAsistenteViewProps> = ({
 	}, [conversations]);
 
 	return (
-		<div className="flex h-[calc(100vh-8.5rem)] w-full rounded-2xl border border-border bg-card shadow-sm overflow-hidden animate-fade-in relative">
+		<div className="flex h-full w-full rounded-2xl border border-border bg-card shadow-sm overflow-hidden animate-fade-in relative">
 			{/* PANEL IZQUIERDO: Sidebar de Conversaciones / Historial (Desktop & Drawer Mobile) */}
 			<div
 				className={`flex flex-col border-r border-border bg-muted/20 shrink-0 transition-all duration-300 z-20 ${

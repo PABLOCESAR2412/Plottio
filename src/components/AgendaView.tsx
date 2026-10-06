@@ -15,6 +15,7 @@ import type React from "react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { useSessionStore } from "../store/useSessionStore";
 import { TableSkeleton } from "./Skeleton";
 import { SuccessDialog } from "./SuccessDialog";
@@ -250,6 +251,13 @@ export const AgendaView: React.FC = () => {
 
 		setIsCreateOpen(false);
 		setSelectedDate(fecha);
+
+		useNotificationStore.getState().addNotification({
+			title: "Cita Programada",
+			message: `Se reservó el turno para "${clienteNombre.trim()}" el día ${fecha} a las ${hora}.`,
+			type: "agenda",
+			linkTab: "agenda",
+		});
 
 		setAlertConfig({
 			isOpen: true,
