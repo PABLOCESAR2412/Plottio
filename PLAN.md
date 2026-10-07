@@ -439,6 +439,29 @@ Estado general de tareas: `[ ]` Pendiente | `[/]` En progreso | `[x]` Completada
     5. Pruebas unitarias completas pasando con 100% de éxito.
   - **Criterios de Aceptación:** Cero errores CORS en OpenCode Zen; cero 404 en Groq y Nvidia; respuesta resiliente garantizada.
 
+---
+
+## FASE 9: MEJORA DEL AGENTE IA — RESPUESTA, COMPORTAMIENTO Y MEMORIA
+
+- [x] **Tarea 42 (P1 - Fase 9): Respuestas naturales multi-intención y filtrado real de consultas deterministas**
+  - **Archivos:** `src/services/plottioAgent.ts`, `tests/agentBehaviorAndModels.test.ts`
+  - **Requerimiento:**
+    1. Eliminar el preámbulo robótico "Basado en la ejecución de herramientas de negocio [...] y el contexto operacional recuperado:" del texto visible de las respuestas deterministas; las herramientas invocadas deben reflejarse únicamente en telemetría (`toolsCalled`), nunca en el texto que lee el operador.
+    2. Soportar consultas multi-intención (ej. "¿qué vehículos tiene el cliente Juan?"): cuando la consulta menciona clientes + vehículos, la respuesta debe cubrir ambas intenciones; si el cliente mencionado aparece en los datos, listar su(s) vehículo(s) vinculado(s); si no aparece, indicarlo con amabilidad.
+    3. Aplicar el filtro de la consulta en las respuestas de órdenes e inventario: si la consulta menciona un identificador específico (número de orden "OT-123", placa "ABC-123", estado "En Proceso", material "3M IJ180"), la respuesta debe filtrar por ese criterio en vez de listar siempre los primeros 10; si el registro filtrado no existe, decirlo explícitamente.
+    4. Añadir pruebas unitarias que cubran: ausencia del preámbulo en cualquier respuesta determinista, multi-intención cliente+vehículo, filtrado de órdenes por placa/estado y de inventario por material, y caso borde de registro filtrado inexistente.
+  - **Criterios de Aceptación:** Ninguna respuesta determinista contiene el preámbulo "Basado en la ejecución de herramientas de negocio"; consultas con dos entidades mencionadas devuelven información de ambas; "estado de la orden OT-123" responde solo con OT-123 (o indica que no existe); inventario "3M" filtra materiales 3M. Pruebas pasando.
+
+- [x] **Tarea 43 (P1 - Fase 9): Memoria conversacional del agente live (seguimientos contextuales)**
+  - **Archivos:** `src/services/plottioAgent.ts`, `src/components/PlottioAsistenteView.tsx`, `src/components/PlottioAsistenteModal.tsx`, `tests/agentConversationMemory.test.ts`
+  - **Requerimiento:**
+    1. Añadir `history?: Array<{ role: "user" | "assistant"; text: string }>` a `LiveAgentOptions`; enviar los últimos 8 turnos al proveedor LLM en el orden correcto (Gemini: `contents` alternando roles; OpenAI-compatible: array `messages` con historial antes del turno actual). Nunca incluir el mensaje en curso como historial.
+    2. En `PlottioAsistenteView.tsx` y `PlottioAsistenteModal.tsx`, construir el historial desde los mensajes previos de la conversación activa (role user/assistant, excluyendo el mensaje que se está enviando) y pasarlo a `executeLiveBusinessAgent`.
+    3. Preguntas de seguimiento cortas (ej. "¿y sus teléfonos?", "dame más detalle") deben poder resolverse contra el turno anterior gracias al historial inyectado.
+    4. El comportamiento sin historial (o con historial vacío) debe ser idéntico al actual: sin regresiones en los flujos de fallback multi-proveedor ni en el motor determinista.
+    5. Pruebas unitarias con fetch mockeado que verifiquen: el payload enviado incluye el historial recortado a 8 turnos en orden correcto, se excluye el mensaje en curso, y sin historial el payload es igual al actual.
+  - **Criterios de Aceptación:** El payload del proveedor incluye el historial recortado y ordenado; las vistas pasan el historial real sin romper el fallback; modo sin historial sin regresiones. Pruebas pasando.
+
 
 
 

@@ -272,6 +272,293 @@ export function isRestrictedAction(query: string): boolean {
 	return forbiddenPatterns.some((pattern) => pattern.test(normalized));
 }
 
+const MENTIONED_CLIENT_STOPWORDS = new Set([
+	"y",
+	"o",
+	"u",
+	"e",
+	"a",
+	"al",
+	"con",
+	"que",
+	"qué",
+	"de",
+	"del",
+	"la",
+	"el",
+	"los",
+	"las",
+	"su",
+	"sus",
+	"se",
+	"es",
+	"son",
+	"esta",
+	"está",
+	"estan",
+	"están",
+	"tiene",
+	"tienen",
+	"registrado",
+	"registrada",
+	"registrados",
+	"registradas",
+	"corporativo",
+	"corporativos",
+	"comercial",
+	"comerciales",
+	"activos",
+	"activas",
+	"flota",
+	"flotas",
+]);
+
+function extractMentionedClientName(query: string): string | null {
+	const match =
+		query.match(/\bclientes?\s+(?:que\s+)?se\s+llam[ao]\s+(.{0,40})/i) ||
+		query.match(/\bclientes?\s+llamad[oa]\s+(.{0,40})/i) ||
+		query.match(/\bclientes?\b\s+(.{0,40})/i);
+	if (!match) return null;
+	const words = match[1].split(/[^a-zA-Z0-9áéíóúñüÁÉÍÓÚÑÜ]+/).filter(Boolean);
+	const nameWords: string[] = [];
+	for (const word of words) {
+		const lower = word.toLowerCase();
+		if (lower === "llamado" || lower === "llamada" || lower === "llama") {
+			continue;
+		}
+		if (MENTIONED_CLIENT_STOPWORDS.has(lower)) break;
+		nameWords.push(word);
+	}
+	return nameWords.length > 0 ? nameWords.join(" ") : null;
+}
+
+function filterClientsByName(
+	clientes: NonNullable<BusinessDataContext["clientes"]>,
+	name: string,
+): NonNullable<BusinessDataContext["clientes"]> {
+	const normalized = name.toLowerCase().trim();
+	if (!normalized) return [];
+	const tokens = normalized.split(/\s+/).filter(Boolean);
+	return clientes.filter((cliente) => {
+		const nombre = (cliente.nombre || "").toLowerCase();
+		if (!nombre) return false;
+		if (nombre.includes(normalized)) return true;
+		return tokens.every((token) => nombre.includes(token));
+	});
+}
+
+function getVehiculosDeCliente(
+	clientes: Array<{ nombre?: string }>,
+	ordenes: BusinessDataContext["ordenes"],
+	vehiculos: BusinessDataContext["vehiculos"],
+): NonNullable<BusinessDataContext["vehiculos"]> {
+	const nombres = clientes
+		.map((cliente) => (cliente.nombre || "").toLowerCase())
+		.filter(Boolean);
+	if (nombres.length === 0) return [];
+	const placas = new Set<string>();
+	for (const orden of ordenes || []) {
+		const clienteOrden = (orden.clienteNombre || "").toLowerCase();
+		if (!clienteOrden || !orden.placa) continue;
+		if (
+			nombres.some(
+				(nombre) =>
+					clienteOrden.includes(nombre) || nombre.includes(clienteOrden),
+			)
+		) {
+			placas.add(orden.placa.replace(/\s+/g, "").toUpperCase());
+		}
+	}
+	if (placas.size === 0) return [];
+	return (vehiculos || []).filter(
+		(vehiculo) =>
+			vehiculo.placa &&
+			placas.has(vehiculo.placa.replace(/\s+/g, "").toUpperCase()),
+	);
+}
+
+interface OrderFilter {
+	orderId?: string;
+	placa?: string;
+	estado?: string;
+}
+
+function stripAccents(value: string): string {
+	return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function extractOrderFilter(query: string): OrderFilter | null {
+	const orderMatch = query.match(/\bot-?\s?\d{1,6}\b/i);
+	const plateMatch = query.match(/\b[a-z]{3}-?\d{3,4}\b/i);
+	const statusMatch = query
+		.toLowerCase()
+		.match(
+			/\b(en\s+procesos?|en\s+producci[oó]n|en\s+espera|pendientes?|completad[oa]s?|finalizad[oa]s?|entregad[oa]s?|cancelad[oa]s?|aprobad[oa]s?)\b/,
+		);
+
+	const orderId = orderMatch ? orderMatch[0].replace(/\s+/g, "") : undefined;
+	const placa = plateMatch ? plateMatch[0] : undefined;
+	const estado = statusMatch ? statusMatch[0] : undefined;
+
+	if (!orderId && !placa && !estado) return null;
+	return { orderId, placa, estado };
+}
+
+function matchesOrderFilter(
+	orden: { id?: string; placa?: string; estado?: string },
+	filter: OrderFilter,
+): boolean {
+	if (filter.orderId) {
+		const normalizedFilter = filter.orderId
+			.toLowerCase()
+			.replace(/[^a-z0-9]/g, "");
+		const filterDigits = filter.orderId.replace(/\D/g, "");
+		const ordenId = (orden.id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+		if (!ordenId) return false;
+		const idMatches =
+			ordenId.includes(normalizedFilter) ||
+			(filterDigits.length > 0 && ordenId.includes(filterDigits));
+		if (!idMatches) return false;
+	}
+	if (filter.placa) {
+		const normalizedPlaca = filter.placa.replace(/\s+/g, "").toUpperCase();
+		const ordenPlaca = (orden.placa || "").replace(/\s+/g, "").toUpperCase();
+		if (!ordenPlaca || ordenPlaca !== normalizedPlaca) return false;
+	}
+	if (filter.estado) {
+		const estadoBase = stripAccents(
+			filter.estado.toLowerCase().replace(/s$/, ""),
+		);
+		const ordenEstado = (orden.estado || "").toLowerCase();
+		if (!ordenEstado || !stripAccents(ordenEstado).includes(estadoBase)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+const INVENTORY_FILTER_STOPWORDS = new Set([
+	"consultar",
+	"consulta",
+	"consultas",
+	"consulte",
+	"dame",
+	"muestra",
+	"muestrame",
+	"muéstrame",
+	"mostrar",
+	"ver",
+	"lista",
+	"listar",
+	"todo",
+	"todos",
+	"toda",
+	"todas",
+	"cuanto",
+	"cuánto",
+	"cuantos",
+	"cuántos",
+	"cuanta",
+	"cuánta",
+	"que",
+	"qué",
+	"hay",
+	"queda",
+	"quedan",
+	"tenemos",
+	"tengo",
+	"tiene",
+	"tienen",
+	"es",
+	"son",
+	"esta",
+	"está",
+	"estan",
+	"están",
+	"del",
+	"de",
+	"la",
+	"el",
+	"los",
+	"las",
+	"un",
+	"una",
+	"unos",
+	"unas",
+	"en",
+	"con",
+	"para",
+	"por",
+	"y",
+	"o",
+	"u",
+	"a",
+	"al",
+	"stock",
+	"stocks",
+	"inventario",
+	"inventarios",
+	"material",
+	"materiales",
+	"bobina",
+	"bobinas",
+	"rollo",
+	"rollos",
+	"vinilo",
+	"vinilos",
+	"metro",
+	"metros",
+	"item",
+	"ítem",
+	"items",
+	"ítems",
+	"unidad",
+	"unidades",
+	"uds",
+	"disponible",
+	"disponibles",
+	"registrado",
+	"registrada",
+	"registrados",
+	"registradas",
+	"actualmente",
+	"taller",
+]);
+
+function extractInventoryFilterTerms(query: string): string[] {
+	const tokens = query
+		.toLowerCase()
+		.split(/[^a-z0-9ñáéíóúü]+/)
+		.filter(
+			(token) => token.length >= 2 && !INVENTORY_FILTER_STOPWORDS.has(token),
+		);
+	return Array.from(new Set(tokens));
+}
+
+function inventoryItemMatchesTerms(
+	item: { nombre?: string },
+	terms: string[],
+): boolean {
+	const nombre = (item.nombre || "").toLowerCase();
+	if (!nombre) return false;
+	return terms.every((term) => {
+		if (nombre.includes(term)) return true;
+		const singular = term.replace(/es$/, "").replace(/s$/, "");
+		return singular.length >= 2 && nombre.includes(singular);
+	});
+}
+
+function formatInventarioItem(item: {
+	nombre?: string;
+	stock?: number;
+	unidad?: string;
+}): string {
+	if (item.stock !== undefined) {
+		return `• ${item.nombre || "Material"}: Stock ${item.stock} ${item.unidad || "uds"}`;
+	}
+	return `• ${item.nombre || "Material"}: Registrado en catálogo (${item.unidad || "unidad"})`;
+}
+
 /**
  * Ejecuta el ciclo de Agentic RAG de negocio sobre la consulta del operador.
  * Integra datos reales de la base de datos (empresas, clientes, órdenes, inventario, vehículos)
@@ -435,15 +722,34 @@ export function executeBusinessAgent(
 				timestamp,
 			});
 		}
-	} else if (matchesCompanies) {
+	}
+
+	const answerSections: string[] = [];
+	const buildSections =
+		!isGreeting && !isHelp && !isWrappingHelp && !idToVerify;
+	const clientesData = businessData?.clientes;
+	const mentionedClientName = buildSections
+		? extractMentionedClientName(userQuery)
+		: null;
+	const foundMentionedClients =
+		mentionedClientName && clientesData && clientesData.length > 0
+			? filterClientsByName(clientesData, mentionedClientName)
+			: [];
+	const clienteMencionadoSinRegistro =
+		mentionedClientName !== null && foundMentionedClients.length === 0;
+	const orderFilter = buildSections ? extractOrderFilter(userQuery) : null;
+
+	if (buildSections && matchesCompanies) {
 		const empresas = businessData?.empresas;
 		if (empresas && empresas.length > 0) {
-			directAnswer = `Actualmente hay ${empresas.length} empresa(s) registrada(s) en la base de datos del taller:\n${empresas
-				.map(
-					(e) =>
-						`• ${e.nombre}${e.ruc ? ` (RUC: ${e.ruc})` : ""} — ${e.activa !== false ? "Activa" : "Inactiva"}${e.telefono ? ` · Tel: ${e.telefono}` : ""}`,
-				)
-				.join("\n")}`;
+			answerSections.push(
+				`Actualmente hay ${empresas.length} empresa(s) registrada(s) en la base de datos del taller:\n${empresas
+					.map(
+						(e) =>
+							`• ${e.nombre}${e.ruc ? ` (RUC: ${e.ruc})` : ""} — ${e.activa !== false ? "Activa" : "Inactiva"}${e.telefono ? ` · Tel: ${e.telefono}` : ""}`,
+					)
+					.join("\n")}`,
+			);
 			toolsCalled.push({
 				toolName: "consultar_clientes",
 				parameters: { criterio: "empresas_registradas" },
@@ -457,8 +763,9 @@ export function executeBusinessAgent(
 				snippet: `RUC: ${empresas[0].ruc || "N/A"} · Estado: ${empresas[0].activa !== false ? "Activa" : "Inactiva"}.`,
 			});
 		} else if (businessData && (!empresas || empresas.length === 0)) {
-			directAnswer =
-				"Actualmente no hay empresas registradas en la base de datos del taller. Puedes dar de alta una empresa cliente desde el módulo de Clientes o Empresas.";
+			answerSections.push(
+				"Actualmente no hay empresas registradas en la base de datos del taller. Puedes dar de alta una empresa cliente desde el módulo de Clientes o Empresas.",
+			);
 			toolsCalled.push({
 				toolName: "consultar_clientes",
 				parameters: { criterio: "empresas_registradas" },
@@ -466,8 +773,9 @@ export function executeBusinessAgent(
 				timestamp,
 			});
 		} else {
-			directAnswer =
-				"Actualmente no hay empresas registradas en la base de datos del taller. Puedes dar de alta una empresa cliente desde el módulo de Clientes o Empresas.";
+			answerSections.push(
+				"Actualmente no hay empresas registradas en la base de datos del taller. Puedes dar de alta una empresa cliente desde el módulo de Clientes o Empresas.",
+			);
 			toolsCalled.push({
 				toolName: "consultar_clientes",
 				parameters: { criterio: "empresas_registradas" },
@@ -482,18 +790,53 @@ export function executeBusinessAgent(
 					"Módulo de gestión de cuentas corporativas y clientes empresariales.",
 			});
 		}
-	} else if (matchesClients) {
+	}
+
+	if (buildSections && matchesClients) {
 		const clientes = businessData?.clientes;
-		if (clientes && clientes.length > 0) {
-			directAnswer = `Se encuentran ${clientes.length} cliente(s) registrado(s) en la base de datos del taller:\n${clientes
-				.slice(0, 10)
-				.map(
-					(c) =>
-						`• ${c.nombre}${c.identificacion ? ` (ID: ${c.identificacion})` : ""}${c.telefono ? ` · Tel: ${c.telefono}` : ""}`,
-				)
-				.join(
-					"\n",
-				)}${clientes.length > 10 ? `\n... y ${clientes.length - 10} cliente(s) más.` : ""}`;
+		if (mentionedClientName && foundMentionedClients.length > 0) {
+			answerSections.push(
+				`Cliente(s) encontrado(s) en la base de datos:\n${foundMentionedClients
+					.map(
+						(c) =>
+							`• ${c.nombre}${c.identificacion ? ` (ID: ${c.identificacion})` : ""}${c.telefono ? ` · Tel: ${c.telefono}` : ""}`,
+					)
+					.join("\n")}`,
+			);
+			toolsCalled.push({
+				toolName: "consultar_clientes",
+				parameters: { criterio: mentionedClientName },
+				outputSummary: `Cliente encontrado: ${foundMentionedClients[0].nombre}`,
+				timestamp,
+			});
+			citations.push({
+				type: "documento",
+				title: `Cliente: ${foundMentionedClients[0].nombre}`,
+				similarity: 0.93,
+				snippet: `Identificación: ${foundMentionedClients[0].identificacion || "N/A"} · Contacto registrado en base de datos.`,
+			});
+		} else if (mentionedClientName) {
+			answerSections.push(
+				`No encontré al cliente "${mentionedClientName}" registrado en la base de datos del taller. Verifica el nombre o regístralo desde el módulo de Clientes.`,
+			);
+			toolsCalled.push({
+				toolName: "consultar_clientes",
+				parameters: { criterio: mentionedClientName },
+				outputSummary: `Cliente "${mentionedClientName}" sin registro en la base de datos.`,
+				timestamp,
+			});
+		} else if (clientes && clientes.length > 0) {
+			answerSections.push(
+				`Se encuentran ${clientes.length} cliente(s) registrado(s) en la base de datos del taller:\n${clientes
+					.slice(0, 10)
+					.map(
+						(c) =>
+							`• ${c.nombre}${c.identificacion ? ` (ID: ${c.identificacion})` : ""}${c.telefono ? ` · Tel: ${c.telefono}` : ""}`,
+					)
+					.join(
+						"\n",
+					)}${clientes.length > 10 ? `\n... y ${clientes.length - 10} cliente(s) más.` : ""}`,
+			);
 			toolsCalled.push({
 				toolName: "consultar_clientes",
 				parameters: { criterio: userQuery.slice(0, 40) },
@@ -507,8 +850,9 @@ export function executeBusinessAgent(
 				snippet: `Identificación: ${clientes[0].identificacion || "N/A"} · Contacto registrado en base de datos.`,
 			});
 		} else if (businessData && (!clientes || clientes.length === 0)) {
-			directAnswer =
-				"Actualmente no hay clientes registrados en la base de datos del taller. Puedes dar de alta un nuevo cliente desde el módulo de Clientes.";
+			answerSections.push(
+				"Actualmente no hay clientes registrados en la base de datos del taller. Puedes dar de alta un nuevo cliente desde el módulo de Clientes.",
+			);
 			toolsCalled.push({
 				toolName: "consultar_clientes",
 				parameters: { criterio: userQuery.slice(0, 40) },
@@ -516,8 +860,9 @@ export function executeBusinessAgent(
 				timestamp,
 			});
 		} else {
-			directAnswer =
-				"Actualmente no hay clientes registrados en la base de datos del taller. Puedes registrar un nuevo cliente desde el módulo de Clientes.";
+			answerSections.push(
+				"Actualmente no hay clientes registrados en la base de datos del taller. Puedes registrar un nuevo cliente desde el módulo de Clientes.",
+			);
 			toolsCalled.push({
 				toolName: "consultar_clientes",
 				parameters: { criterio: userQuery.slice(0, 40) },
@@ -534,11 +879,54 @@ export function executeBusinessAgent(
 		}
 	}
 
-	if (!isGreeting && !isHelp && !isWrappingHelp) {
-		if (matchesOrders) {
-			const ordenes = businessData?.ordenes;
-			if (ordenes && ordenes.length > 0) {
-				directAnswer = `Actualmente hay ${ordenes.length} orden(es) de trabajo en el taller:\n${ordenes
+	if (buildSections && matchesOrders) {
+		const ordenes = businessData?.ordenes;
+		if (orderFilter && ordenes && ordenes.length > 0) {
+			const filteredOrdenes = ordenes.filter((o) =>
+				matchesOrderFilter(o, orderFilter),
+			);
+			const filterLabel = [
+				orderFilter.orderId,
+				orderFilter.placa,
+				orderFilter.estado,
+			]
+				.filter(Boolean)
+				.join(" · ");
+			if (filteredOrdenes.length > 0) {
+				answerSections.push(
+					`Se encontraron ${filteredOrdenes.length} orden(es) que coinciden con el filtro "${filterLabel}":\n${filteredOrdenes
+						.slice(0, 10)
+						.map(
+							(o) =>
+								`• Orden #${o.id || ""}: Placa: ${o.placa || "N/A"} · Cliente: ${o.clienteNombre || "Sin cliente"} · Estado: ${o.estado || "En Proceso"}${o.total ? ` · $${o.total.toFixed(2)}` : ""}`,
+						)
+						.join(
+							"\n",
+						)}${filteredOrdenes.length > 10 ? `\n... y ${filteredOrdenes.length - 10} orden(es) más.` : ""}`,
+				);
+				citations.push({
+					type: "tarea",
+					title: `Orden #${filteredOrdenes[0].id || "OT"}: Placa ${filteredOrdenes[0].placa || "N/A"}`,
+					similarity: 0.95,
+					snippet: `Cliente: ${filteredOrdenes[0].clienteNombre || "General"} · Estado: ${filteredOrdenes[0].estado || "En Proceso"}.`,
+				});
+			} else {
+				answerSections.push(
+					`No encontré órdenes de trabajo que coincidan con "${filterLabel}" en la base de datos del taller. Verifica el número de orden, la placa o el estado e intenta de nuevo.`,
+				);
+			}
+			toolsCalled.push({
+				toolName: "consultar_ordenes",
+				parameters: { filtro: filterLabel },
+				outputSummary:
+					filteredOrdenes.length > 0
+						? `${filteredOrdenes.length} orden(es) coinciden con el filtro "${filterLabel}".`
+						: `Sin órdenes que coincidan con "${filterLabel}".`,
+				timestamp,
+			});
+		} else if (ordenes && ordenes.length > 0) {
+			answerSections.push(
+				`Actualmente hay ${ordenes.length} orden(es) de trabajo en el taller:\n${ordenes
 					.slice(0, 10)
 					.map(
 						(o) =>
@@ -546,119 +934,235 @@ export function executeBusinessAgent(
 					)
 					.join(
 						"\n",
-					)}${ordenes.length > 10 ? `\n... y ${ordenes.length - 10} orden(es) más.` : ""}`;
-				toolsCalled.push({
-					toolName: "consultar_ordenes",
-					parameters: { filtro: userQuery.slice(0, 40) },
-					outputSummary: `Se registran ${ordenes.length} orden(es) de trabajo activas en la base de datos.`,
-					timestamp,
-				});
-				citations.push({
-					type: "tarea",
-					title: `Orden #${ordenes[0].id || "OT"}: Placa ${ordenes[0].placa || "N/A"}`,
-					similarity: 0.95,
-					snippet: `Cliente: ${ordenes[0].clienteNombre || "General"} · Estado: ${ordenes[0].estado || "En Proceso"}.`,
-				});
-			} else if (businessData && (!ordenes || ordenes.length === 0)) {
-				directAnswer =
-					"No se registran órdenes de trabajo activas en la base de datos del taller.";
-				toolsCalled.push({
-					toolName: "consultar_ordenes",
-					parameters: { filtro: userQuery.slice(0, 40) },
-					outputSummary: "0 órdenes de trabajo en el taller.",
-					timestamp,
-				});
-			} else {
-				directAnswer =
-					"Consulta de órdenes de trabajo del taller realizada en la base de datos.";
-				toolsCalled.push({
-					toolName: "consultar_ordenes",
-					parameters: { filtro: userQuery.slice(0, 40) },
-					outputSummary: "Registro de órdenes de trabajo operacionales.",
-					timestamp,
-				});
-				citations.push({
-					type: "tarea",
-					title: "Orden de Trabajo Operativa",
-					similarity: 0.95,
-					snippet: "Gestión de producción, rotulado y estado en taller.",
-				});
-			}
-		}
-
-		if (matchesInventory) {
-			const inv = businessData?.inventario;
-			if (inv && inv.length > 0) {
-				directAnswer = `Se registran ${inv.length} ítem(s) en el inventario del taller:\n${inv
-					.slice(0, 10)
-					.map((i) =>
-						i.stock !== undefined
-							? `• ${i.nombre || "Material"}: Stock ${i.stock} ${i.unidad || "uds"}`
-							: `• ${i.nombre || "Material"}: Registrado en catálogo (${i.unidad || "unidad"})`,
-					)
-					.join(
-						"\n",
-					)}${inv.length > 10 ? `\n... y ${inv.length - 10} ítem(s) más.` : ""}`;
-				toolsCalled.push({
-					toolName: "consultar_inventario",
-					parameters: { material: userQuery.slice(0, 40) },
-					outputSummary: `Recuperados ${inv.length} materiales en inventario.`,
-					timestamp,
-				});
-				citations.push({
-					type: "stock",
-					title: `Stock: ${inv[0].nombre || "Material"}`,
-					similarity: 0.96,
-					snippet: `Disponible: ${inv[0].stock ?? 0} ${inv[0].unidad || "unidades"}.`,
-				});
-			} else if (businessData && (!inv || inv.length === 0)) {
-				directAnswer = "No hay ítems registrados en el inventario del taller.";
-				toolsCalled.push({
-					toolName: "consultar_inventario",
-					parameters: { material: userQuery.slice(0, 40) },
-					outputSummary: "0 ítems en inventario.",
-					timestamp,
-				});
-			} else {
-				directAnswer = "Consulta de inventario de vinilos y bobinas en stock.";
-				toolsCalled.push({
-					toolName: "consultar_inventario",
-					parameters: { material: "Materiales de rotulado" },
-					outputSummary: "Inventario verificado en almacén del taller.",
-					timestamp,
-				});
-				citations.push({
-					type: "stock",
-					title: "Stock Almacén Central: Bobina Vinilo",
-					similarity: 0.96,
-					snippet:
-						"Disponibilidad de material y bobinas para rotulado vehicular.",
-				});
-			}
-		}
-
-		if (matchesQuotes) {
-			directAnswer =
-				"Puedes emitir y consultar presupuestos y cotizaciones de rotulado directamente desde el módulo comercial de Cotizaciones.";
+					)}${ordenes.length > 10 ? `\n... y ${ordenes.length - 10} orden(es) más.` : ""}`,
+			);
 			toolsCalled.push({
-				toolName: "consultar_cotizaciones",
-				parameters: { cliente: userQuery.slice(0, 30) },
-				outputSummary: "Consulta de cotizaciones comerciales y presupuestos.",
+				toolName: "consultar_ordenes",
+				parameters: { filtro: userQuery.slice(0, 40) },
+				outputSummary: `Se registran ${ordenes.length} orden(es) de trabajo activas en la base de datos.`,
 				timestamp,
 			});
 			citations.push({
-				type: "documento",
-				title: "Presupuestos y Cotizaciones Comerciales",
-				similarity: 0.94,
-				snippet:
-					"Cálculo de materiales, metraje de vinilo y mano de obra para rotulado.",
+				type: "tarea",
+				title: `Orden #${ordenes[0].id || "OT"}: Placa ${ordenes[0].placa || "N/A"}`,
+				similarity: 0.95,
+				snippet: `Cliente: ${ordenes[0].clienteNombre || "General"} · Estado: ${ordenes[0].estado || "En Proceso"}.`,
+			});
+		} else if (businessData && (!ordenes || ordenes.length === 0)) {
+			answerSections.push(
+				"No se registran órdenes de trabajo activas en la base de datos del taller.",
+			);
+			toolsCalled.push({
+				toolName: "consultar_ordenes",
+				parameters: { filtro: userQuery.slice(0, 40) },
+				outputSummary: "0 órdenes de trabajo en el taller.",
+				timestamp,
+			});
+		} else {
+			answerSections.push(
+				"Consulta de órdenes de trabajo del taller realizada en la base de datos.",
+			);
+			toolsCalled.push({
+				toolName: "consultar_ordenes",
+				parameters: { filtro: userQuery.slice(0, 40) },
+				outputSummary: "Registro de órdenes de trabajo operacionales.",
+				timestamp,
+			});
+			citations.push({
+				type: "tarea",
+				title: "Orden de Trabajo Operativa",
+				similarity: 0.95,
+				snippet: "Gestión de producción, rotulado y estado en taller.",
 			});
 		}
+	}
 
-		if (matchesVehicles) {
-			const veh = businessData?.vehiculos;
-			if (veh && veh.length > 0) {
-				directAnswer = `Se registran ${veh.length} vehículo(s) en la base de datos del taller:\n${veh
+	if (buildSections && matchesInventory) {
+		const inv = businessData?.inventario;
+		const materialTerms = extractInventoryFilterTerms(userQuery);
+		if (materialTerms.length > 0 && inv && inv.length > 0) {
+			const filteredInv = inv.filter((i) =>
+				inventoryItemMatchesTerms(i, materialTerms),
+			);
+			const filterLabel = materialTerms.join(" ");
+			if (filteredInv.length > 0) {
+				answerSections.push(
+					`Se encontraron ${filteredInv.length} material(es) en el inventario que coinciden con "${filterLabel}":\n${filteredInv
+						.slice(0, 10)
+						.map(formatInventarioItem)
+						.join(
+							"\n",
+						)}${filteredInv.length > 10 ? `\n... y ${filteredInv.length - 10} ítem(s) más.` : ""}`,
+				);
+				citations.push({
+					type: "stock",
+					title: `Stock: ${filteredInv[0].nombre || "Material"}`,
+					similarity: 0.96,
+					snippet: `Disponible: ${filteredInv[0].stock ?? 0} ${filteredInv[0].unidad || "unidades"}.`,
+				});
+			} else {
+				answerSections.push(
+					`No encontré materiales en el inventario que coincidan con "${filterLabel}". Verifica la referencia del material o consulta el catálogo completo del inventario.`,
+				);
+			}
+			toolsCalled.push({
+				toolName: "consultar_inventario",
+				parameters: { material: filterLabel },
+				outputSummary:
+					filteredInv.length > 0
+						? `${filteredInv.length} material(es) coinciden con "${filterLabel}".`
+						: `Sin materiales que coincidan con "${filterLabel}".`,
+				timestamp,
+			});
+		} else if (inv && inv.length > 0) {
+			answerSections.push(
+				`Se registran ${inv.length} ítem(s) en el inventario del taller:\n${inv
+					.slice(0, 10)
+					.map(formatInventarioItem)
+					.join(
+						"\n",
+					)}${inv.length > 10 ? `\n... y ${inv.length - 10} ítem(s) más.` : ""}`,
+			);
+			toolsCalled.push({
+				toolName: "consultar_inventario",
+				parameters: { material: userQuery.slice(0, 40) },
+				outputSummary: `Recuperados ${inv.length} materiales en inventario.`,
+				timestamp,
+			});
+			citations.push({
+				type: "stock",
+				title: `Stock: ${inv[0].nombre || "Material"}`,
+				similarity: 0.96,
+				snippet: `Disponible: ${inv[0].stock ?? 0} ${inv[0].unidad || "unidades"}.`,
+			});
+		} else if (businessData && (!inv || inv.length === 0)) {
+			answerSections.push(
+				"No hay ítems registrados en el inventario del taller.",
+			);
+			toolsCalled.push({
+				toolName: "consultar_inventario",
+				parameters: { material: userQuery.slice(0, 40) },
+				outputSummary: "0 ítems en inventario.",
+				timestamp,
+			});
+		} else {
+			answerSections.push(
+				"Consulta de inventario de vinilos y bobinas en stock.",
+			);
+			toolsCalled.push({
+				toolName: "consultar_inventario",
+				parameters: { material: "Materiales de rotulado" },
+				outputSummary: "Inventario verificado en almacén del taller.",
+				timestamp,
+			});
+			citations.push({
+				type: "stock",
+				title: "Stock Almacén Central: Bobina Vinilo",
+				similarity: 0.96,
+				snippet:
+					"Disponibilidad de material y bobinas para rotulado vehicular.",
+			});
+		}
+	}
+
+	if (buildSections && matchesQuotes) {
+		answerSections.push(
+			"Puedes emitir y consultar presupuestos y cotizaciones de rotulado directamente desde el módulo comercial de Cotizaciones.",
+		);
+		toolsCalled.push({
+			toolName: "consultar_cotizaciones",
+			parameters: { cliente: userQuery.slice(0, 30) },
+			outputSummary: "Consulta de cotizaciones comerciales y presupuestos.",
+			timestamp,
+		});
+		citations.push({
+			type: "documento",
+			title: "Presupuestos y Cotizaciones Comerciales",
+			similarity: 0.94,
+			snippet:
+				"Cálculo de materiales, metraje de vinilo y mano de obra para rotulado.",
+		});
+	}
+
+	if (buildSections && matchesVehicles && !clienteMencionadoSinRegistro) {
+		const veh = businessData?.vehiculos;
+		if (mentionedClientName && foundMentionedClients.length > 0) {
+			const clientePrincipal = foundMentionedClients[0].nombre;
+			const vehiculosCliente = getVehiculosDeCliente(
+				foundMentionedClients,
+				businessData?.ordenes,
+				veh,
+			);
+			if (vehiculosCliente.length > 0) {
+				answerSections.push(
+					`Vehículo(s) vinculado(s) al cliente ${clientePrincipal}:\n${vehiculosCliente
+						.slice(0, 10)
+						.map(
+							(v) =>
+								`• Placa: ${v.placa || "N/A"}${v.marca || v.modelo ? ` · ${v.marca || ""} ${v.modelo || ""}` : ""}`,
+						)
+						.join("\n")}`,
+				);
+				citations.push({
+					type: "vehiculo",
+					title: `Vehículo: Placa ${vehiculosCliente[0].placa || "N/A"}`,
+					similarity: 0.91,
+					snippet: `${vehiculosCliente[0].marca || ""} ${vehiculosCliente[0].modelo || ""} vinculado a ${clientePrincipal}.`,
+				});
+			} else {
+				answerSections.push(
+					`El cliente ${clientePrincipal} está registrado, pero no se encontraron vehículos vinculados a su nombre en la base de datos del taller.`,
+				);
+			}
+			toolsCalled.push({
+				toolName: "consultar_vehiculos",
+				parameters: { criterio: mentionedClientName.slice(0, 30) },
+				outputSummary:
+					vehiculosCliente.length > 0
+						? `${vehiculosCliente.length} vehículo(s) vinculado(s) a ${clientePrincipal}.`
+						: `Sin vehículos vinculados a ${clientePrincipal}.`,
+				timestamp,
+			});
+		} else if (orderFilter?.placa) {
+			const placaFilter = orderFilter.placa;
+			const vehiculosPlaca = (veh || []).filter(
+				(v) =>
+					(v.placa || "").replace(/\s+/g, "").toUpperCase() ===
+					placaFilter.replace(/\s+/g, "").toUpperCase(),
+			);
+			if (vehiculosPlaca.length > 0) {
+				answerSections.push(
+					`Vehículo(s) que coinciden con la placa "${placaFilter}":\n${vehiculosPlaca
+						.slice(0, 10)
+						.map(
+							(v) =>
+								`• Placa: ${v.placa || "N/A"}${v.marca || v.modelo ? ` · ${v.marca || ""} ${v.modelo || ""}` : ""}`,
+						)
+						.join("\n")}`,
+				);
+				citations.push({
+					type: "vehiculo",
+					title: `Vehículo: Placa ${vehiculosPlaca[0].placa || "N/A"}`,
+					similarity: 0.91,
+					snippet: `${vehiculosPlaca[0].marca || ""} ${vehiculosPlaca[0].modelo || ""} registrado en el sistema.`,
+				});
+			} else {
+				answerSections.push(
+					`No encontré vehículos con la placa "${placaFilter}" en la base de datos del taller. Verifica la placa e intenta de nuevo.`,
+				);
+			}
+			toolsCalled.push({
+				toolName: "consultar_vehiculos",
+				parameters: { placa: placaFilter },
+				outputSummary:
+					vehiculosPlaca.length > 0
+						? `${vehiculosPlaca.length} vehículo(s) coinciden con la placa "${placaFilter}".`
+						: `Sin vehículos que coincidan con la placa "${placaFilter}".`,
+				timestamp,
+			});
+		} else if (veh && veh.length > 0) {
+			answerSections.push(
+				`Se registran ${veh.length} vehículo(s) en la base de datos del taller:\n${veh
 					.slice(0, 10)
 					.map(
 						(v) =>
@@ -666,44 +1170,45 @@ export function executeBusinessAgent(
 					)
 					.join(
 						"\n",
-					)}${veh.length > 10 ? `\n... y ${veh.length - 10} vehículo(s) más.` : ""}`;
-				toolsCalled.push({
-					toolName: "consultar_vehiculos",
-					parameters: { placa: userQuery.slice(0, 30) },
-					outputSummary: `Recuperados ${veh.length} vehículos en la base de datos.`,
-					timestamp,
-				});
-				citations.push({
-					type: "vehiculo",
-					title: `Vehículo: Placa ${veh[0].placa || "N/A"}`,
-					similarity: 0.91,
-					snippet: `${veh[0].marca || ""} ${veh[0].modelo || ""} registrado en el sistema.`,
-				});
-			} else if (businessData && (!veh || veh.length === 0)) {
-				directAnswer =
-					"No hay vehículos registrados en la base de datos del taller.";
-				toolsCalled.push({
-					toolName: "consultar_vehiculos",
-					parameters: { placa: userQuery.slice(0, 30) },
-					outputSummary: "0 vehículos en la base de datos.",
-					timestamp,
-				});
-			} else {
-				directAnswer = "Consulta del registro vehicular del taller.";
-				toolsCalled.push({
-					toolName: "consultar_vehiculos",
-					parameters: { placa: "Historial de flota" },
-					outputSummary: "Registro de vehículos vinculados a clientes.",
-					timestamp,
-				});
-				citations.push({
-					type: "vehiculo",
-					title: "Ficha Vehicular del Taller",
-					similarity: 0.91,
-					snippet:
-						"Datos y especificaciones de vehículos registrados para rotulado.",
-				});
-			}
+					)}${veh.length > 10 ? `\n... y ${veh.length - 10} vehículo(s) más.` : ""}`,
+			);
+			toolsCalled.push({
+				toolName: "consultar_vehiculos",
+				parameters: { placa: userQuery.slice(0, 30) },
+				outputSummary: `Recuperados ${veh.length} vehículos en la base de datos.`,
+				timestamp,
+			});
+			citations.push({
+				type: "vehiculo",
+				title: `Vehículo: Placa ${veh[0].placa || "N/A"}`,
+				similarity: 0.91,
+				snippet: `${veh[0].marca || ""} ${veh[0].modelo || ""} registrado en el sistema.`,
+			});
+		} else if (businessData && (!veh || veh.length === 0)) {
+			answerSections.push(
+				"No hay vehículos registrados en la base de datos del taller.",
+			);
+			toolsCalled.push({
+				toolName: "consultar_vehiculos",
+				parameters: { placa: userQuery.slice(0, 30) },
+				outputSummary: "0 vehículos en la base de datos.",
+				timestamp,
+			});
+		} else {
+			answerSections.push("Consulta del registro vehicular del taller.");
+			toolsCalled.push({
+				toolName: "consultar_vehiculos",
+				parameters: { placa: "Historial de flota" },
+				outputSummary: "Registro de vehículos vinculados a clientes.",
+				timestamp,
+			});
+			citations.push({
+				type: "vehiculo",
+				title: "Ficha Vehicular del Taller",
+				similarity: 0.91,
+				snippet:
+					"Datos y especificaciones de vehículos registrados para rotulado.",
+			});
 		}
 	}
 
@@ -716,14 +1221,12 @@ export function executeBusinessAgent(
 		});
 	}
 
-	const toolNamesStr = toolsCalled.map((t) => t.toolName).join(", ");
 	const responseText =
-		isGreeting || isHelp || isWrappingHelp
+		isGreeting || isHelp || isWrappingHelp || idToVerify
 			? directAnswer
-			: `Basado en la ejecución de herramientas de negocio [${toolNamesStr}] y el contexto operacional recuperado:\n\n${
-					directAnswer ||
-					`No encontré un registro específico para "${userQuery}" en la base de datos del taller. Puedes consultar directamente por empresas, clientes, órdenes de trabajo, inventario de materiales o vehículos.`
-				}`;
+			: answerSections.length > 0
+				? answerSections.join("\n\n")
+				: `No encontré un registro específico para "${userQuery}" en la base de datos del taller. Puedes consultar directamente por empresas, clientes, órdenes de trabajo, inventario de materiales o vehículos.`;
 
 	const promptTokens = Math.max(Math.ceil(userQuery.length / 4), 8);
 	const completionTokens = Math.max(Math.ceil(responseText.length / 4), 12);
@@ -751,6 +1254,28 @@ export function executeBusinessAgent(
 	};
 }
 
+export interface AgentHistoryTurn {
+	role: "user" | "assistant";
+	text: string;
+}
+
+export const AGENT_HISTORY_MAX_TURNS = 8;
+
+export function buildAgentHistoryTurns(
+	history?: AgentHistoryTurn[],
+): AgentHistoryTurn[] {
+	if (!history || history.length === 0) return [];
+	return history
+		.filter(
+			(turn) =>
+				(turn.role === "user" || turn.role === "assistant") &&
+				typeof turn.text === "string" &&
+				turn.text.trim().length > 0,
+		)
+		.slice(-AGENT_HISTORY_MAX_TURNS)
+		.map((turn) => ({ role: turn.role, text: turn.text.trim() }));
+}
+
 export interface LiveAgentOptions {
 	assistantName: string;
 	systemPrompt?: string;
@@ -759,6 +1284,7 @@ export interface LiveAgentOptions {
 	temperature?: number;
 	model?: string;
 	businessData?: BusinessDataContext;
+	history?: AgentHistoryTurn[];
 	backupProvider?: AiProvider | null;
 	backupModel?: string | null;
 	backupApiKey?: string;
@@ -924,6 +1450,7 @@ async function callGoogleProvider(
 	model: string | undefined,
 	query: string,
 	combinedContext: string,
+	history: AgentHistoryTurn[],
 	temperature: number,
 	signal: AbortSignal,
 ): Promise<ProviderCallResult> {
@@ -931,6 +1458,20 @@ async function callGoogleProvider(
 	let executedModel = selectedModel;
 	const isRetryableStatus = (status?: number) =>
 		status === 503 || status === 429 || status === 404;
+
+	const historyContents: Array<{
+		role: string;
+		parts: Array<{ text: string }>;
+	}> = [];
+	for (const turn of history) {
+		const role = turn.role === "assistant" ? "model" : "user";
+		const lastContent = historyContents[historyContents.length - 1];
+		if (lastContent && lastContent.role === role) {
+			lastContent.parts.push({ text: turn.text });
+		} else {
+			historyContents.push({ role, parts: [{ text: turn.text }] });
+		}
+	}
 
 	const fallbackCandidates =
 		selectedModel !== "gemini-3.8-flash"
@@ -948,6 +1489,7 @@ async function callGoogleProvider(
 						parts: [{ text: combinedContext }],
 					},
 					contents: [
+						...historyContents,
 						{
 							role: "user",
 							parts: [{ text: query }],
@@ -969,6 +1511,7 @@ async function callGoogleProvider(
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				contents: [
+					...historyContents,
 					{
 						role: "user",
 						parts: [
@@ -1065,6 +1608,7 @@ async function callOpenAiCompatibleProvider(
 	providerDisplayName: string,
 	query: string,
 	combinedContext: string,
+	history: AgentHistoryTurn[],
 	temperature: number,
 	signal: AbortSignal,
 ): Promise<ProviderCallResult> {
@@ -1084,6 +1628,10 @@ async function callOpenAiCompatibleProvider(
 				model: targetModel,
 				messages: [
 					{ role: "system", content: combinedContext },
+					...history.map((turn) => ({
+						role: turn.role,
+						content: turn.text,
+					})),
 					{ role: "user", content: query },
 				],
 				temperature,
@@ -1172,6 +1720,7 @@ async function invokeProvider(
 	model: string | undefined,
 	query: string,
 	combinedContext: string,
+	history: AgentHistoryTurn[],
 	temperature: number,
 	signal: AbortSignal,
 ): Promise<ProviderCallResult> {
@@ -1182,6 +1731,7 @@ async function invokeProvider(
 			model,
 			query,
 			combinedContext,
+			history,
 			temperature,
 			signal,
 		);
@@ -1199,6 +1749,7 @@ async function invokeProvider(
 			"Groq Cloud",
 			query,
 			combinedContext,
+			history,
 			temperature,
 			signal,
 		);
@@ -1216,6 +1767,7 @@ async function invokeProvider(
 			"Opencode Zen",
 			query,
 			combinedContext,
+			history,
 			temperature,
 			signal,
 		);
@@ -1233,6 +1785,7 @@ async function invokeProvider(
 			"Nvidia NIM",
 			query,
 			combinedContext,
+			history,
 			temperature,
 			signal,
 		);
@@ -1438,6 +1991,8 @@ REGLAS DE NEGOCIO Y VERACIDAD:
 4. Jamás inventes acuerdos comerciales ficticios, SLAs falsos (ej. 48h) ni cláusulas inexistentes.
 5. Seguridad: Tienes estrictamente prohibido alterar contraseñas, credenciales, usuarios o roles del sistema.`;
 
+	const agentHistory = buildAgentHistoryTurns(options.history);
+
 	const startTime = performance.now();
 
 	try {
@@ -1461,6 +2016,7 @@ REGLAS DE NEGOCIO Y VERACIDAD:
 					options.model,
 					query,
 					combinedContext,
+					agentHistory,
 					options.temperature ?? 0.2,
 					controller.signal,
 				);
@@ -1506,6 +2062,7 @@ REGLAS DE NEGOCIO Y VERACIDAD:
 						target.model || undefined,
 						query,
 						combinedContext,
+						agentHistory,
 						options.temperature ?? 0.2,
 						backupController.signal,
 					);

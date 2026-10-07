@@ -369,7 +369,9 @@ describe("Tarea 27 (P1 - Fase 5): Webhooks de Dominio Plottio, Sanitización Wha
 			expect(result.allowed).toBe(true);
 			expect(result.toolsCalled.length).toBeGreaterThan(0);
 			expect(result.citations.length).toBeGreaterThan(0);
-			expect(result.response).toContain("Basado en la ejecución de herramientas");
+			expect(result.response).not.toContain(
+				"Basado en la ejecución de herramientas",
+			);
 		});
 
 		it("retorna la respuesta de Google Gemini cuando la API responde con éxito", async () => {
@@ -450,7 +452,9 @@ describe("Tarea 27 (P1 - Fase 5): Webhooks de Dominio Plottio, Sanitización Wha
 			});
 
 			expect(result.allowed).toBe(true);
-			expect(result.response).toContain("Basado en la ejecución de herramientas");
+			expect(result.response).not.toContain(
+				"Basado en la ejecución de herramientas",
+			);
 			expect(result.toolsCalled.length).toBeGreaterThan(0);
 		});
 	});

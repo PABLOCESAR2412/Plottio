@@ -264,7 +264,9 @@ describe("Tarea 28 (P0 - Fase 5): Corrección de Modelos Gemini (gemini-flash-la
 			});
 
 			expect(result.allowed).toBe(true);
-			expect(result.response).toContain("Basado en la ejecución de herramientas de negocio");
+			expect(result.response).not.toContain(
+				"Basado en la ejecución de herramientas de negocio",
+			);
 			expect(result.toolsCalled.length).toBeGreaterThan(0);
 		});
 	});

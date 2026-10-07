@@ -32,6 +32,7 @@ import {
 	ASISTENTE_SEGURIDAD_RECHAZO,
 	BUSINESS_TOOLS,
 	type BusinessDataContext,
+	buildAgentHistoryTurns,
 	executeLiveBusinessAgent,
 	isRestrictedAction,
 } from "../services/plottioAgent";
@@ -428,7 +429,15 @@ export const PlottioAsistenteView: React.FC<PlottioAsistenteViewProps> = ({
 			})),
 		};
 
-		// 4. Ejecución del agente con telemetría técnica
+		// 4. Historial conversacional previo de la conversación activa (excluye
+		// bienvenida, parciales en streaming y el mensaje que se está enviando)
+		const conversationHistory = buildAgentHistoryTurns(
+			currentMessages
+				.filter((m) => m.id !== "welcome" && !m.isStreaming)
+				.map((m) => ({ role: m.role, text: m.text })),
+		);
+
+		// 5. Ejecución del agente con telemetría técnica
 		const startTime = Date.now();
 		const executionResult = await executeLiveBusinessAgent(currentText, {
 			assistantName: configNombre,
@@ -438,6 +447,7 @@ export const PlottioAsistenteView: React.FC<PlottioAsistenteViewProps> = ({
 			temperature: configTemperature,
 			model: configModel,
 			businessData,
+			history: conversationHistory,
 			backupProvider: ai?.backupProvider || null,
 			backupModel: ai?.backupModel || null,
 			backupApiKey,
